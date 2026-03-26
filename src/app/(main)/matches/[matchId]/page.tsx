@@ -126,9 +126,6 @@ export default async function MatchDetailPage({
         <Card>
           <CardHeader>
             <CardTitle>No contests</CardTitle>
-            <CardDescription>
-              Add rows in the `contests` table for this match in Supabase.
-            </CardDescription>
           </CardHeader>
         </Card>
       ) : (

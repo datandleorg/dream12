@@ -25,6 +25,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { FlowHeader } from "@/components/team-flow/flow-header";
 import { MAX_CREDITS } from "@/lib/fantasy/rules";
 import { cn } from "@/lib/utils";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 export function PitchPreview({
   matchId,
@@ -112,7 +113,8 @@ export function PitchPreview({
       : "This contest is free to join.";
 
   return (
-    <div className="flex flex-col gap-3 pb-28">
+    <div className="relative flex flex-col gap-3 pb-28">
+      <LoadingOverlay show={saving} label="Saving team…" />
       <FlowHeader
         tournamentName={match.tournament_name}
         matchTitle={title}

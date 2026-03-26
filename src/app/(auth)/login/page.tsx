@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,7 +45,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-8 py-6">
+    <div className="relative flex w-full flex-col items-center gap-8 py-6">
+      <LoadingOverlay show={loading} label="Signing in…" />
       <div className="flex flex-col items-center gap-3">
         <BrandLogo variant="hero" />
         <div className="text-center">

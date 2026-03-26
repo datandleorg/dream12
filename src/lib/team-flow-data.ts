@@ -32,6 +32,29 @@ export type TeamFlowContestSummary = {
   prize_pool: number;
 };
 
+const PLAYERS_SELECT =
+  "id,name,team,role,credit_value,season_points,selection_pct,played_last_match,photo_url" as const;
+
+type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
+
+async function loadPlayersForMatch(
+  supabase: ServerSupabase,
+  matchId: number,
+): Promise<TeamFlowPlayerRow[]> {
+  const { data: players } = await supabase
+    .from("players")
+    .select(PLAYERS_SELECT)
+    .eq("match_id", matchId)
+    .order("credit_value", { ascending: false });
+  return (players ?? []) as TeamFlowPlayerRow[];
+}
+
+/** Re-fetch players for a match (e.g. after SportMonks sync). */
+export async function fetchPlayersForMatch(matchId: number) {
+  const supabase = await createClient();
+  return loadPlayersForMatch(supabase, matchId);
+}
+
 export async function loadTeamFlowData(matchId: number, contestId: string) {
   const supabase = await createClient();
   const {
@@ -55,13 +78,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
 
   if (!match || !contest || contest.match_id !== matchId) notFound();
 
-  const { data: players } = await supabase
-    .from("players")
-    .select(
-      "id,name,team,role,credit_value,season_points,selection_pct,played_last_match,photo_url",
-    )
-    .eq("match_id", matchId)
-    .order("credit_value", { ascending: false });
+  const players = await loadPlayersForMatch(supabase, matchId);
 
   const { data: team } = await supabase
     .from("user_teams")
@@ -92,7 +109,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
     match: match as TeamFlowMatchRow,
     contest: contestSummary,
     hasExistingTeam: Boolean(team?.id),
-    players: (players ?? []) as TeamFlowPlayerRow[],
+    players,
     initialRoster,
     initialCaptainId: (team?.captain_id as string) ?? null,
     initialViceId: (team?.vice_captain_id as string) ?? null,

@@ -1,5 +1,10 @@
 -- Mock / QA data for local & staging. Safe numeric IDs: matches 900001–900099, player sportmonks_id 9100000+.
 -- Re-run: deletes these matches (CASCADE removes contests, players, and any user_teams tied to those contests).
+--
+-- Run this entire file from line 1 in one batch (Supabase SQL Editor: paste all, then Run).
+-- If you only execute the INSERT INTO players section, you will get:
+--   ERROR: violates foreign key constraint "players_match_id_fkey"
+-- because public.players.match_id must reference an existing public.matches.id.
 
 begin;
 
@@ -47,6 +52,7 @@ insert into public.contests (id, match_id, name, entry_fee, prize_pool, max_part
     200
   );
 
+-- Players (requires matches 900001 & 900002 inserted above)
 -- Match 900001: two franchises, enough depth to build valid XIs (≤100 credits, ≤7 per team, role limits)
 insert into public.players (sportmonks_id, match_id, name, team, role, credit_value) values
   (9100101, 900001, 'M S Dhoni', 'CSK', 'WK', 9.0),

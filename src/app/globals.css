@@ -122,6 +122,29 @@
   }
 }
 
+@keyframes nav-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.nav-progress-indeterminate {
+  width: 42%;
+  transform-origin: left center;
+  animation: nav-progress-slide 0.95s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.85;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

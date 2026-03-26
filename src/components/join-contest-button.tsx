@@ -14,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 export function JoinContestButton({
   matchId,
@@ -30,6 +31,7 @@ export function JoinContestButton({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [navigating, setNavigating] = useState(false);
   const fee = Number(entryFee);
   const bal = Number(balance);
   const short = Math.max(0, fee - bal);
@@ -40,11 +42,13 @@ export function JoinContestButton({
       setOpen(true);
       return;
     }
+    setNavigating(true);
     router.push(returnTo);
   }
 
   return (
     <>
+      <LoadingOverlay show={navigating} label="Opening squad…" />
       <Button
         type="button"
         className="min-h-11 w-full sm:flex-1"

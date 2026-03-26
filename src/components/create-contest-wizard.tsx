@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 const ENTRY_CHIPS = [25, 50, 75];
 
@@ -81,7 +82,8 @@ export function CreateContestWizard({
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-28">
+    <div className="relative flex flex-col gap-6 pb-28">
+      <LoadingOverlay show={submitting} label="Creating contest…" />
       <div className="border-border/80 bg-card/80 -mx-4 border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Link

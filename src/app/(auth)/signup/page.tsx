@@ -23,6 +23,7 @@ import {
 } from "@/lib/validation/signup";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 type FieldErrors = Partial<Record<"username" | "email" | "password", string>>;
 
@@ -105,7 +106,8 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-8 py-6">
+    <div className="relative flex w-full flex-col items-center gap-8 py-6">
+      <LoadingOverlay show={loading} label="Creating account…" />
       <div className="flex flex-col items-center gap-3">
         <BrandLogo variant="hero" />
         <div className="text-center">

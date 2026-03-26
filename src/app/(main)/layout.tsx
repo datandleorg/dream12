@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BrandLogo } from "@/components/brand-logo";
 import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default async function MainLayout({
   children,
@@ -30,7 +31,7 @@ export default async function MainLayout({
         fallback={
           <header className="border-border/60 bg-background/80 sticky top-0 z-40 mb-1 flex items-center justify-between gap-2 border-b px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
             <BrandLogo variant="compact" />
-            <div className="bg-muted h-8 w-24 animate-pulse rounded-md" />
+            <Skeleton className="h-8 w-24 rounded-md" />
           </header>
         }
       >

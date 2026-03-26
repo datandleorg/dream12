@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { safeInternalPath } from "@/lib/safe-return-to";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 const PRESETS = [100, 500, 1000, 2000] as const;
 
@@ -46,14 +47,18 @@ export function WalletTopUpSheet({ open, onOpenChange, returnTo }: WalletTopUpSh
   const [scriptReady, setScriptReady] = useState(false);
   const [selectedInr, setSelectedInr] = useState<number>(500);
   const [custom, setCustom] = useState("");
-  const [paying, setPaying] = useState(false);
+  /** Create-order API in flight (overlay; cleared before Razorpay modal opens). */
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  /** Verify API after successful Razorpay payment. */
+  const [verifying, setVerifying] = useState(false);
 
   const safeReturn = returnTo ? safeInternalPath(returnTo) : null;
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (!next) {
-        setPaying(false);
+        setCreatingOrder(false);
+        setVerifying(false);
         setCustom("");
       }
       onOpenChange(next);
@@ -80,7 +85,7 @@ export function WalletTopUpSheet({ open, onOpenChange, returnTo }: WalletTopUpSh
       return;
     }
 
-    setPaying(true);
+    setCreatingOrder(true);
     try {
       const res = await fetch("/api/payments/razorpay/create-order", {
         method: "POST",
@@ -97,14 +102,18 @@ export function WalletTopUpSheet({ open, onOpenChange, returnTo }: WalletTopUpSh
 
       if (!res.ok) {
         toast.error(data.error ?? "Could not start payment");
+        setCreatingOrder(false);
         return;
       }
 
       const { orderId, amount, currency, key } = data;
       if (!orderId || amount == null || !currency || !key) {
         toast.error("Invalid response from server");
+        setCreatingOrder(false);
         return;
       }
+
+      setCreatingOrder(false);
 
       const rzp = new window.Razorpay!({
         key,
@@ -118,7 +127,7 @@ export function WalletTopUpSheet({ open, onOpenChange, returnTo }: WalletTopUpSh
           razorpay_payment_id: string;
           razorpay_signature: string;
         }) => {
-          setPaying(false);
+          setVerifying(true);
           try {
             const v = await fetch("/api/payments/razorpay/verify", {
               method: "POST",
@@ -146,24 +155,36 @@ export function WalletTopUpSheet({ open, onOpenChange, returnTo }: WalletTopUpSh
             }
           } catch {
             toast.error("Verification request failed");
+          } finally {
+            setVerifying(false);
           }
         },
         modal: {
           ondismiss: () => {
-            setPaying(false);
+            setCreatingOrder(false);
           },
         },
       });
 
       rzp.open();
     } catch {
-      setPaying(false);
+      setCreatingOrder(false);
       toast.error("Something went wrong");
     }
   }, [amountInr, handleOpenChange, router, safeReturn, scriptReady]);
 
   return (
     <>
+      <LoadingOverlay
+        show={creatingOrder || verifying}
+        label={
+          verifying
+            ? "Confirming payment…"
+            : creatingOrder
+              ? "Starting payment…"
+              : "Loading…"
+        }
+      />
       {open ? (
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
@@ -220,10 +241,16 @@ export function WalletTopUpSheet({ open, onOpenChange, returnTo }: WalletTopUpSh
             <Button
               type="button"
               className="min-h-11 w-full"
-              disabled={paying || !scriptReady}
+              disabled={creatingOrder || verifying || !scriptReady}
               onClick={() => void onPay()}
             >
-              {paying ? "Starting…" : scriptReady ? "Pay with Razorpay" : "Loading checkout…"}
+              {creatingOrder
+                ? "Starting…"
+                : verifying
+                  ? "Confirming…"
+                  : scriptReady
+                    ? "Pay with Razorpay"
+                    : "Loading checkout…"}
             </Button>
             <Button
               type="button"

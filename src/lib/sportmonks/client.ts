@@ -33,16 +33,37 @@ export async function sportmonksFetch<T = unknown>(
   return res.json() as Promise<T>;
 }
 
-/** Loose fixture shape from v2 list endpoints */
+/** Team / league includes from Cricket API v2 list/detail responses */
+export interface SmTeamInclude {
+  name?: string;
+  /** Often a full URL or CDN path from SportMonks */
+  image_path?: string;
+}
+
+export interface SmLeagueInclude {
+  name?: string;
+  code?: string;
+}
+
+/** Fixture shape from v2 GET /fixtures (with include=localteam,visitorteam,league) */
 export interface SmFixture {
   id: number;
   starting_at?: string;
   name?: string;
-  localteam?: { name?: string };
-  visitorteam?: { name?: string };
+  localteam?: SmTeamInclude;
+  visitorteam?: SmTeamInclude;
+  league?: SmLeagueInclude;
   status?: string;
+  /** Cricket API uses 0/1 or boolean for in-progress */
+  live?: boolean | number;
 }
 
 export interface SmFixturesResponse {
   data?: SmFixture[];
+  meta?: {
+    pagination?: {
+      current_page?: number;
+      last_page?: number;
+    };
+  };
 }

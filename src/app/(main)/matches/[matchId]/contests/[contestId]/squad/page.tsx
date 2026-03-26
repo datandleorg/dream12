@@ -1,7 +1,14 @@
 import { notFound } from "next/navigation";
 import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
 import { SquadPicker } from "@/components/team-flow/squad-picker";
-import { loadTeamFlowData } from "@/lib/team-flow-data";
+import {
+  fetchPlayersForMatch,
+  loadTeamFlowData,
+} from "@/lib/team-flow-data";
+import {
+  isSportmonksFixtureId,
+  syncPlayersForMatch,
+} from "@/lib/sportmonks/sync";
 
 export default async function ContestSquadPage({
   params,
@@ -12,7 +19,16 @@ export default async function ContestSquadPage({
   const matchId = Number(mid);
   if (!Number.isFinite(matchId)) notFound();
 
-  const data = await loadTeamFlowData(matchId, contestId);
+  let data = await loadTeamFlowData(matchId, contestId);
+
+  if (
+    !data.players.length &&
+    isSportmonksFixtureId(matchId)
+  ) {
+    await syncPlayersForMatch(matchId);
+    const players = await fetchPlayersForMatch(matchId);
+    data = { ...data, players };
+  }
 
   if (!data.players.length) {
     return (
@@ -25,8 +41,9 @@ export default async function ContestSquadPage({
           initialViceId={data.initialViceId}
         />
         <p className="text-muted-foreground text-sm">
-          No players synced for this match yet. Seed players in Supabase or run
-          sync.
+          No lineup from SportMonks for this match yet—squads often appear closer
+          to the start. Re-run your sync job or seed players in Supabase for local
+          testing.
         </p>
       </div>
     );

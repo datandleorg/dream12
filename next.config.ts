@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Allow HMR / dev assets when tunneling (e.g. ngrok). Add each hostname without protocol.
+  // When your ngrok URL changes, update this list and restart `npm run dev`.
+  allowedDevOrigins: [
+    "joesph-nonalliterative-nelida.ngrok-free.dev",
+    "*.ngrok-free.dev",
+  ],
 };
 
 export default nextConfig;

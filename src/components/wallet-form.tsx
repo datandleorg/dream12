@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 export function WalletForm({ userId }: { userId: string }) {
   const router = useRouter();
@@ -46,7 +47,8 @@ export function WalletForm({ userId }: { userId: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
+    <form onSubmit={onSubmit} className="relative grid gap-4">
+      <LoadingOverlay show={loading} label="Submitting…" />
       <div className="grid gap-2">
         <Label htmlFor="utr">UTR / reference</Label>
         <Input

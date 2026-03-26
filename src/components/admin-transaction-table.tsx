@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 type Row = {
   id: string;
@@ -50,7 +51,8 @@ export function AdminTransactionTable({ rows }: { rows: Row[] }) {
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="relative rounded-md border">
+      <LoadingOverlay show={busy !== null} label="Updating transaction…" />
       <Table>
         <TableHeader>
           <TableRow>
