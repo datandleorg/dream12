@@ -19,7 +19,8 @@ insert into public.matches (id, name, start_time, status) values
     'upcoming'
   );
 
--- Fixed contest UUIDs; after Dream11 migrations use: /matches/900001/contests/<id>/squad
+-- Contests omit created_by (NULL) so they stay visible to everyone before/after user-contest migrations.
+-- Fixed contest UUIDs; use: /matches/900001/contests/<id>/squad
 insert into public.contests (id, match_id, name, entry_fee, prize_pool, max_participants) values
   (
     '11111111-1111-4111-8111-111111111101',

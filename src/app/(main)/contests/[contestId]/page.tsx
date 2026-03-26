@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { isContestVisibleToUser } from "@/lib/contest-visibility";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -12,14 +13,30 @@ export default async function ContestLeaderboardPage({
 }) {
   const { contestId } = await params;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: contest } = await supabase
     .from("contests")
-    .select("id,name,match_id, matches ( name )")
+    .select(
+      "id,name,match_id,created_by,creator_joined_at, matches ( name )",
+    )
     .eq("id", contestId)
     .single();
 
   if (!contest) notFound();
+  if (
+    !isContestVisibleToUser(
+      {
+        created_by: contest.created_by as string | null,
+        creator_joined_at: contest.creator_joined_at as string | null,
+      },
+      user?.id,
+    )
+  ) {
+    notFound();
+  }
 
   const { data: teams } = await supabase
     .from("user_teams")

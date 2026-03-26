@@ -91,7 +91,7 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
 
   return (
     <li>
-      <Link href={`/matches/${match.id}`} className="block">
+      <Link href={`/matches/${match.id}`} className="tap-app block">
         <Card
           className={cn(
             "transition-colors hover:border-primary/40 hover:bg-card/90",

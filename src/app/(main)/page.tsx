@@ -9,9 +9,14 @@ import {
   HomeUpcomingCard,
   type HomeMatchCardModel,
 } from "@/components/home-upcoming-card";
+import { isContestVisibleToUser } from "@/lib/contest-visibility";
 
 export default async function HomePage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { data: rows } = await supabase
     .from("matches")
     .select(
@@ -25,16 +30,32 @@ export default async function HomePage() {
       team_b,
       team_a_logo_url,
       team_b_logo_url,
-      contests ( prize_pool )
+      contests ( prize_pool, created_by, creator_joined_at )
     `,
     )
     .in("status", ["upcoming", "live"])
     .order("start_time", { ascending: true });
 
   const matches: HomeMatchCardModel[] = (rows ?? []).map((m) => {
-    const contests = (m as { contests?: { prize_pool: unknown }[] | null })
-      .contests;
-    const pools = (contests ?? []).map((c) => Number(c.prize_pool ?? 0));
+    const contestsRaw = (
+      m as {
+        contests?: {
+          prize_pool: unknown;
+          created_by: string | null;
+          creator_joined_at: string | null;
+        }[] | null;
+      }
+    ).contests;
+    const visible = (contestsRaw ?? []).filter((c) =>
+      isContestVisibleToUser(
+        {
+          created_by: c.created_by,
+          creator_joined_at: c.creator_joined_at,
+        },
+        user?.id,
+      ),
+    );
+    const pools = visible.map((c) => Number(c.prize_pool ?? 0));
     const max_prize_pool = pools.length ? Math.max(...pools) : 0;
     return {
       id: m.id,

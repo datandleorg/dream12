@@ -1,0 +1,18 @@
+{
+  "name": "Dream12 — Fantasy Cricket",
+  "short_name": "Dream12",
+  "description": "Mobile-first fantasy cricket with live leaderboards",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#161c2e",
+  "theme_color": "#161c2e",
+  "icons": [
+    {
+      "src": "/brand-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

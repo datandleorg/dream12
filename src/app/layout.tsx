@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Source_Sans_3 } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -14,9 +14,30 @@ const body = Source_Sans_3({
   variable: "--font-body",
 });
 
+/** Approximates `--background` oklch(0.19 0.045 265) for browser chrome & PWA. */
+const THEME_COLOR = "#161c2e";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: THEME_COLOR,
+};
+
 export const metadata: Metadata = {
   title: "Dream12 — Fantasy Cricket League",
   description: "Mobile-first fantasy cricket with live leaderboards",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Dream12",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [{ url: "/brand-logo.png", type: "image/png" }],
+    apple: [{ url: "/brand-logo.png" }],
+  },
 };
 
 export default function RootLayout({

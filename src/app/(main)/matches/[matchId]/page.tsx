@@ -11,6 +11,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { JoinContestButton } from "@/components/join-contest-button";
 import { buttonVariants } from "@/components/ui/button-variants";
+import {
+  isContestVisibleToUser,
+  isCreatorDraftContest,
+} from "@/lib/contest-visibility";
 import { cn } from "@/lib/utils";
 
 export default async function MatchDetailPage({
@@ -47,12 +51,24 @@ export default async function MatchDetailPage({
     balance = Number(profile?.wallet_balance ?? 0);
   }
 
-  const { data: contests } = await supabase
+  const { data: contestsRaw } = await supabase
     .from("contests")
-    .select("id,name,entry_fee,prize_pool,max_participants")
+    .select(
+      "id,name,entry_fee,prize_pool,max_participants,created_by,creator_joined_at",
+    )
     .eq("match_id", matchId);
 
-  const contestIds = (contests ?? []).map((c) => c.id);
+  const contests = (contestsRaw ?? []).filter((c) =>
+    isContestVisibleToUser(
+      {
+        created_by: c.created_by as string | null,
+        creator_joined_at: c.creator_joined_at as string | null,
+      },
+      user?.id,
+    ),
+  );
+
+  const contestIds = contests.map((c) => c.id);
   let filledByContest = new Map<string, number>();
   if (contestIds.length) {
     const { data: teamRows } = await supabase
@@ -92,7 +108,20 @@ export default async function MatchDetailPage({
         </p>
       </div>
 
-      <h2 className="text-lg font-medium">Contests</h2>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-medium">Contests</h2>
+        {user ? (
+          <Link
+            href={`/matches/${matchId}/create-contest`}
+            className={cn(
+              buttonVariants({ variant: "secondary" }),
+              "inline-flex min-h-11 w-full items-center justify-center sm:w-auto",
+            )}
+          >
+            Create contest
+          </Link>
+        ) : null}
+      </div>
       {!contests?.length ? (
         <Card>
           <CardHeader>
@@ -121,13 +150,31 @@ export default async function MatchDetailPage({
                   </CardHeader>
                   <CardFooter className="flex flex-col gap-2 sm:flex-row">
                     {user ? (
-                      <JoinContestButton
-                        matchId={matchId}
-                        contestId={c.id}
-                        entryFee={Number(c.entry_fee)}
-                        balance={balance}
-                        label="Join"
-                      />
+                      isCreatorDraftContest(
+                        {
+                          created_by: c.created_by as string | null,
+                          creator_joined_at: c.creator_joined_at as string | null,
+                        },
+                        user.id,
+                      ) ? (
+                        <Link
+                          href={`/matches/${matchId}/contests/${c.id}/squad`}
+                          className={cn(
+                            buttonVariants({ variant: "default" }),
+                            "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
+                          )}
+                        >
+                          Continue setup
+                        </Link>
+                      ) : (
+                        <JoinContestButton
+                          matchId={matchId}
+                          contestId={c.id}
+                          entryFee={Number(c.entry_fee)}
+                          balance={balance}
+                          label="Join"
+                        />
+                      )
                     ) : (
                       <Link
                         href={`/login?next=${encodeURIComponent(`/matches/${matchId}`)}`}

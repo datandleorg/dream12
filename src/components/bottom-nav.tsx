@@ -31,7 +31,7 @@ export function BottomNav() {
               <Link
                 href={href}
                 className={cn(
-                  "flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-lg py-2 text-xs font-medium transition-colors",
+                  "tap-app flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-lg py-2 text-xs font-medium transition-colors",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground",

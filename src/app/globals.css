@@ -105,15 +105,38 @@
   --ring: oklch(0.72 0.12 82);
 }
 
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply font-sans overscroll-y-contain;
+    -webkit-tap-highlight-color: rgb(0 0 0 / 0.06);
+  }
   body {
     @apply bg-background text-foreground;
   }
-  html {
-    @apply font-sans;
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      @apply overscroll-y-auto;
+    }
   }
   [data-slot="card-title"],
   h1,
@@ -125,4 +148,26 @@
 
 @utility font-display {
   font-family: var(--font-display), ui-sans-serif, sans-serif;
+}
+
+/* Subtle press feedback for tappable rows (use with links/buttons) */
+@utility tap-app {
+  @apply transition-transform duration-100 active:scale-[0.98];
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tap-app {
+    transform: none !important;
+  }
+}
+
+/* Main route template: screen enter (disabled when reduced motion) */
+.main-page-enter {
+  animation: pageEnter 0.22s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-page-enter {
+    animation: none;
+  }
 }
