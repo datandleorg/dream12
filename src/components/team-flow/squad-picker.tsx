@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ListFilter, Minus, Plus } from "lucide-react";
 import {
   MAX_CREDITS,
+  ROLE_LIMITS,
   ROLE_ORDER,
   SQUAD_SIZE,
   type RoleKey,
@@ -17,11 +18,15 @@ import {
 } from "@/stores/team-builder";
 import type { TeamFlowMatchRow, TeamFlowPlayerRow } from "@/lib/team-flow-data";
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { FlowHeader } from "@/components/team-flow/flow-header";
+import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { cn } from "@/lib/utils";
 
 function roleCounts(players: TeamFlowPlayerRow[]) {
@@ -31,6 +36,23 @@ function roleCounts(players: TeamFlowPlayerRow[]) {
     m[bp.role] += 1;
   }
   return m;
+}
+
+function tabShort(r: RoleKey): string {
+  return r === "BOWL" ? "BWL" : r;
+}
+
+const ROLE_PICK_COPY: Record<RoleKey, string> = {
+  WK: "Wicket-keepers",
+  BAT: "Batsmen",
+  AR: "All-rounders",
+  BOWL: "Bowlers",
+};
+
+function teamBadgeLabel(teamName: string): string {
+  const w = teamName.trim().split(/\s+/).filter(Boolean);
+  if (w.length >= 2) return `${w[0][0]}${w[1][0]}`.toUpperCase();
+  return teamName.slice(0, 3).toUpperCase();
 }
 
 export function SquadPicker({
@@ -49,6 +71,8 @@ export function SquadPicker({
   const roleTab = useTeamBuilderStore((s) => s.roleTab);
   const setRoleTab = useTeamBuilderStore((s) => s.setRoleTab);
   const selected = useTeamBuilderStore((s) => s.selected);
+  const captainId = useTeamBuilderStore((s) => s.captainId);
+  const viceCaptainId = useTeamBuilderStore((s) => s.viceCaptainId);
   const togglePlayer = useTeamBuilderStore((s) => s.togglePlayer);
 
   const teamA = match.team_a?.trim() || "Team A";
@@ -77,9 +101,14 @@ export function SquadPicker({
   const base = `/matches/${matchId}/contests/${contestId}`;
   const canContinue = selected.length === SQUAD_SIZE;
 
+  const lim = ROLE_LIMITS[roleTab];
+  const pickInstruction = `Select ${lim.min} – ${lim.max} ${ROLE_PICK_COPY[roleTab]}`;
+
   return (
-    <div className="flex flex-col gap-3 pb-28">
+    <div className="flex flex-col pb-28">
       <FlowHeader
+        variant="squad"
+        backHref={`/matches/${matchId}`}
         tournamentName={match.tournament_name}
         matchTitle={title}
         teamA={teamA}
@@ -92,129 +121,174 @@ export function SquadPicker({
         creditsLeft={creditsLeft}
       />
 
-      <div className="flex items-center justify-between gap-2 text-sm">
-        <Link
-          href={`/matches/${matchId}`}
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "sm" }),
-            "inline-flex min-h-10 items-center justify-center px-2",
-          )}
-        >
-          ← Contests
-        </Link>
-      </div>
-
-      <Tabs value={roleTab} onValueChange={(v) => setRoleTab(v as RoleKey)}>
-        <TabsList className="grid h-auto w-full grid-cols-4 gap-1 p-1">
-          {ROLE_ORDER.map((r) => (
-            <TabsTrigger
-              key={r}
-              value={r}
-              className="min-h-11 flex flex-col gap-0.5 py-2 text-[10px] sm:text-xs"
+      <div className="bg-[#f5f4ef] -mx-4 px-3 pt-0 pb-4 sm:px-4">
+        <Tabs value={roleTab} onValueChange={(v) => setRoleTab(v as RoleKey)}>
+          {/* Full-width baseline + active tab uses a thicker primary segment (Dream11-style). */}
+          <div className="border-zinc-300/90 border-b">
+            <TabsList
+              variant="line"
+              className="mb-0 h-auto w-full grid grid-cols-4 gap-0 rounded-none border-0 bg-transparent p-0 shadow-none"
             >
-              <span>{r}</span>
-              <span className="text-muted-foreground font-normal tabular-nums">
-                {rc[r]}
-              </span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+              {ROLE_ORDER.map((r) => (
+                <TabsTrigger
+                  key={r}
+                  value={r}
+                  className={cn(
+                    "min-h-12 flex-none rounded-none bg-transparent px-1 py-3 text-xs font-medium text-zinc-500 shadow-none",
+                    "border-0 border-x-0 border-t-0 border-b-2 border-transparent pb-3",
+                    "-mb-px",
+                    "after:hidden",
+                    "data-active:border-primary data-active:font-bold data-active:text-zinc-900",
+                    "hover:text-zinc-700",
+                    "dark:data-active:text-zinc-100",
+                  )}
+                >
+                  <span className="tabular-nums">
+                    {tabShort(r)} ({rc[r]})
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+        </Tabs>
 
-      <ul className="space-y-2">
-        {filtered.map((p) => {
-          const bp = mapRowToBuilderPlayer(p);
-          const isOn = selected.some((x) => x.id === p.id);
-          const selPct =
-            p.selection_pct != null
-              ? Number(p.selection_pct)
-              : mockSelectionPct(p.id, contestId);
-          const avatar = playerAvatarUrl(p.photo_url, p.name);
-          return (
-            <li key={p.id}>
-              <button
-                type="button"
-                onClick={() => togglePlayer(bp)}
-                className={cn(
-                  "flex min-h-[52px] w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  isOn ? "border-primary bg-primary/5" : "hover:bg-muted/60",
-                )}
-              >
-                <div className="relative size-11 shrink-0 overflow-hidden rounded-full border border-border/60 bg-muted">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={avatar}
-                    alt=""
-                    width={44}
-                    height={44}
-                    className="size-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-medium leading-tight">{p.name}</span>
-                    <Badge variant="outline" className="text-[10px]">
-                      {p.team}
-                    </Badge>
-                  </div>
-                  <div className="text-muted-foreground mt-0.5 flex flex-wrap gap-x-3 text-[11px] tabular-nums">
-                    <span>Sel {selPct.toFixed(1)}%</span>
-                    <span>Pts {bp.season_points}</span>
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <Badge variant="secondary" className="tabular-nums">
-                    {Number(p.credit_value).toFixed(1)}
-                  </Badge>
-                  <span
+        <div className="mt-1 rounded-t-2xl border border-zinc-200/80 border-b-0 bg-white px-2 pt-3 pb-1 shadow-sm sm:px-3">
+          <div className="flex items-center justify-between gap-3 border-b border-zinc-100 pb-3">
+            <p className="text-sm font-semibold text-zinc-800">{pickInstruction}</p>
+            <button
+              type="button"
+              className="text-zinc-400 hover:text-zinc-600 shrink-0 p-1 transition-colors"
+              aria-label="Filter players"
+            >
+              <ListFilter className="size-5" strokeWidth={2} />
+            </button>
+          </div>
+
+          <div
+            className="text-zinc-500 grid grid-cols-[22px_48px_minmax(0,1fr)_44px_44px_40px] items-end gap-x-1.5 gap-y-0 px-0.5 pb-2 pt-3 text-[10px] font-bold tracking-wide uppercase"
+            aria-hidden
+          >
+            <span />
+            <span />
+            <span className="pl-1">Selected by</span>
+            <span className="text-right">Points</span>
+            <span className="text-right">Credits</span>
+            <span />
+          </div>
+
+          <ul className="space-y-2 pb-2">
+            {filtered.map((p) => {
+              const bp = mapRowToBuilderPlayer(p);
+              const isOn = selected.some((x) => x.id === p.id);
+              const selPct =
+                p.selection_pct != null
+                  ? Number(p.selection_pct)
+                  : mockSelectionPct(p.id, contestId);
+              const avatar = playerAvatarUrl(p.photo_url, p.name);
+              const badge = teamBadgeLabel(p.team);
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => togglePlayer(bp)}
                     className={cn(
-                      "text-xs font-medium",
-                      isOn ? "text-primary" : "text-muted-foreground",
+                      "text-left transition-colors",
+                      "grid w-full grid-cols-[22px_48px_minmax(0,1fr)_44px_44px_40px] items-center gap-x-1.5 rounded-xl border py-3 pl-0.5 pr-2",
+                      isOn
+                        ? "border-amber-200/90 bg-amber-50/90 shadow-sm"
+                        : "border-zinc-100 bg-white hover:bg-zinc-50/80",
                     )}
                   >
-                    {isOn ? "✓" : "+"}
-                  </span>
-                </div>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                    <span className="flex size-[22px] shrink-0 items-center justify-center self-center rounded-full border border-zinc-300 text-[10px] font-semibold text-zinc-500">
+                      i
+                    </span>
+                    <div className="relative size-12 shrink-0 justify-self-start">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={avatar}
+                        alt=""
+                        width={48}
+                        height={48}
+                        className="size-12 rounded-full border border-zinc-200 object-cover shadow-sm"
+                      />
+                      <span className="absolute -bottom-0.5 -left-0.5 min-w-[1.25rem] rounded border border-zinc-200 bg-white px-0.5 text-center text-[9px] font-bold leading-tight text-zinc-800 shadow-sm">
+                        {badge}
+                      </span>
+                    </div>
+                    <div className="min-w-0 pl-1">
+                      <div className="truncate text-[15px] font-semibold leading-tight text-zinc-900">
+                        {p.name}
+                      </div>
+                      <div className="text-zinc-500 mt-1 text-[11px] tabular-nums">
+                        Sel by {selPct.toFixed(2)}%
+                      </div>
+                    </div>
+                    <div className="text-right text-sm font-medium tabular-nums text-zinc-800">
+                      {bp.season_points}
+                    </div>
+                    <div className="text-right text-sm font-semibold tabular-nums text-zinc-900">
+                      {Number(p.credit_value).toFixed(1)}
+                    </div>
+                    <div className="flex justify-center">
+                      <span
+                        className={cn(
+                          "flex size-9 items-center justify-center rounded-full border-2 text-zinc-600 shadow-sm transition-colors",
+                          isOn
+                            ? "border-zinc-300 bg-zinc-100"
+                            : "border-zinc-200 bg-white",
+                        )}
+                      >
+                        {isOn ? (
+                          <Minus className="size-4 stroke-[2.5]" aria-hidden />
+                        ) : (
+                          <Plus className="size-4 stroke-[2.5]" aria-hidden />
+                        )}
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
 
-      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">
-        <div className="flex flex-col gap-2">
+      <div className="bg-background/98 supports-[backdrop-filter]:bg-background/85 fixed bottom-16 left-0 right-0 z-30 border-t border-zinc-200/80 px-3 py-3 backdrop-blur-md md:left-1/2 md:max-w-md md:-translate-x-1/2">
+        <div className="flex gap-2">
           <Button
             type="button"
-            variant="secondary"
-            className="min-h-11 w-full"
+            variant="outline"
+            className="min-h-12 flex-1 border-zinc-300 bg-white font-semibold text-zinc-800 shadow-sm"
             disabled={!canContinue}
             onClick={() => setPreviewOpen(true)}
           >
             Team preview
           </Button>
           <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
-            <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
-              <SheetHeader>
-                <SheetTitle>Your XI</SheetTitle>
+            <SheetContent
+              side="bottom"
+              showCloseButton
+              className="max-h-[88dvh] gap-0 rounded-t-2xl p-0"
+            >
+              <SheetHeader className="border-border/80 shrink-0 border-b px-4 py-3 text-left">
+                <SheetTitle>Team preview</SheetTitle>
               </SheetHeader>
-              <ul className="max-h-[50vh] space-y-2 overflow-y-auto px-4 pb-6">
-                {selected.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between gap-2 text-sm"
-                  >
-                    <span className="truncate font-medium">{p.name}</span>
-                    <span className="text-muted-foreground shrink-0">
-                      {p.team} · {p.role}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className="bg-muted/30 min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-8">
+                <TeamFieldPreview
+                  teamA={teamA}
+                  teamB={teamB}
+                  selected={selected}
+                  squadSize={SQUAD_SIZE}
+                  creditsLeft={creditsLeft}
+                  captainId={captainId}
+                  viceCaptainId={viceCaptainId}
+                />
+              </div>
             </SheetContent>
           </Sheet>
           <Button
             type="button"
-            className="min-h-11 w-full"
+            className="min-h-12 flex-1 bg-emerald-600 font-semibold text-white shadow-sm hover:bg-emerald-600/90"
             disabled={!canContinue}
             onClick={() => router.push(`${base}/captain`)}
           >
