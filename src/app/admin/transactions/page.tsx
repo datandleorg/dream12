@@ -5,7 +5,7 @@ export default async function AdminTransactionsPage() {
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("transactions")
-    .select("id,user_id,amount,utr_number,status,created_at")
+    .select("id,user_id,amount,utr_number,status,created_at,source,razorpay_payment_id")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -33,7 +33,9 @@ export default async function AdminTransactionsPage() {
             user_id: r.user_id as string,
             username: nameById.get(r.user_id as string) ?? null,
             amount: Number(r.amount),
-            utr_number: r.utr_number as string,
+            utr_number: (r.utr_number as string | null) ?? null,
+            source: (r.source as string | null) ?? "manual_utr",
+            razorpay_payment_id: (r.razorpay_payment_id as string | null) ?? null,
             status: r.status as string,
             created_at: r.created_at as string,
           })) ?? []

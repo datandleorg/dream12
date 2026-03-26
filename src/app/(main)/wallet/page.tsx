@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { WalletForm } from "@/components/wallet-form";
+import { WalletRazorpayCard } from "@/components/wallet-top-up-sheet";
 import {
   Card,
   CardContent,
@@ -58,9 +59,22 @@ export default async function WalletPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Add money</CardTitle>
+          <CardTitle>Instant top-up</CardTitle>
           <CardDescription>
-            Scan the UPI QR, pay, then submit your UTR below.
+            Pay with UPI, cards, or net banking via Razorpay. Balance updates immediately after
+            payment.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WalletRazorpayCard returnTo={continueHref} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Add money (manual UTR)</CardTitle>
+          <CardDescription>
+            Scan the UPI QR, pay, then submit your UTR below. An admin will approve your credit.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

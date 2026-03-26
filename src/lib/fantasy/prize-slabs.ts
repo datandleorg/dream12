@@ -42,7 +42,7 @@ export function buildPrizeSlabs(netPool: number, winnerCount: number): PrizeSlab
   const raw = weights.map((w) => (netPool * w) / wsum);
 
   const floors = raw.map((r) => Math.floor(r * 100) / 100);
-  let assigned = floors.reduce((a, b) => a + b, 0);
+  const assigned = floors.reduce((a, b) => a + b, 0);
   let remainder = roundMoney(netPool - assigned);
   const amounts = [...floors];
 

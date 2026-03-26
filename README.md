@@ -1,5 +1,20 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment variables
+
+Copy `.env.example` to `.env.local` and fill in values.
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Client + server | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client + server | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server only | Service role (admin checks, Razorpay wallet finalize, cron) |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Client + server | Razorpay key id for Checkout (safe to expose) |
+| `RAZORPAY_KEY_ID` | Server only (optional) | Same as public key id if you prefer not to duplicate env names on the server |
+| `RAZORPAY_KEY_SECRET` | Server only | Razorpay secret for orders API and signature verification — **never** put this in client code |
+
+For production (e.g. Vercel), set the same variables as encrypted secrets. Use [Razorpay test mode](https://razorpay.com/docs/payments/server-integration/nodejs/payment-gateway/build-integration/#test-mode) keys locally.
+
 ## Getting Started
 
 First, run the development server:

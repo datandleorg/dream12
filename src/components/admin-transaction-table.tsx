@@ -19,7 +19,9 @@ type Row = {
   user_id: string;
   username: string | null;
   amount: number;
-  utr_number: string;
+  utr_number: string | null;
+  source: string;
+  razorpay_payment_id: string | null;
   status: string;
   created_at: string;
 };
@@ -53,7 +55,7 @@ export function AdminTransactionTable({ rows }: { rows: Row[] }) {
         <TableHeader>
           <TableRow>
             <TableHead>User</TableHead>
-            <TableHead>UTR</TableHead>
+            <TableHead>Reference</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -65,7 +67,11 @@ export function AdminTransactionTable({ rows }: { rows: Row[] }) {
               <TableCell className="max-w-[120px] truncate">
                 {r.username ?? r.user_id.slice(0, 8)}
               </TableCell>
-              <TableCell className="font-mono text-xs">{r.utr_number}</TableCell>
+              <TableCell className="font-mono text-xs">
+                {r.source === "razorpay" && r.razorpay_payment_id
+                  ? `RZ ${r.razorpay_payment_id.slice(0, 14)}…`
+                  : (r.utr_number ?? "—")}
+              </TableCell>
               <TableCell className="tabular-nums">₹{r.amount.toFixed(2)}</TableCell>
               <TableCell>
                 <Badge variant="secondary">{r.status}</Badge>

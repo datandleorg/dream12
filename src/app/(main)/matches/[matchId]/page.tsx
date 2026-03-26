@@ -69,7 +69,7 @@ export default async function MatchDetailPage({
   );
 
   const contestIds = contests.map((c) => c.id);
-  let filledByContest = new Map<string, number>();
+  const filledByContest = new Map<string, number>();
   if (contestIds.length) {
     const { data: teamRows } = await supabase
       .from("user_teams")
