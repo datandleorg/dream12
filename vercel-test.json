@@ -1,3 +1,4 @@
+
 {
   "crons": [
     {
@@ -6,9 +7,7 @@
     },
     {
       "path": "/api/cron/live-scores",
-      "schedule": "30 21 * * *"
+      "schedule": "*/2 * * * *"
     }
   ]
 }
-
-
