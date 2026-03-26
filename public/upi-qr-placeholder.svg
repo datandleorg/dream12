@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" fill="none">
+  <rect width="240" height="240" fill="#f4f4f5"/>
+  <rect x="32" y="32" width="176" height="176" fill="white" stroke="#d4d4d8" stroke-width="2"/>
+  <text x="120" y="118" text-anchor="middle" fill="#71717a" font-family="system-ui,sans-serif" font-size="12">Replace with</text>
+  <text x="120" y="138" text-anchor="middle" fill="#71717a" font-family="system-ui,sans-serif" font-size="12">public/upi-qr.png</text>
+</svg>

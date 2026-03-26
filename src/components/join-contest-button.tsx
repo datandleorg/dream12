@@ -1,0 +1,92 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { cn } from "@/lib/utils";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+
+export function JoinContestButton({
+  matchId,
+  contestId,
+  entryFee,
+  balance,
+  label = "Join",
+}: {
+  matchId: number;
+  contestId: string;
+  entryFee: number;
+  balance: number;
+  label?: string;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const fee = Number(entryFee);
+  const bal = Number(balance);
+  const short = Math.max(0, fee - bal);
+  const returnTo = `/matches/${matchId}/contests/${contestId}/squad`;
+
+  function onJoin() {
+    if (fee > bal) {
+      setOpen(true);
+      return;
+    }
+    router.push(returnTo);
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        className="min-h-11 w-full sm:flex-1"
+        onClick={() => onJoin()}
+      >
+        {label}
+      </Button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Insufficient balance</SheetTitle>
+            <SheetDescription>
+              This contest needs ₹{fee.toFixed(0)}. You have ₹{bal.toFixed(0)}.
+              {short > 0 ? (
+                <>
+                  {" "}
+                  Add at least ₹{short.toFixed(0)} more to join.
+                </>
+              ) : null}
+            </SheetDescription>
+          </SheetHeader>
+          <SheetFooter>
+            <Link
+              href={`/wallet?returnTo=${encodeURIComponent(returnTo)}`}
+              className={cn(
+                buttonVariants({ variant: "default" }),
+                "inline-flex min-h-11 w-full items-center justify-center",
+              )}
+            >
+              Add money
+            </Link>
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-11 w-full"
+              onClick={() => setOpen(false)}
+            >
+              Not now
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
