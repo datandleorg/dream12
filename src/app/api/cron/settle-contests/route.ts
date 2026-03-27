@@ -1,13 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyCronRequest } from "@/lib/cron-auth";
+import { recordCronRun } from "@/lib/cron-run-log";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
+
+const ROUTE = "/api/cron/settle-contests";
 
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const t0 = Date.now();
+  console.log(`[dream12-api-cron] ${ROUTE} START`);
 
   const supabase = createServiceClient();
   const { data: rows, error: qErr } = await supabase
@@ -17,6 +23,14 @@ export async function GET(request: NextRequest) {
     .limit(25);
 
   if (qErr) {
+    const durationMs = Date.now() - t0;
+    recordCronRun({
+      route: ROUTE,
+      durationMs,
+      ok: false,
+      status: 500,
+      summary: { error: qErr.message },
+    });
     return NextResponse.json({ error: qErr.message }, { status: 500 });
   }
 
@@ -37,5 +51,16 @@ export async function GET(request: NextRequest) {
     results.push({ contestId, result: payload });
   }
 
-  return NextResponse.json({ processed: results.length, results });
+  const durationMs = Date.now() - t0;
+  const body = { processed: results.length, results };
+  console.log(`[dream12-api-cron] ${ROUTE} DONE`, { durationMs, processed: body.processed });
+  recordCronRun({
+    route: ROUTE,
+    durationMs,
+    ok: true,
+    status: 200,
+    summary: body,
+  });
+
+  return NextResponse.json(body);
 }

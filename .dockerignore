@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+.cursor
+*.md
+!docker/README.md
+.env
+.env.*
+!.env.docker.example
+coverage
+.vscode
+terminals
+supabase/.branches
+supabase/.temp

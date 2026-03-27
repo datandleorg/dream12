@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyCronRequest } from "@/lib/cron-auth";
+import { recordCronRun } from "@/lib/cron-run-log";
 import { aggregateTeamPoints } from "@/lib/live-scoring";
 import { createServiceClient } from "@/lib/supabase/service";
 import { extractLiveStatsByPlayer } from "@/lib/extract-live-stats-by-player";
@@ -8,10 +9,15 @@ import { sportmonksFetch, sportmonksToken } from "@/lib/sportmonks/client";
 
 export const dynamic = "force-dynamic";
 
+const ROUTE = "/api/cron/live-scores";
+
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const t0 = Date.now();
+  console.log(`[dream12-api-cron] ${ROUTE} START`);
 
   const supabase = createServiceClient();
   const { data: liveMatches } = await supabase
@@ -21,7 +27,17 @@ export async function GET(request: NextRequest) {
 
   const ids = liveMatches?.map((m) => m.id) ?? [];
   if (!ids.length) {
-    return NextResponse.json({ updated: 0, note: "No live matches in DB." });
+    const durationMs = Date.now() - t0;
+    const payload = { updated: 0, note: "No live matches in DB." };
+    console.log(`[dream12-api-cron] ${ROUTE} DONE`, { durationMs, ...payload });
+    recordCronRun({
+      route: ROUTE,
+      durationMs,
+      ok: true,
+      status: 200,
+      summary: payload,
+    });
+    return NextResponse.json(payload);
   }
 
   let liveMap: Record<string, Partial<NormalizedPlayerStats>> = {};
@@ -86,5 +102,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ updated, matches: ids.length });
+  const durationMs = Date.now() - t0;
+  const payload = { updated, matches: ids.length };
+  console.log(`[dream12-api-cron] ${ROUTE} DONE`, { durationMs, ...payload });
+  recordCronRun({
+    route: ROUTE,
+    durationMs,
+    ok: true,
+    status: 200,
+    summary: payload,
+  });
+  return NextResponse.json(payload);
 }

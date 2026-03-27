@@ -1,0 +1,52 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set in .env for docker build}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set in .env for docker build}
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(\"http://127.0.0.1:\"+(process.env.PORT||3000)).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  cron:
+    build:
+      context: ./docker/cron
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET in .env}
+      CRON_BASE_URL: http://web:3000
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./vercel.json:/config/vercel.json:ro
+    depends_on:
+      web:
+        condition: service_healthy
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command:
+      - http
+      - --log=stdout
+      - --domain=joesph-nonalliterative-nelida.ngrok-free.dev
+      - web:3000
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in .env}
+    ports:
+      - "${NGROK_INSPECT_PORT:-14040}:4040"
+    depends_on:
+      web:
+        condition: service_healthy
