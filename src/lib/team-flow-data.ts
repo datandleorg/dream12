@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { countRosterNotInPlayingXi } from "@/lib/lineup-conflict";
+import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
+import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 
 export type TeamFlowPlayerRow = {
   id: string;
@@ -27,6 +29,9 @@ export type TeamFlowMatchRow = {
   team_a_logo_url: string | null;
   team_b_logo_url: string | null;
   season_id: number | null;
+  match_format: string | null;
+  venue_label: string | null;
+  stage_label: string | null;
 };
 
 export type TeamFlowContestSummary = {
@@ -64,6 +69,21 @@ export async function fetchPlayersForMatch(matchId: number) {
   return loadPlayersForMatch(supabase, matchId);
 }
 
+function venueStageLabels(
+  venue: { name?: string | null; city?: string | null } | null,
+  stage: { name?: string | null; code?: string | null } | null,
+): { venue_label: string | null; stage_label: string | null } {
+  const vname = venue?.name?.trim();
+  const vcity = venue?.city?.trim();
+  const venue_label =
+    vname && vcity ? `${vname}, ${vcity}` : vname ?? vcity ?? null;
+  const sname = stage?.name?.trim();
+  const scode = stage?.code?.trim();
+  const stage_label =
+    sname && scode ? `${sname} (${scode})` : sname ?? scode ?? null;
+  return { venue_label, stage_label };
+}
+
 export async function loadTeamFlowData(matchId: number, contestId: string) {
   const supabase = await createClient();
   const {
@@ -71,13 +91,55 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: match } = await supabase
+  if (isSportmonksFixtureId(matchId)) {
+    await refreshMatchFromSportmonks(matchId);
+  }
+
+  const { data: matchRaw } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id",
+      "id,name,start_time,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id,venue_id,stage_id,match_format",
     )
     .eq("id", matchId)
     .single();
+
+  let venueRow: { name: string | null; city: string | null } | null = null;
+  let stageRow: { name: string | null; code: string | null } | null = null;
+  if (matchRaw?.venue_id != null) {
+    const { data: v } = await supabase
+      .from("sm_venues")
+      .select("name,city")
+      .eq("id", matchRaw.venue_id)
+      .maybeSingle();
+    venueRow = v;
+  }
+  if (matchRaw?.stage_id != null) {
+    const { data: s } = await supabase
+      .from("sm_stages")
+      .select("name,code")
+      .eq("id", matchRaw.stage_id)
+      .maybeSingle();
+    stageRow = s;
+  }
+
+  const { venue_label, stage_label } = venueStageLabels(venueRow, stageRow);
+
+  const match: TeamFlowMatchRow | null = matchRaw
+    ? {
+        id: Number(matchRaw.id),
+        name: matchRaw.name,
+        start_time: matchRaw.start_time,
+        tournament_name: matchRaw.tournament_name ?? null,
+        team_a: matchRaw.team_a ?? null,
+        team_b: matchRaw.team_b ?? null,
+        team_a_logo_url: matchRaw.team_a_logo_url ?? null,
+        team_b_logo_url: matchRaw.team_b_logo_url ?? null,
+        season_id: matchRaw.season_id ?? null,
+        match_format: matchRaw.match_format ?? null,
+        venue_label,
+        stage_label,
+      }
+    : null;
 
   const { data: contest } = await supabase
     .from("contests")
@@ -120,7 +182,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
 
   return {
     user,
-    match: match as TeamFlowMatchRow,
+    match,
     contest: contestSummary,
     hasExistingTeam: Boolean(team?.id),
     players,

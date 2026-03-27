@@ -3,19 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CircleHelp } from "lucide-react";
+import { formatMatchCountdown, msUntilStart } from "@/lib/time/match-countdown";
 import { cn } from "@/lib/utils";
-
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return "Started";
-  const s = Math.floor(ms / 1000);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (d > 0) return `${d}d ${h}h ${m}m left`;
-  if (h > 0) return `${h}h ${m}m ${sec}s left`;
-  return `${m}m ${sec}s left`;
-}
 
 function abbrTeam(name: string): string {
   const w = name.trim().split(/\s+/).filter(Boolean);
@@ -71,9 +60,8 @@ export function FlowHeader(props: FlowHeaderProps) {
   const [label, setLabel] = useState("—");
 
   useEffect(() => {
-    const target = new Date(startIso).getTime();
     function tick() {
-      setLabel(formatCountdown(target - Date.now()));
+      setLabel(formatMatchCountdown(msUntilStart(startIso)));
     }
     tick();
     const id = window.setInterval(tick, 1000);

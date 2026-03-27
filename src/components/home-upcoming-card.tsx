@@ -8,19 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { MatchStatusBadge } from "@/components/match-status-badge";
+import { formatMatchCountdownCoarse, msUntilStart } from "@/lib/time/match-countdown";
 import { cn } from "@/lib/utils";
-
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return "Live / started";
-  const s = Math.floor(ms / 1000);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
 
 export type HomeMatchCardModel = {
   id: number;
@@ -79,54 +69,87 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
     match.name.split(/\s+vs\s+/i)[1]?.trim() ||
     "Team B";
 
+  const statusKey = match.status.toLowerCase();
+  const isCompleted = statusKey === "completed";
+  const isLive = statusKey === "live";
+  const isUpcoming = statusKey === "upcoming";
+
   useEffect(() => {
-    const target = new Date(match.start_time).getTime();
+    if (isCompleted) return;
     function tick() {
-      setCountdown(formatCountdown(target - Date.now()));
+      setCountdown(formatMatchCountdownCoarse(msUntilStart(match.start_time)));
     }
     tick();
     const id = window.setInterval(tick, 60_000);
     return () => window.clearInterval(id);
-  }, [match.start_time]);
+  }, [match.start_time, isCompleted]);
+
+  const card = (
+    <Card
+      className={cn(
+        !isUpcoming && "tap-app cursor-pointer transition-colors hover:border-primary/40 hover:bg-card/90",
+        isUpcoming && "cursor-default",
+      )}
+    >
+      <CardHeader className="pb-2">
+        {match.tournament_name ? (
+          <p className="text-accent mb-1 text-[11px] font-semibold tracking-wide uppercase">
+            {match.tournament_name}
+          </p>
+        ) : null}
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-lg leading-tight">
+            {teamA} <span className="text-muted-foreground font-normal">vs</span>{" "}
+            {teamB}
+          </CardTitle>
+          <MatchStatusBadge status={match.status} className="shrink-0" />
+        </div>
+        <CardDescription className="flex flex-col gap-1 pt-1">
+          {isCompleted ? (
+            <span className="tabular-nums">
+              Played{" "}
+              {new Date(match.start_time).toLocaleString(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </span>
+          ) : isLive ? (
+            <span className="font-medium text-emerald-700 tabular-nums dark:text-emerald-400">
+              Match in progress
+            </span>
+          ) : (
+            <span className="tabular-nums">Starts in {countdown}</span>
+          )}
+          <span className="text-foreground/90 text-sm font-medium tabular-nums">
+            Prize up to ₹{match.max_prize_pool.toLocaleString("en-IN")}
+          </span>
+        </CardDescription>
+      </CardHeader>
+      <div className="flex items-center justify-between px-6 pb-4">
+        <TeamOrb label={teamA} logoUrl={match.team_a_logo_url} />
+        <span className="text-muted-foreground max-w-[7rem] text-center text-xs font-medium leading-tight">
+          {isUpcoming ? "Opens when match is live" : "Tap for contests"}
+        </span>
+        <TeamOrb label={teamB} logoUrl={match.team_b_logo_url} />
+      </div>
+    </Card>
+  );
 
   return (
     <li>
-      <Link href={`/matches/${match.id}`} className="tap-app block">
-        <Card
-          className={cn(
-            "transition-colors hover:border-primary/40 hover:bg-card/90",
-            "cursor-pointer",
-          )}
+      {isUpcoming ? (
+        <div
+          className="block"
+          role="group"
+          aria-label="Upcoming match — open for contests when the match is live"
         >
-          <CardHeader className="pb-2">
-            {match.tournament_name ? (
-              <p className="text-accent mb-1 text-[11px] font-semibold tracking-wide uppercase">
-                {match.tournament_name}
-              </p>
-            ) : null}
-            <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-lg leading-tight">
-                {teamA} <span className="text-muted-foreground font-normal">vs</span>{" "}
-                {teamB}
-              </CardTitle>
-              <Badge variant="secondary" className="shrink-0">
-                {match.status}
-              </Badge>
-            </div>
-            <CardDescription className="flex flex-col gap-1 pt-1">
-              <span className="tabular-nums">Starts in {countdown}</span>
-              <span className="text-foreground/90 text-sm font-medium tabular-nums">
-                Prize up to ₹{match.max_prize_pool.toLocaleString("en-IN")}
-              </span>
-            </CardDescription>
-          </CardHeader>
-          <div className="flex items-center justify-between px-6 pb-4">
-            <TeamOrb label={teamA} logoUrl={match.team_a_logo_url} />
-            <span className="text-muted-foreground text-xs font-medium">Tap for contests</span>
-            <TeamOrb label={teamB} logoUrl={match.team_b_logo_url} />
-          </div>
-        </Card>
-      </Link>
+          {card}
+        </div>
+      ) : (
+        <Link href={`/matches/${match.id}`} className="block">
+          {card}
+        </Link>
+      )}
     </li>
   );
 }

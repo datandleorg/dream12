@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MatchStatusBadge } from "@/components/match-status-badge";
 import { JoinContestButton } from "@/components/join-contest-button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
@@ -17,6 +18,25 @@ import {
 } from "@/lib/contest-visibility";
 import { cn } from "@/lib/utils";
 import { getLineupConflictCountsByContest } from "@/lib/lineup-conflict-queries";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { MatchStartCountdown } from "@/components/match-start-countdown";
+import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
+import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
+
+function venueStageLabels(
+  venue: { name?: string | null; city?: string | null } | null,
+  stage: { name?: string | null; code?: string | null } | null,
+): { venueLine: string | null; stageLine: string | null } {
+  const vname = venue?.name?.trim();
+  const vcity = venue?.city?.trim();
+  const venueLine =
+    vname && vcity ? `${vname}, ${vcity}` : vname ?? vcity ?? null;
+  const sname = stage?.name?.trim();
+  const scode = stage?.code?.trim();
+  const stageLine =
+    sname && scode ? `${sname} · ${scode}` : sname ?? scode ?? null;
+  return { venueLine, stageLine };
+}
 
 export default async function MatchDetailPage({
   params,
@@ -27,20 +47,50 @@ export default async function MatchDetailPage({
   const matchId = Number(mid);
   if (!Number.isFinite(matchId)) notFound();
 
+  if (isSportmonksFixtureId(matchId)) {
+    await refreshMatchFromSportmonks(matchId);
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: match } = await supabase
+  const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b",
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id",
     )
     .eq("id", matchId)
     .single();
 
-  if (!match) notFound();
+  if (!matchRow) notFound();
+
+  let venueRow: { name: string | null; city: string | null } | null = null;
+  let stageRow: { name: string | null; code: string | null } | null = null;
+  if (matchRow.venue_id != null) {
+    const { data: v } = await supabase
+      .from("sm_venues")
+      .select("name,city")
+      .eq("id", matchRow.venue_id)
+      .maybeSingle();
+    venueRow = v;
+  }
+  if (matchRow.stage_id != null) {
+    const { data: s } = await supabase
+      .from("sm_stages")
+      .select("name,code")
+      .eq("id", matchRow.stage_id)
+      .maybeSingle();
+    stageRow = s;
+  }
+
+  const { venueLine, stageLine } = venueStageLabels(venueRow, stageRow);
+
+  const match = {
+    ...matchRow,
+    match_format: matchRow.match_format ?? null,
+  };
 
   let balance = 0;
   if (user) {
@@ -96,6 +146,8 @@ export default async function MatchDetailPage({
       ? `${match.team_a} vs ${match.team_b}`
       : match.name;
 
+  const rosterLocked = isTeamEditLocked(match.start_time);
+
   return (
     <div className="space-y-4 py-4">
       <div>
@@ -108,7 +160,14 @@ export default async function MatchDetailPage({
             ) : null}
             <h1 className="text-2xl font-semibold leading-tight">{subtitle}</h1>
           </div>
-          <Badge variant="secondary">{match.status}</Badge>
+          <div className="flex flex-col items-end gap-1">
+            <MatchStatusBadge status={String(match.status)} />
+            {match.match_format ? (
+              <Badge variant="outline" className="font-mono text-[10px]">
+                {match.match_format}
+              </Badge>
+            ) : null}
+          </div>
         </div>
         <p className="text-muted-foreground mt-1 text-sm">
           {new Date(match.start_time).toLocaleString(undefined, {
@@ -116,20 +175,51 @@ export default async function MatchDetailPage({
             timeStyle: "short",
           })}
         </p>
+        <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <span>Starts in</span>
+          <MatchStartCountdown
+            startIso={match.start_time}
+            className="font-medium text-foreground"
+          />
+        </p>
+        {venueLine ? (
+          <p className="text-muted-foreground mt-1 text-sm">{venueLine}</p>
+        ) : null}
+        {stageLine ? (
+          <p className="text-muted-foreground mt-0.5 text-xs">{stageLine}</p>
+        ) : null}
+        {rosterLocked ? (
+          <p className="text-muted-foreground mt-2 text-xs">
+            Team picks are locked (1 minute before start). You can still open contests if you
+            already joined.
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-medium">Contests</h2>
         {user ? (
-          <Link
-            href={`/matches/${matchId}/create-contest`}
-            className={cn(
-              buttonVariants({ variant: "secondary" }),
-              "inline-flex min-h-11 w-full items-center justify-center sm:w-auto",
-            )}
-          >
-            Create contest
-          </Link>
+          rosterLocked ? (
+            <span
+              className={cn(
+                buttonVariants({ variant: "secondary" }),
+                "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:w-auto",
+              )}
+              title="Team lock is on — new contests cannot be created this close to start."
+            >
+              Create contest (locked)
+            </span>
+          ) : (
+            <Link
+              href={`/matches/${matchId}/create-contest`}
+              className={cn(
+                buttonVariants({ variant: "secondary" }),
+                "inline-flex min-h-11 w-full items-center justify-center sm:w-auto",
+              )}
+            >
+              Create contest
+            </Link>
+          )
         ) : null}
       </div>
       {!contests?.length ? (
@@ -175,15 +265,27 @@ export default async function MatchDetailPage({
                         },
                         user.id,
                       ) ? (
-                        <Link
-                          href={`/matches/${matchId}/contests/${c.id}/squad`}
-                          className={cn(
-                            buttonVariants({ variant: "default" }),
-                            "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
-                          )}
-                        >
-                          Continue setup
-                        </Link>
+                        rosterLocked ? (
+                          <span
+                            className={cn(
+                              buttonVariants({ variant: "default" }),
+                              "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:flex-1",
+                            )}
+                            title="Team lock is on — you cannot finish contest setup now."
+                          >
+                            Continue setup (locked)
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/matches/${matchId}/contests/${c.id}/squad`}
+                            className={cn(
+                              buttonVariants({ variant: "default" }),
+                              "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
+                            )}
+                          >
+                            Continue setup
+                          </Link>
+                        )
                       ) : (
                         <JoinContestButton
                           matchId={matchId}
@@ -191,6 +293,8 @@ export default async function MatchDetailPage({
                           entryFee={Number(c.entry_fee)}
                           balance={balance}
                           label="Join"
+                          disabled={rosterLocked}
+                          disabledReason="Team lock is on — you cannot join new contests this close to start."
                         />
                       )
                     ) : (

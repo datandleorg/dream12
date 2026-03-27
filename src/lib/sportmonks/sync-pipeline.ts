@@ -20,7 +20,13 @@ export type FullSyncResult = {
   backfillSeasonTeams?: { inserted: number; note?: string };
   squads?: { teams: number; rows: number; note?: string };
   squadHydrate?: { upserted: number; note?: string };
-  matches: { upserted: number; note?: string };
+  matches: {
+    upserted: number;
+    venuesUpserted: number;
+    stagesUpserted: number;
+    teamsUpserted: number;
+    note?: string;
+  };
   lineups: { processed: number; inserted: number; notes: string[] };
 };
 

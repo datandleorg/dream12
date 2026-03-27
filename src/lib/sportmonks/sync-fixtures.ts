@@ -1,49 +1,13 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import type { SmFixture, SmFixturesResponse } from "./client";
-import { sportmonksFetch, sportmonksToken } from "./client";
+import { SM_FIXTURE_LIST_INCLUDE, sportmonksFetch, sportmonksToken } from "./client";
+import { upsertFromFixturesBatch } from "./sync-fixture-upsert";
 
 const DEFAULT_UPCOMING_DAYS = 45;
 const MAX_SYNC_PAGES = 10;
 const FALLBACK_MAX_PAGES = 5;
 const FALLBACK_HOURS_PAST = 36;
 const FALLBACK_DAYS_AHEAD = 120;
-
-function fixtureTitle(f: SmFixture): string {
-  if (f.name?.trim()) return f.name.trim();
-  const a = f.localteam?.name ?? "Team A";
-  const b = f.visitorteam?.name ?? "Team B";
-  return `${a} vs ${b}`;
-}
-
-function mapStatus(f: SmFixture): "upcoming" | "live" | "completed" {
-  const live = f.live;
-  if (live === true || live === 1) return "live";
-
-  const startMs = f.starting_at ? Date.parse(f.starting_at) : NaN;
-  const now = Date.now();
-  const startsInFuture = Number.isFinite(startMs) && startMs > now;
-
-  const s = (f.status ?? "").toLowerCase();
-  if (s.includes("live") || s.includes("inn")) return "live";
-
-  if (s === "ns" || s.includes("scheduled") || s.includes("not started")) {
-    return "upcoming";
-  }
-
-  if (startsInFuture) {
-    return "upcoming";
-  }
-
-  if (
-    s.includes("finished") ||
-    s.includes("completed") ||
-    s.includes("aban") ||
-    s.includes("abandon")
-  ) {
-    return "completed";
-  }
-  return "upcoming";
-}
 
 function utcDateString(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -71,7 +35,7 @@ type FixtureQueryOpts = {
  */
 function fixturesListParams(page: number, opts?: FixtureQueryOpts): Record<string, string> {
   const qs: Record<string, string> = {
-    include: "localteam,visitorteam,league",
+    include: SM_FIXTURE_LIST_INCLUDE,
     sort: opts?.sort ?? "starting_at",
     page: String(page),
   };
@@ -171,23 +135,26 @@ async function fetchAllFixturesInWindow(seasonIdFilter?: number): Promise<{
   return { data: fallback, usedFallback: fallback.length > 0 };
 }
 
-function teamIdFromInclude(
-  explicit: number | undefined,
-  inc?: { id?: number },
-): number | undefined {
-  if (explicit != null && Number.isFinite(explicit)) return explicit;
-  if (inc?.id != null && Number.isFinite(inc.id)) return inc.id;
-  return undefined;
-}
-
 /**
  * Upsert fixtures; when `primarySeasonId` is set (resolved IPL / env season), loads that season's fixtures.
  */
 export async function syncMatches(opts?: {
   primarySeasonId?: number | null;
-}): Promise<{ upserted: number; note?: string }> {
+}): Promise<{
+  upserted: number;
+  venuesUpserted: number;
+  stagesUpserted: number;
+  teamsUpserted: number;
+  note?: string;
+}> {
   if (!sportmonksToken()) {
-    return { upserted: 0, note: "SPORTMONKS_API_TOKEN missing; skipped." };
+    return {
+      upserted: 0,
+      venuesUpserted: 0,
+      stagesUpserted: 0,
+      teamsUpserted: 0,
+      note: "SPORTMONKS_API_TOKEN missing; skipped.",
+    };
   }
 
   const seasonIdFilter =
@@ -204,6 +171,9 @@ export async function syncMatches(opts?: {
   } catch (e) {
     return {
       upserted: 0,
+      venuesUpserted: 0,
+      stagesUpserted: 0,
+      teamsUpserted: 0,
       note: e instanceof Error ? e.message : "Sportmonks fixtures fetch failed",
     };
   }
@@ -211,82 +181,36 @@ export async function syncMatches(opts?: {
   if (!data.length) {
     return {
       upserted: 0,
+      venuesUpserted: 0,
+      stagesUpserted: 0,
+      teamsUpserted: 0,
       note:
         "No fixtures (check SPORTMONKS_* env, league/season IDs, or SQL seed 20260328000000_seed_mock_data.sql).",
     };
   }
 
   const supabase = createServiceClient();
+  const batch = await upsertFromFixturesBatch(supabase, data);
 
-  const teamRows = new Map<
-    number,
-    { id: number; name: string; short_code: string | null; image_path: string | null }
-  >();
-  for (const f of data) {
-    const lid = teamIdFromInclude(f.localteam_id, f.localteam as { id?: number } | undefined);
-    if (lid != null && f.localteam?.name) {
-      teamRows.set(lid, {
-        id: lid,
-        name: f.localteam.name.trim(),
-        short_code: null,
-        image_path: f.localteam.image_path?.trim() ?? null,
-      });
-    }
-    const vid = teamIdFromInclude(f.visitorteam_id, f.visitorteam as { id?: number } | undefined);
-    if (vid != null && f.visitorteam?.name) {
-      teamRows.set(vid, {
-        id: vid,
-        name: f.visitorteam.name.trim(),
-        short_code: null,
-        image_path: f.visitorteam.image_path?.trim() ?? null,
-      });
-    }
-  }
-  if (teamRows.size) {
-    const { error: teamErr } = await supabase.from("sm_teams").upsert([...teamRows.values()], {
-      onConflict: "id",
-    });
-    if (teamErr) {
-      return { upserted: 0, note: `sm_teams upsert: ${teamErr.message}` };
-    }
+  if (batch.error) {
+    return {
+      upserted: 0,
+      venuesUpserted: batch.venuesUpserted,
+      stagesUpserted: batch.stagesUpserted,
+      teamsUpserted: batch.teamsUpserted,
+      note: batch.error,
+    };
   }
 
-  const rows = data
-    .filter((f) => f.id && f.starting_at)
-    .map((f) => ({
-      id: f.id,
-      name: fixtureTitle(f),
-      start_time: f.starting_at as string,
-      status: mapStatus(f),
-      tournament_name: f.league?.name?.trim() || null,
-      team_a: f.localteam?.name?.trim() || null,
-      team_b: f.visitorteam?.name?.trim() || null,
-      team_a_logo_url: f.localteam?.image_path?.trim() || null,
-      team_b_logo_url: f.visitorteam?.image_path?.trim() || null,
-      league_id: f.league_id ?? null,
-      season_id: f.season_id ?? null,
-      localteam_id: teamIdFromInclude(
-        f.localteam_id,
-        f.localteam as { id?: number } | undefined,
-      ),
-      visitorteam_id: teamIdFromInclude(
-        f.visitorteam_id,
-        f.visitorteam as { id?: number } | undefined,
-      ),
-    }));
+  const parts: string[] = [];
+  if (usedFallback) parts.push("Used fallback fetch (no rows in primary fixture query).");
+  if (batch.note) parts.push(batch.note);
 
-  if (!rows.length) {
-    return { upserted: 0, note: "Fixtures missing id or starting_at." };
-  }
-
-  const { error } = await supabase.from("matches").upsert(rows, {
-    onConflict: "id",
-  });
-  if (error) {
-    return { upserted: 0, note: error.message };
-  }
   return {
-    upserted: rows.length,
-    note: usedFallback ? "Used fallback fetch (no rows in primary fixture query)." : undefined,
+    upserted: batch.matchesUpserted,
+    venuesUpserted: batch.venuesUpserted,
+    stagesUpserted: batch.stagesUpserted,
+    teamsUpserted: batch.teamsUpserted,
+    note: parts.length ? parts.join(" ") : undefined,
   };
 }

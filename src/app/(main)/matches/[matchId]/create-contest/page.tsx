@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CreateContestWizard } from "@/components/create-contest-wizard";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
+import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 
 export default async function CreateContestPage({
   params,
@@ -20,6 +23,10 @@ export default async function CreateContestPage({
     redirect(`/login?next=${encodeURIComponent(`/matches/${matchId}/create-contest`)}`);
   }
 
+  if (isSportmonksFixtureId(matchId)) {
+    await refreshMatchFromSportmonks(matchId);
+  }
+
   const { data: match } = await supabase
     .from("matches")
     .select("id,name,start_time,tournament_name,team_a,team_b")
@@ -27,6 +34,10 @@ export default async function CreateContestPage({
     .single();
 
   if (!match) notFound();
+
+  if (isTeamEditLocked(match.start_time)) {
+    redirect(`/matches/${matchId}`);
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

@@ -46,11 +46,36 @@ export interface SmLeagueInclude {
   code?: string;
 }
 
-/** Fixture shape from v2 GET /fixtures (with include=localteam,visitorteam,league) */
+/** Venue include from GET /fixtures with include=venue */
+export interface SmVenueInclude {
+  id?: number;
+  country_id?: number;
+  name?: string;
+  city?: string;
+  image_path?: string;
+  capacity?: number;
+  floodlight?: boolean;
+  updated_at?: string;
+}
+
+/** Stage include from GET /fixtures with include=stage */
+export interface SmStageInclude {
+  id?: number;
+  league_id?: number;
+  season_id?: number;
+  name?: string;
+  code?: string;
+  type?: string | null;
+  updated_at?: string;
+}
+
+/** Fixture shape from v2 GET /fixtures (with full includes for sync) */
 export interface SmFixture {
   id: number;
   starting_at?: string;
   name?: string;
+  /** e.g. T20, ODI */
+  type?: string;
   localteam?: SmTeamInclude;
   visitorteam?: SmTeamInclude;
   league?: SmLeagueInclude;
@@ -58,10 +83,21 @@ export interface SmFixture {
   season_id?: number;
   localteam_id?: number;
   visitorteam_id?: number;
+  venue_id?: number;
+  stage_id?: number;
+  venue?: SmVenueInclude;
+  stage?: SmStageInclude;
   status?: string;
   /** Cricket API uses 0/1 or boolean for in-progress */
   live?: boolean | number;
 }
+
+/** Include strings shared by list sync, lineup sync, and on-demand detail fetch */
+export const SM_FIXTURE_LIST_INCLUDE =
+  "localteam,visitorteam,league,venue,stage";
+
+export const SM_FIXTURE_LINEUP_INCLUDE =
+  "lineup,localteam,visitorteam,league,venue,stage";
 
 export interface SmFixturesResponse {
   data?: SmFixture[];

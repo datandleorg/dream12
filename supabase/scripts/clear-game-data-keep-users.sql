@@ -1,7 +1,8 @@
 -- Clear all app data except user accounts (public.profiles + auth.users unchanged).
 -- Run in Supabase Dashboard → SQL Editor (or: psql … -f this file).
 --
--- Removes: matches, squads, contests, wallet transactions, Razorpay order rows.
+-- Removes: matches, squads, contests, wallet transactions, Razorpay order rows,
+--          SportMonks reference data (leagues, seasons, teams, squads, venues, stages).
 -- Keeps: every row in public.profiles (including wallet_balance); auth.users untouched.
 
 begin;
@@ -24,11 +25,56 @@ begin
   end if;
 end $$;
 
--- SportMonks reference data (migration 20260333000000; skip if not applied).
+-- SportMonks reference data (migrations 20260333000000, 20260334000000; skip if not applied).
+-- Order: children before parents (sm_stages refs sm_seasons/sm_leagues; sm_venues is independent).
 do $$
 begin
   if to_regclass('public.sm_leagues') is not null then
-    execute 'truncate table public.sm_season_squad, public.sm_season_team, public.sm_seasons, public.sm_teams, public.sm_leagues restart identity cascade';
+    if to_regclass('public.sm_stages') is not null and to_regclass('public.sm_venues') is not null then
+      execute $t$
+        truncate table
+          public.sm_season_squad,
+          public.sm_season_team,
+          public.sm_stages,
+          public.sm_venues,
+          public.sm_seasons,
+          public.sm_teams,
+          public.sm_leagues
+        restart identity cascade
+      $t$;
+    elsif to_regclass('public.sm_stages') is not null then
+      execute $t$
+        truncate table
+          public.sm_season_squad,
+          public.sm_season_team,
+          public.sm_stages,
+          public.sm_seasons,
+          public.sm_teams,
+          public.sm_leagues
+        restart identity cascade
+      $t$;
+    elsif to_regclass('public.sm_venues') is not null then
+      execute $t$
+        truncate table
+          public.sm_season_squad,
+          public.sm_season_team,
+          public.sm_venues,
+          public.sm_seasons,
+          public.sm_teams,
+          public.sm_leagues
+        restart identity cascade
+      $t$;
+    else
+      execute $t$
+        truncate table
+          public.sm_season_squad,
+          public.sm_season_team,
+          public.sm_seasons,
+          public.sm_teams,
+          public.sm_leagues
+        restart identity cascade
+      $t$;
+    end if;
   end if;
 end $$;
 

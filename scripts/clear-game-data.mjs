@@ -50,6 +50,12 @@ async function main() {
   if (!smErr) {
     await deleteAll("sm_season_squad", "player_sportmonks_id", big);
     await deleteAll("sm_season_team", "team_id", big);
+    for (const table of ["sm_stages", "sm_venues"]) {
+      const { error: tErr } = await sb.from(table).select("id").limit(1);
+      if (!tErr) {
+        await deleteAll(table, "id", big);
+      }
+    }
     await deleteAll("sm_seasons", "id", big);
     await deleteAll("sm_teams", "id", big);
     await deleteAll("sm_leagues", "id", big);

@@ -22,12 +22,16 @@ export function JoinContestButton({
   entryFee,
   balance,
   label = "Join",
+  disabled = false,
+  disabledReason,
 }: {
   matchId: number;
   contestId: string;
   entryFee: number;
   balance: number;
   label?: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -38,6 +42,7 @@ export function JoinContestButton({
   const returnTo = `/matches/${matchId}/contests/${contestId}/squad`;
 
   function onJoin() {
+    if (disabled) return;
     if (fee > bal) {
       setOpen(true);
       return;
@@ -52,9 +57,11 @@ export function JoinContestButton({
       <Button
         type="button"
         className="min-h-11 w-full sm:flex-1"
+        disabled={disabled}
+        title={disabled ? disabledReason : undefined}
         onClick={() => onJoin()}
       >
-        {label}
+        {disabled ? "Join (locked)" : label}
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl">

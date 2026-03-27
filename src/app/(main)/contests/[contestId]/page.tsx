@@ -2,9 +2,25 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
+import { ContestMatchInfo } from "@/components/contest-match-info";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
+
+function venueStageLines(
+  venue: { name?: string | null; city?: string | null } | null,
+  stage: { name?: string | null; code?: string | null } | null,
+): { venueLine: string | null; stageLine: string | null } {
+  const vname = venue?.name?.trim();
+  const vcity = venue?.city?.trim();
+  const venueLine =
+    vname && vcity ? `${vname}, ${vcity}` : vname ?? vcity ?? null;
+  const sname = stage?.name?.trim();
+  const scode = stage?.code?.trim();
+  const stageLine =
+    sname && scode ? `${sname} · ${scode}` : sname ?? scode ?? null;
+  return { venueLine, stageLine };
+}
 
 export default async function ContestLeaderboardPage({
   params,
@@ -19,9 +35,7 @@ export default async function ContestLeaderboardPage({
 
   const { data: contest } = await supabase
     .from("contests")
-    .select(
-      "id,name,match_id,created_by,creator_joined_at, matches ( name )",
-    )
+    .select("id,name,match_id,created_by,creator_joined_at")
     .eq("id", contestId)
     .single();
 
@@ -37,6 +51,35 @@ export default async function ContestLeaderboardPage({
   ) {
     notFound();
   }
+
+  const matchId = Number(contest.match_id);
+  const { data: matchRow } = await supabase
+    .from("matches")
+    .select(
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id",
+    )
+    .eq("id", matchId)
+    .maybeSingle();
+
+  let venueRow: { name: string | null; city: string | null } | null = null;
+  let stageRow: { name: string | null; code: string | null } | null = null;
+  if (matchRow?.venue_id != null) {
+    const { data: v } = await supabase
+      .from("sm_venues")
+      .select("name,city")
+      .eq("id", matchRow.venue_id)
+      .maybeSingle();
+    venueRow = v;
+  }
+  if (matchRow?.stage_id != null) {
+    const { data: s } = await supabase
+      .from("sm_stages")
+      .select("name,code")
+      .eq("id", matchRow.stage_id)
+      .maybeSingle();
+    stageRow = s;
+  }
+  const { venueLine, stageLine } = venueStageLines(venueRow, stageRow);
 
   const { data: teams } = await supabase
     .from("user_teams")
@@ -60,14 +103,13 @@ export default async function ContestLeaderboardPage({
     username: nameByUser.get(t.user_id as string) ?? null,
   }));
 
-  const matchRel = contest.matches as unknown;
-  const matchName =
-    Array.isArray(matchRel) && matchRel[0] && typeof matchRel[0] === "object"
-      ? String((matchRel[0] as { name?: string }).name ?? "Match")
-      : matchRel && typeof matchRel === "object"
-        ? String((matchRel as { name?: string }).name ?? "Match")
-        : "Match";
-  const title = contest.name?.trim() || `Contest · ${matchName}`;
+  const matchSubtitle =
+    matchRow?.team_a && matchRow?.team_b
+      ? `${matchRow.team_a} vs ${matchRow.team_b}`
+      : (matchRow?.name ?? "Match");
+  const title =
+    contest.name?.trim() ||
+    (matchRow ? `Contest · ${matchSubtitle}` : "Contest");
 
   return (
     <div className="space-y-4 py-4">
@@ -86,6 +128,19 @@ export default async function ContestLeaderboardPage({
           My team
         </Link>
       </div>
+
+      {matchRow ? (
+        <ContestMatchInfo
+          matchId={matchId}
+          startIso={matchRow.start_time}
+          status={String(matchRow.status)}
+          tournamentName={matchRow.tournament_name}
+          subtitle={matchSubtitle}
+          matchFormat={matchRow.match_format ?? null}
+          venueLine={venueLine}
+          stageLine={stageLine}
+        />
+      ) : null}
 
       {!initialRows.length ? (
         <p className="text-muted-foreground text-sm">No teams yet.</p>

@@ -1,6 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import type { SmTeamInclude } from "./client";
-import { sportmonksFetch, sportmonksToken } from "./client";
+import type { SmFixture, SmTeamInclude } from "./client";
+import { SM_FIXTURE_LINEUP_INCLUDE, sportmonksFetch, sportmonksToken } from "./client";
+import { isSportmonksFixtureId } from "./sportmonks-ids";
+import { upsertSingleSmFixture } from "./sync-fixture-upsert";
 import {
   extractSportmonksPositionName,
   inferRoleFromPositionLabel,
@@ -37,12 +39,7 @@ type RawLineupRow = {
 };
 
 interface FixtureDetailResponse {
-  data?: {
-    id: number;
-    localteam_id?: number;
-    visitorteam_id?: number;
-    localteam?: SmTeamInclude;
-    visitorteam?: SmTeamInclude;
+  data?: SmFixture & {
     lineup?: RawLineupRow[] | { data?: RawLineupRow[] };
   };
 }
@@ -76,7 +73,7 @@ function positionLabel(row: RawLineupRow): string | undefined {
 
 function teamNameForLineupRow(
   row: RawLineupRow,
-  fixture: NonNullable<FixtureDetailResponse["data"]>,
+  fixture: SmFixture,
 ): string {
   if (row.team?.name?.trim()) return row.team.name.trim();
   const tid = row.team_id;
@@ -108,7 +105,7 @@ export async function syncPlayersForMatch(
   try {
     detail = await sportmonksFetch<FixtureDetailResponse>(
       `/fixtures/${matchId}`,
-      { include: "lineup,localteam,visitorteam" },
+      { include: SM_FIXTURE_LINEUP_INCLUDE },
     );
   } catch (e) {
     return {
@@ -122,12 +119,21 @@ export async function syncPlayersForMatch(
     return { inserted: 0, note: "No fixture data in API response." };
   }
 
+  const supabaseMeta = createServiceClient();
+  const metaUpsert = await upsertSingleSmFixture(supabaseMeta, fixture);
+  const metaNote = metaUpsert.ok ? undefined : `Fixture metadata: ${metaUpsert.error}`;
+
   const lineup = unwrapIncludedList<RawLineupRow>(fixture.lineup);
   if (!lineup.length) {
-    return { inserted: 0, note: "No lineup on fixture (try after squads publish)." };
+    return {
+      inserted: 0,
+      note: [metaNote, "No lineup on fixture (try after squads publish)."]
+        .filter(Boolean)
+        .join(" · "),
+    };
   }
 
-  const supabase = createServiceClient();
+  const supabase = supabaseMeta;
   const rows = lineup
     .map((l) => {
       const nested = nestedPlayerPayload(l);
@@ -154,7 +160,12 @@ export async function syncPlayersForMatch(
       in_playing_xi: true as const,
     }));
 
-  if (!rows.length) return { inserted: 0, note: "Lineup rows empty after map." };
+  if (!rows.length) {
+    return {
+      inserted: 0,
+      note: [metaNote, "Lineup rows empty after map."].filter(Boolean).join(" · "),
+    };
+  }
 
   const xiSportmonksIds = rows.map((r) => r.sportmonks_id);
 
@@ -163,7 +174,10 @@ export async function syncPlayersForMatch(
   });
 
   if (error) {
-    return { inserted: 0, note: error.message };
+    return {
+      inserted: 0,
+      note: [metaNote, error.message].filter(Boolean).join(" · "),
+    };
   }
 
   const { error: clearErr } = await supabase
@@ -173,7 +187,12 @@ export async function syncPlayersForMatch(
     .not("sportmonks_id", "is", null);
 
   if (clearErr) {
-    return { inserted: rows.length, note: `Lineup saved but could not clear XI flags: ${clearErr.message}` };
+    return {
+      inserted: rows.length,
+      note: [metaNote, `Lineup saved but could not clear XI flags: ${clearErr.message}`]
+        .filter(Boolean)
+        .join(" · "),
+    };
   }
 
   const { error: markErr } = await supabase
@@ -183,15 +202,15 @@ export async function syncPlayersForMatch(
     .in("sportmonks_id", xiSportmonksIds);
 
   if (markErr) {
-    return { inserted: rows.length, note: `Lineup saved but could not mark XI: ${markErr.message}` };
+    return {
+      inserted: rows.length,
+      note: [metaNote, `Lineup saved but could not mark XI: ${markErr.message}`]
+        .filter(Boolean)
+        .join(" · "),
+    };
   }
 
-  return { inserted: rows.length };
-}
-
-/** Matches seeded in 20260328000000_seed_mock_data.sql use ids 900001–900099; not in SportMonks. */
-export function isSportmonksFixtureId(id: number): boolean {
-  return id < 900_001 || id > 909_999;
+  return { inserted: rows.length, note: metaNote };
 }
 
 const SYNC_PLAYERS_MATCH_LIMIT = 80;

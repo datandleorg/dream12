@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   HomeUpcomingCard,
   type HomeMatchCardModel,
 } from "@/components/home-upcoming-card";
+import { MatchListFilterTabs, type MatchListFilter } from "@/components/match-list-filter";
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
 
 const matchColumns =
@@ -21,43 +23,43 @@ type MatchRow = {
   team_b_logo_url: string | null;
 };
 
-export default async function HomePage() {
+function parseFilter(raw: string | undefined): MatchListFilter {
+  if (raw === "upcoming" || raw === "completed") return raw;
+  return "live";
+}
+
+const EMPTY_COPY: Record<MatchListFilter, string> = {
+  live: "No live matches right now.",
+  upcoming: "No upcoming matches.",
+  completed: "No completed matches yet.",
+};
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
+  const { filter: raw } = await searchParams;
+  const filter = parseFilter(raw);
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const nowIso = new Date().toISOString();
+  let query = supabase.from("matches").select(matchColumns).eq("status", filter);
+  query =
+    filter === "completed"
+      ? query.order("start_time", { ascending: false })
+      : query.order("start_time", { ascending: true });
 
-  const [{ data: statusRows, error: errUpcoming }, { data: futureCompletedRows, error: errFuture }] =
-    await Promise.all([
-      supabase
-        .from("matches")
-        .select(matchColumns)
-        .in("status", ["upcoming", "live"])
-        .order("start_time", { ascending: true }),
-      supabase
-        .from("matches")
-        .select(matchColumns)
-        .eq("status", "completed")
-        .gt("start_time", nowIso)
-        .order("start_time", { ascending: true }),
-    ]);
+  const { data: statusRows, error: matchErr } = await query;
 
-  if (process.env.NODE_ENV === "development" && (errUpcoming || errFuture)) {
-    console.error("[home] matches query error:", errUpcoming ?? errFuture);
+  if (process.env.NODE_ENV === "development" && matchErr) {
+    console.error("[home] matches query error:", matchErr);
   }
 
-  const byId = new Map<number, MatchRow>();
-  for (const m of (statusRows ?? []) as MatchRow[]) {
-    byId.set(Number(m.id), m);
-  }
-  for (const m of (futureCompletedRows ?? []) as MatchRow[]) {
-    if (!byId.has(Number(m.id))) byId.set(Number(m.id), m);
-  }
-  const rows = [...byId.values()].sort(
-    (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
-  );
+  const rows = (statusRows ?? []) as MatchRow[];
 
   const matchIds = rows.map((m) => Number(m.id));
   const contestsByMatchId = new Map<
@@ -119,18 +121,32 @@ export default async function HomePage() {
     };
   });
 
+  const subtitle =
+    filter === "live"
+      ? "Matches in progress — pick a match and join a contest."
+      : filter === "upcoming"
+        ? "Starting soon — pick a match and join a contest."
+        : "Past matches — open for results and contests you joined.";
+
   return (
     <div className="space-y-4 py-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Upcoming</h1>
-        <p className="text-muted-foreground text-sm">
-          Pick a match and join a contest.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Matches</h1>
+        <p className="text-muted-foreground text-sm">{subtitle}</p>
       </div>
+
+      <Suspense
+        fallback={
+          <div className="bg-muted/50 h-12 animate-pulse rounded-xl border" aria-hidden />
+        }
+      >
+        <MatchListFilterTabs />
+      </Suspense>
+
       {!matches.length ? (
         <Card>
           <CardHeader>
-            <CardTitle>No upcoming matches</CardTitle>
+            <CardTitle>{EMPTY_COPY[filter]}</CardTitle>
           </CardHeader>
         </Card>
       ) : (

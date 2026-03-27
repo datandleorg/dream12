@@ -27,6 +27,7 @@ import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { MatchStartCountdown } from "@/components/match-start-countdown";
 
 export function PitchPreview({
   matchId,
@@ -119,6 +120,25 @@ export function PitchPreview({
         >
           ← Captain
         </Link>
+      </div>
+
+      <div className="bg-muted/40 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="font-medium text-foreground">Match starts in</span>
+          <MatchStartCountdown
+            startIso={match.start_time}
+            className="font-semibold text-foreground"
+          />
+        </p>
+        {match.match_format ? (
+          <p className="mt-0.5 text-xs">{match.match_format}</p>
+        ) : null}
+        {match.venue_label ? (
+          <p className="mt-0.5 text-xs">{match.venue_label}</p>
+        ) : null}
+        {match.stage_label ? (
+          <p className="mt-0.5 text-xs">{match.stage_label}</p>
+        ) : null}
       </div>
 
       {rosterLocked ? (
