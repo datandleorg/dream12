@@ -1,6 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { sportmonksFetch, sportmonksToken } from "./client";
 import type { SyncLogger } from "./sync-logger";
+import {
+  extractSportmonksPositionName,
+  inferRoleFromPositionLabel,
+} from "./infer-role-from-position-label";
 import { unwrapIncludedList } from "./sync-reference";
 
 type NestedPlayer = {
@@ -23,6 +27,8 @@ type RawSquadRow = {
   full_name?: string;
   firstname?: string;
   lastname?: string;
+  /** Flat player shape from `/teams/:id/squad/:season` (same as nested player). */
+  image_path?: string;
 };
 
 function nestedPlayerPayload(row: RawSquadRow): NestedPlayer | undefined {
@@ -49,29 +55,7 @@ function firstStr(...vals: unknown[]): string | undefined {
 }
 
 function squadPositionLabel(row: RawSquadRow): string | undefined {
-  const pos = row.position;
-  if (typeof pos === "string") return pos;
-  return pos?.name;
-}
-
-const roleMap: Record<string, "BAT" | "BOWL" | "AR" | "WK"> = {
-  batsman: "BAT",
-  bowler: "BOWL",
-  "all rounder": "AR",
-  "all-rounder": "AR",
-  wicketkeeper: "WK",
-  "wicketkeeper batsman": "WK",
-};
-
-function inferRole(pos?: string): "BAT" | "BOWL" | "AR" | "WK" {
-  if (!pos) return "BAT";
-  const k = pos.toLowerCase();
-  for (const [needle, r] of Object.entries(roleMap)) {
-    if (k.includes(needle)) return r;
-  }
-  if (k.includes("wk")) return "WK";
-  if (k.includes("bowl")) return "BOWL";
-  return "BAT";
+  return extractSportmonksPositionName(row.position);
 }
 
 function creditHeuristic(): number {
@@ -170,6 +154,27 @@ function parseSquadRowsFromResponse(json: unknown, log?: SyncLogger): RawSquadRo
   return [];
 }
 
+/**
+ * `/teams/{id}/squad/{season}` often returns `{ data: { id, image_path, squad: [...] } }`.
+ * Update `sm_teams.image_path` from that shell when present.
+ */
+function teamMetaFromSquadEndpointResponse(
+  json: unknown,
+  expectedTeamId: number,
+): { image_path: string; updated_at: string | null } | null {
+  if (json == null || typeof json !== "object") return null;
+  const root = json as Record<string, unknown>;
+  const data = root.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const d = data as Record<string, unknown>;
+  const id = typeof d.id === "number" && Number.isFinite(d.id) ? d.id : null;
+  if (id !== expectedTeamId) return null;
+  const image_path = firstStr(d.image_path as string | undefined);
+  if (!image_path) return null;
+  const updated_at = firstStr(d.updated_at as string | undefined) ?? null;
+  return { image_path, updated_at };
+}
+
 function squadJsonShape(json: unknown): Record<string, unknown> {
   if (json == null || typeof json !== "object") return { root: typeof json };
   const root = json as Record<string, unknown>;
@@ -219,13 +224,14 @@ function rowToDbPayload(
       nested?.common_name,
     ) ?? (pid != null ? `Player #${pid}` : undefined);
   if (pid == null || !name) return null;
+  const photo = firstStr(nested?.image_path, row.image_path) ?? null;
   return {
     season_id: seasonId,
     team_id: teamId,
     player_sportmonks_id: pid,
     player_name: name,
     position_label: squadPositionLabel(row) ?? null,
-    photo_url: nested?.image_path?.trim() ?? null,
+    photo_url: photo,
   };
 }
 
@@ -269,6 +275,23 @@ export async function syncSquadsForSeason(
       }
 
       log?.entry("squad.fetched", { teamId, seasonId, parsedRows: list.length });
+
+      const teamMeta = teamMetaFromSquadEndpointResponse(json, teamId);
+      if (teamMeta) {
+        const patch: { image_path: string; updated_at?: string } = {
+          image_path: teamMeta.image_path,
+        };
+        if (teamMeta.updated_at) patch.updated_at = teamMeta.updated_at;
+        const { error: teamImgErr } = await supabase
+          .from("sm_teams")
+          .update(patch)
+          .eq("id", teamId);
+        if (teamImgErr) {
+          log?.entry("squad.teamImageUpdateError", { teamId, message: teamImgErr.message });
+        } else {
+          log?.entry("squad.teamImageUpdated", { teamId });
+        }
+      }
 
       const payload = list.map((row) => rowToDbPayload(seasonId, teamId, row)).filter(Boolean) as {
         season_id: number;
@@ -394,7 +417,7 @@ export async function hydrateMatchPlayersFromSeasonSquads(
           match_id: mid,
           name: r.player_name as string,
           team: tname,
-          role: inferRole((r.position_label as string) ?? undefined),
+          role: inferRoleFromPositionLabel((r.position_label as string) ?? undefined),
           credit_value: creditHeuristic(),
           photo_url: (r.photo_url as string | null) ?? null,
           in_playing_xi: prev !== undefined ? prev : null,

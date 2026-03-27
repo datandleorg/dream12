@@ -10,6 +10,9 @@ import {
   syncPlayersForMatch,
 } from "@/lib/sportmonks/sync";
 
+/** Always read fresh `players.role` from DB after sync (no static cache of squad pool). */
+export const dynamic = "force-dynamic";
+
 export default async function ContestSquadPage({
   params,
 }: {
@@ -32,7 +35,7 @@ export default async function ContestSquadPage({
 
   if (!data.players.length) {
     return (
-      <div className="py-4">
+      <div className="flex min-h-0 flex-1 flex-col py-4">
         <HydrateTeamFlow
           contestId={contestId}
           players={data.players}
@@ -41,16 +44,14 @@ export default async function ContestSquadPage({
           initialViceId={data.initialViceId}
         />
         <p className="text-muted-foreground text-sm">
-          No lineup from SportMonks for this match yet—squads often appear closer
-          to the start. Re-run your sync job or seed players in Supabase for local
-          testing.
+          No players in the pool yet for this match. Run sync or check SportMonks data.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="py-2">
+    <div className="flex min-h-[calc(100dvh-8rem)] flex-1 flex-col py-2">
       <HydrateTeamFlow
         contestId={contestId}
         players={data.players}

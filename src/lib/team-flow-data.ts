@@ -4,6 +4,7 @@ import { countRosterNotInPlayingXi } from "@/lib/lineup-conflict";
 
 export type TeamFlowPlayerRow = {
   id: string;
+  sportmonks_id: number | null;
   name: string;
   team: string;
   role: string;
@@ -25,6 +26,7 @@ export type TeamFlowMatchRow = {
   team_b: string | null;
   team_a_logo_url: string | null;
   team_b_logo_url: string | null;
+  season_id: number | null;
 };
 
 export type TeamFlowContestSummary = {
@@ -36,7 +38,7 @@ export type TeamFlowContestSummary = {
 };
 
 const PLAYERS_SELECT =
-  "id,name,team,role,credit_value,season_points,selection_pct,played_last_match,photo_url,in_playing_xi" as const;
+  "id,sportmonks_id,name,team,role,credit_value,season_points,selection_pct,played_last_match,photo_url,in_playing_xi" as const;
 
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -72,7 +74,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
   const { data: match } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url",
+      "id,name,start_time,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id",
     )
     .eq("id", matchId)
     .single();

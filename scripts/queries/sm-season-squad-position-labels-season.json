@@ -1,0 +1,13 @@
+{
+  "op": "select",
+  "table": "sm_season_squad",
+  "select": "position_label",
+  "eq": {
+    "season_id": 1795
+  },
+  "paginate": true,
+  "pageSize": 1000,
+  "aggregate": {
+    "groupBy": "position_label"
+  }
+}

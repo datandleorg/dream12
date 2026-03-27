@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { RoleKey } from "@/lib/fantasy/rules";
+import { SQUAD_SIZE, type RoleKey } from "@/lib/fantasy/rules";
+import { canAddPlayerToSquad } from "@/lib/fantasy/validate-squad";
 
 export type BuilderPlayer = {
   id: string;
@@ -15,12 +16,16 @@ export type BuilderPlayer = {
   in_playing_xi?: boolean | null;
 };
 
+export type TogglePlayerResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
 type State = {
   selected: BuilderPlayer[];
   captainId: string | null;
   viceCaptainId: string | null;
   roleTab: RoleKey;
-  togglePlayer: (p: BuilderPlayer) => void;
+  togglePlayer: (p: BuilderPlayer) => TogglePlayerResult;
   setCaptain: (id: string | null) => void;
   setViceCaptain: (id: string | null) => void;
   setRoleTab: (r: RoleKey) => void;
@@ -28,8 +33,8 @@ type State = {
 };
 
 function roleKeyFromDb(role: string): RoleKey {
-  if (role === "WK" || role === "BAT" || role === "AR" || role === "BOWL")
-    return role;
+  const r = String(role).trim().toUpperCase();
+  if (r === "WK" || r === "BAT" || r === "AR" || r === "BOWL") return r;
   return "BAT";
 }
 
@@ -66,7 +71,8 @@ export const useTeamBuilderStore = create<State>((set) => ({
   captainId: null,
   viceCaptainId: null,
   roleTab: "WK",
-  togglePlayer: (p) =>
+  togglePlayer: (p) => {
+    let rejection: string | undefined;
     set((s) => {
       const has = s.selected.some((x) => x.id === p.id);
       if (has) {
@@ -76,9 +82,30 @@ export const useTeamBuilderStore = create<State>((set) => ({
           viceCaptainId: s.viceCaptainId === p.id ? null : s.viceCaptainId,
         };
       }
-      if (s.selected.length >= 11) return s;
+      if (s.selected.length >= SQUAD_SIZE) {
+        rejection = `Squad is full (${SQUAD_SIZE} players).`;
+        return s;
+      }
+      const pickSel = s.selected.map((x) => ({
+        id: x.id,
+        team: x.team,
+        role: x.role,
+        credit_value: x.credit_value,
+      }));
+      const add = canAddPlayerToSquad(pickSel, {
+        id: p.id,
+        team: p.team,
+        role: p.role,
+        credit_value: p.credit_value,
+      });
+      if (!add.ok) {
+        rejection = add.message;
+        return s;
+      }
       return { selected: [...s.selected, p] };
-    }),
+    });
+    return rejection != null ? { ok: false, message: rejection } : { ok: true };
+  },
   setCaptain: (id) => set({ captainId: id }),
   setViceCaptain: (id) => set({ viceCaptainId: id }),
   setRoleTab: (roleTab) => set({ roleTab }),

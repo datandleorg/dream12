@@ -1,0 +1,10 @@
+{
+  "op": "select",
+  "table": "sm_season_squad",
+  "select": "position_label",
+  "paginate": true,
+  "pageSize": 1000,
+  "aggregate": {
+    "groupBy": "position_label"
+  }
+}

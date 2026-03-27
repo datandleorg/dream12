@@ -26,6 +26,7 @@ import { LoadingOverlay } from "@/components/loading-overlay";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 
 export function PitchPreview({
   matchId,
@@ -58,6 +59,7 @@ export function PitchPreview({
   const creditsUsed = selected.reduce((s, p) => s + p.credit_value, 0);
   const creditsLeft = MAX_CREDITS - creditsUsed;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
+  const rosterLocked = isTeamEditLocked(match.start_time);
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
@@ -119,10 +121,17 @@ export function PitchPreview({
         </Link>
       </div>
 
+      {rosterLocked ? (
+        <p className="text-zinc-600 px-1 text-center text-xs dark:text-zinc-400">
+          Team lock is on (1 minute before start). Saving or updating your team is no longer allowed.
+        </p>
+      ) : null}
+
       {lineupConflictSelected > 0 ? (
         <LineupConflictBanner
           count={lineupConflictSelected}
           editHref={`${base}/squad`}
+          matchStartIso={match.start_time}
         />
       ) : null}
 
@@ -150,7 +159,7 @@ export function PitchPreview({
           <Button
             type="button"
             className="min-h-11 flex-[2]"
-            disabled={saving}
+            disabled={saving || rosterLocked}
             onClick={() => setConfirmOpen(true)}
           >
             Save team

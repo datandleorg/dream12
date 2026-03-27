@@ -31,7 +31,12 @@ export function HydrateTeamFlow({
     .map((p) => `${p.id}:${p.in_playing_xi === true ? "t" : p.in_playing_xi === false ? "f" : "n"}`)
     .sort()
     .join(";");
-  const hydrateKey = `${contestId}|${initialRoster.join(",")}|${initialCaptainId ?? ""}|${initialViceId ?? ""}|${xiSig}`;
+  /** Must change when DB roles change, or Zustand keeps stale roles after refresh/sync. */
+  const roleSig = players
+    .map((p) => `${p.id}:${p.role}`)
+    .sort()
+    .join(";");
+  const hydrateKey = `${contestId}|${initialRoster.join(",")}|${initialCaptainId ?? ""}|${initialViceId ?? ""}|${xiSig}|${roleSig}`;
 
   useEffect(() => {
     const pre = initialRoster

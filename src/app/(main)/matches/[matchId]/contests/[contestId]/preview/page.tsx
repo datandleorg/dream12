@@ -3,6 +3,8 @@ import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
 import { PitchPreview } from "@/components/team-flow/pitch-preview";
 import { loadTeamFlowData } from "@/lib/team-flow-data";
 
+export const dynamic = "force-dynamic";
+
 export default async function ContestPreviewPage({
   params,
 }: {

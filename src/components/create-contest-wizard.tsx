@@ -102,6 +102,10 @@ export function CreateContestWizard({
         <p className="text-muted-foreground mt-1 text-center text-xs">
           Starts {new Date(startIso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
         </p>
+        <p className="text-muted-foreground mt-2 text-center text-[11px] leading-relaxed">
+          After you create this contest, you&apos;ll pick a team from the same pool as
+          joiners: official squads for the match, with playing XI marks once lineups sync.
+        </p>
       </div>
 
       <div className="bg-muted/40 flex items-center justify-between gap-2 rounded-lg border px-3 py-2">

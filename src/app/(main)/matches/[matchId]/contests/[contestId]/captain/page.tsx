@@ -3,6 +3,8 @@ import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
 import { CaptainSelector } from "@/components/team-flow/captain-selector";
 import { loadTeamFlowData } from "@/lib/team-flow-data";
 
+export const dynamic = "force-dynamic";
+
 export default async function ContestCaptainPage({
   params,
 }: {

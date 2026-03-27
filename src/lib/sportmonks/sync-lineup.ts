@@ -1,6 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import type { SmTeamInclude } from "./client";
 import { sportmonksFetch, sportmonksToken } from "./client";
+import {
+  extractSportmonksPositionName,
+  inferRoleFromPositionLabel,
+} from "./infer-role-from-position-label";
 
 /** SportMonks v2 nests includes as `{ data: T | T[] }` or a plain array. */
 function unwrapIncludedList<T>(raw: unknown): T[] {
@@ -67,9 +71,7 @@ function firstStr(...vals: unknown[]): string | undefined {
 }
 
 function positionLabel(row: RawLineupRow): string | undefined {
-  const pos = row.position;
-  if (typeof pos === "string") return pos;
-  return pos?.name;
+  return extractSportmonksPositionName(row.position);
 }
 
 function teamNameForLineupRow(
@@ -85,26 +87,6 @@ function teamNameForLineupRow(
     return fixture.visitorteam?.name?.trim() ?? "TBC";
   }
   return "TBC";
-}
-
-const roleMap: Record<string, "BAT" | "BOWL" | "AR" | "WK"> = {
-  batsman: "BAT",
-  bowler: "BOWL",
-  "all rounder": "AR",
-  "all-rounder": "AR",
-  wicketkeeper: "WK",
-  "wicketkeeper batsman": "WK",
-};
-
-function inferRole(pos?: string): "BAT" | "BOWL" | "AR" | "WK" {
-  if (!pos) return "BAT";
-  const k = pos.toLowerCase();
-  for (const [needle, r] of Object.entries(roleMap)) {
-    if (k.includes(needle)) return r;
-  }
-  if (k.includes("wk")) return "WK";
-  if (k.includes("bowl")) return "BOWL";
-  return "BAT";
 }
 
 function creditHeuristic(): number {
@@ -167,7 +149,7 @@ export async function syncPlayersForMatch(
       match_id: matchId,
       name: x.name as string,
       team: teamNameForLineupRow(x.row, fixture),
-      role: inferRole(positionLabel(x.row)),
+      role: inferRoleFromPositionLabel(positionLabel(x.row)),
       credit_value: creditHeuristic(),
       in_playing_xi: true as const,
     }));
