@@ -9,7 +9,7 @@ import { MatchListFilterTabs, type MatchListFilter } from "@/components/match-li
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
 
 const matchColumns =
-  "id, name, start_time, status, tournament_name, team_a, team_b, team_a_logo_url, team_b_logo_url";
+  "id, name, start_time, status, tournament_name, team_a, team_b, team_a_logo_url, team_b_logo_url, live_snapshot, sm_fixture_status";
 
 type MatchRow = {
   id: number | string;
@@ -21,6 +21,8 @@ type MatchRow = {
   team_b: string | null;
   team_a_logo_url: string | null;
   team_b_logo_url: string | null;
+  live_snapshot: unknown;
+  sm_fixture_status: string | null;
 };
 
 function parseFilter(raw: string | undefined): MatchListFilter {
@@ -118,6 +120,8 @@ export default async function HomePage({
       team_a_logo_url: m.team_a_logo_url,
       team_b_logo_url: m.team_b_logo_url,
       max_prize_pool,
+      live_snapshot: m.live_snapshot,
+      sm_fixture_status: m.sm_fixture_status,
     };
   });
 

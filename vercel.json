@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/live-scores",
       "schedule": "30 21 * * *"
+    },
+    {
+      "path": "/api/cron/sync-scoreboards",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

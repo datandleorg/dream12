@@ -19,8 +19,11 @@ import {
 import { cn } from "@/lib/utils";
 import { getLineupConflictCountsByContest } from "@/lib/lineup-conflict-queries";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
+import { MatchShortScore } from "@/components/match-short-score";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
+import { parseLiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 
 function venueStageLabels(
@@ -59,12 +62,18 @@ export default async function MatchDetailPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id",
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,sm_fixture_status",
     )
     .eq("id", matchId)
     .single();
 
   if (!matchRow) notFound();
+
+  const liveSnapshot = parseLiveSnapshot(matchRow.live_snapshot);
+  const statusKey = String(matchRow.status).toLowerCase();
+  const isUpcoming = statusKey === "upcoming";
+  const isLive = statusKey === "live";
+  const isCompleted = statusKey === "completed";
 
   let venueRow: { name: string | null; city: string | null } | null = null;
   let stageRow: { name: string | null; code: string | null } | null = null;
@@ -175,13 +184,23 @@ export default async function MatchDetailPage({
             timeStyle: "short",
           })}
         </p>
-        <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <span>Starts in</span>
-          <MatchStartCountdown
-            startIso={match.start_time}
-            className="font-medium text-foreground"
-          />
-        </p>
+        <FixtureSmStatusLine label={matchRow.sm_fixture_status as string | null} className="mt-1" />
+        <MatchShortScore snapshot={liveSnapshot} className="mt-1" />
+        {isCompleted ? (
+          <p className="text-muted-foreground mt-1 text-sm font-medium">Match finished</p>
+        ) : isLive ? (
+          <p className="text-emerald-700 dark:text-emerald-400 mt-1 text-sm font-medium">
+            Match in progress
+          </p>
+        ) : (
+          <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <span>Starts in</span>
+            <MatchStartCountdown
+              startIso={match.start_time}
+              className="font-medium text-foreground"
+            />
+          </p>
+        )}
         {venueLine ? (
           <p className="text-muted-foreground mt-1 text-sm">{venueLine}</p>
         ) : null}
@@ -197,8 +216,19 @@ export default async function MatchDetailPage({
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-medium">Contests</h2>
-        {user ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <h2 className="text-lg font-medium">Contests</h2>
+          <Link
+            href={`/matches/${matchId}/live`}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "inline-flex min-h-10 w-full items-center justify-center sm:w-auto",
+            )}
+          >
+            Live score
+          </Link>
+        </div>
+        {user && isUpcoming ? (
           rosterLocked ? (
             <span
               className={cn(
@@ -256,58 +286,69 @@ export default async function MatchDetailPage({
                       {c.max_participants} joined
                     </CardDescription>
                   </CardHeader>
-                  <CardFooter className="flex flex-col gap-2 sm:flex-row">
-                    {user ? (
-                      isCreatorDraftContest(
-                        {
-                          created_by: c.created_by as string | null,
-                          creator_joined_at: c.creator_joined_at as string | null,
-                        },
-                        user.id,
-                      ) ? (
-                        rosterLocked ? (
-                          <span
-                            className={cn(
-                              buttonVariants({ variant: "default" }),
-                              "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:flex-1",
-                            )}
-                            title="Team lock is on — you cannot finish contest setup now."
-                          >
-                            Continue setup (locked)
-                          </span>
+                  <CardFooter className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <Link
+                      href={`/contests/${c.id}`}
+                      className={cn(
+                        buttonVariants({ variant: "default" }),
+                        "inline-flex min-h-11 w-full items-center justify-center sm:min-w-[10rem] sm:flex-1",
+                      )}
+                    >
+                      Leaderboard
+                    </Link>
+                    {!isCompleted ? (
+                      user ? (
+                        isCreatorDraftContest(
+                          {
+                            created_by: c.created_by as string | null,
+                            creator_joined_at: c.creator_joined_at as string | null,
+                          },
+                          user.id,
+                        ) ? (
+                          rosterLocked ? (
+                            <span
+                              className={cn(
+                                buttonVariants({ variant: "secondary" }),
+                                "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:flex-1",
+                              )}
+                              title="Team lock is on — you cannot finish contest setup now."
+                            >
+                              Continue setup (locked)
+                            </span>
+                          ) : (
+                            <Link
+                              href={`/matches/${matchId}/contests/${c.id}/squad`}
+                              className={cn(
+                                buttonVariants({ variant: "secondary" }),
+                                "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
+                              )}
+                            >
+                              Continue setup
+                            </Link>
+                          )
                         ) : (
-                          <Link
-                            href={`/matches/${matchId}/contests/${c.id}/squad`}
-                            className={cn(
-                              buttonVariants({ variant: "default" }),
-                              "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
-                            )}
-                          >
-                            Continue setup
-                          </Link>
+                          <JoinContestButton
+                            matchId={matchId}
+                            contestId={c.id}
+                            entryFee={Number(c.entry_fee)}
+                            balance={balance}
+                            label="Join"
+                            disabled={rosterLocked}
+                            disabledReason="Team lock is on — you cannot join new contests this close to start."
+                          />
                         )
                       ) : (
-                        <JoinContestButton
-                          matchId={matchId}
-                          contestId={c.id}
-                          entryFee={Number(c.entry_fee)}
-                          balance={balance}
-                          label="Join"
-                          disabled={rosterLocked}
-                          disabledReason="Team lock is on — you cannot join new contests this close to start."
-                        />
+                        <Link
+                          href={`/login?next=${encodeURIComponent(`/matches/${matchId}`)}`}
+                          className={cn(
+                            buttonVariants({ variant: "secondary" }),
+                            "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
+                          )}
+                        >
+                          Sign in to join
+                        </Link>
                       )
-                    ) : (
-                      <Link
-                        href={`/login?next=${encodeURIComponent(`/matches/${matchId}`)}`}
-                        className={cn(
-                          buttonVariants({ variant: "default" }),
-                          "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
-                        )}
-                      >
-                        Sign in to join
-                      </Link>
-                    )}
+                    ) : null}
                   </CardFooter>
                 </Card>
               </li>

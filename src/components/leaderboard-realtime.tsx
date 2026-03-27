@@ -14,9 +14,12 @@ export type Row = {
 export function LeaderboardRealtime({
   contestId,
   initialRows,
+  refreshNonce = 0,
 }: {
   contestId: string;
   initialRows: Row[];
+  /** Increment after `router.refresh()` to re-sync from server `initialRows`. */
+  refreshNonce?: number;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [flash, setFlash] = useState<Record<string, "up" | "down">>({});
@@ -25,6 +28,12 @@ export function LeaderboardRealtime({
     () => [...rows].sort((a, b) => b.total_points - a.total_points),
     [rows],
   );
+
+  useEffect(() => {
+    if (refreshNonce === 0) return;
+    setRows(initialRows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when pull-to-refresh bumps nonce
+  }, [refreshNonce]);
 
   useEffect(() => {
     const supabase = createClient();

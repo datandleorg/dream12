@@ -1,41 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SmFixture, SmStageInclude, SmVenueInclude } from "./client";
+import { mapMatchStatusFromSmFixture, smFixtureStatusLabel } from "./match-status-from-sm";
+
+export { mapMatchStatusFromSmFixture } from "./match-status-from-sm";
 
 export function fixtureTitle(f: SmFixture): string {
   if (f.name?.trim()) return f.name.trim();
   const a = f.localteam?.name ?? "Team A";
   const b = f.visitorteam?.name ?? "Team B";
   return `${a} vs ${b}`;
-}
-
-export function mapMatchStatusFromSmFixture(f: SmFixture): "upcoming" | "live" | "completed" {
-  const live = f.live;
-  if (live === true || live === 1) return "live";
-
-  const startMs = f.starting_at ? Date.parse(f.starting_at) : NaN;
-  const now = Date.now();
-  const startsInFuture = Number.isFinite(startMs) && startMs > now;
-
-  const s = (f.status ?? "").toLowerCase();
-  if (s.includes("live") || s.includes("inn")) return "live";
-
-  if (s === "ns" || s.includes("scheduled") || s.includes("not started")) {
-    return "upcoming";
-  }
-
-  if (startsInFuture) {
-    return "upcoming";
-  }
-
-  if (
-    s.includes("finished") ||
-    s.includes("completed") ||
-    s.includes("aban") ||
-    s.includes("abandon")
-  ) {
-    return "completed";
-  }
-  return "upcoming";
 }
 
 export function teamIdFromInclude(
@@ -80,6 +53,7 @@ export type MatchUpsertRow = {
   name: string;
   start_time: string;
   status: "upcoming" | "live" | "completed";
+  sm_fixture_status: string | null;
   tournament_name: string | null;
   team_a: string | null;
   team_b: string | null;
@@ -210,6 +184,7 @@ export function smFixtureToMatchRow(f: SmFixture): MatchUpsertRow | null {
     name: fixtureTitle(f),
     start_time: f.starting_at,
     status: mapMatchStatusFromSmFixture(f),
+    sm_fixture_status: smFixtureStatusLabel(f),
     tournament_name: f.league?.name?.trim() || null,
     team_a: f.localteam?.name?.trim() || null,
     team_b: f.visitorteam?.name?.trim() || null,

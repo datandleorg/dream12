@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
+import { LeaderboardPullRefresh } from "@/components/leaderboard-pull-refresh";
 import { ContestMatchInfo } from "@/components/contest-match-info";
+import type { Row } from "@/components/leaderboard-realtime";
+import { parseLiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
@@ -56,10 +58,12 @@ export default async function ContestLeaderboardPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id",
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,sm_fixture_status",
     )
     .eq("id", matchId)
     .maybeSingle();
+
+  const liveSnapshot = parseLiveSnapshot(matchRow?.live_snapshot);
 
   let venueRow: { name: string | null; city: string | null } | null = null;
   let stageRow: { name: string | null; code: string | null } | null = null;
@@ -139,13 +143,15 @@ export default async function ContestLeaderboardPage({
           matchFormat={matchRow.match_format ?? null}
           venueLine={venueLine}
           stageLine={stageLine}
+          liveSnapshot={liveSnapshot}
+          smFixtureStatus={matchRow.sm_fixture_status as string | null}
         />
       ) : null}
 
       {!initialRows.length ? (
         <p className="text-muted-foreground text-sm">No teams yet.</p>
       ) : (
-        <LeaderboardRealtime contestId={contestId} initialRows={initialRows} />
+        <LeaderboardPullRefresh contestId={contestId} initialRows={initialRows} />
       )}
     </div>
   );

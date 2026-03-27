@@ -8,7 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
+import { MatchShortScore } from "@/components/match-short-score";
 import { MatchStatusBadge } from "@/components/match-status-badge";
+import { parseLiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
 import { formatMatchCountdownCoarse, msUntilStart } from "@/lib/time/match-countdown";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +26,8 @@ export type HomeMatchCardModel = {
   team_a_logo_url: string | null;
   team_b_logo_url: string | null;
   max_prize_pool: number;
+  live_snapshot?: unknown;
+  sm_fixture_status?: string | null;
 };
 
 function TeamOrb({
@@ -73,6 +78,7 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
   const isCompleted = statusKey === "completed";
   const isLive = statusKey === "live";
   const isUpcoming = statusKey === "upcoming";
+  const liveSnap = parseLiveSnapshot(match.live_snapshot);
 
   useEffect(() => {
     if (isCompleted) return;
@@ -87,8 +93,7 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
   const card = (
     <Card
       className={cn(
-        !isUpcoming && "tap-app cursor-pointer transition-colors hover:border-primary/40 hover:bg-card/90",
-        isUpcoming && "cursor-default",
+        "tap-app cursor-pointer transition-colors hover:border-primary/40 hover:bg-card/90",
       )}
     >
       <CardHeader className="pb-2">
@@ -104,9 +109,10 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
           </CardTitle>
           <MatchStatusBadge status={match.status} className="shrink-0" />
         </div>
+        <FixtureSmStatusLine label={match.sm_fixture_status} className="pt-0.5" />
         <CardDescription className="flex flex-col gap-1 pt-1">
           {isCompleted ? (
-            <span className="tabular-nums">
+            <span className="tabular-nums" suppressHydrationWarning>
               Played{" "}
               {new Date(match.start_time).toLocaleString(undefined, {
                 dateStyle: "medium",
@@ -114,13 +120,22 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
               })}
             </span>
           ) : isLive ? (
-            <span className="font-medium text-emerald-700 tabular-nums dark:text-emerald-400">
-              Match in progress
+            <span className="flex flex-col gap-1">
+              <span className="font-medium text-emerald-700 tabular-nums dark:text-emerald-400">
+                Match in progress
+              </span>
+              <MatchShortScore
+                snapshot={liveSnap}
+                className="text-foreground/90 font-normal"
+              />
             </span>
           ) : (
             <span className="tabular-nums">Starts in {countdown}</span>
           )}
-          <span className="text-foreground/90 text-sm font-medium tabular-nums">
+          <span
+            className="text-foreground/90 text-sm font-medium tabular-nums"
+            suppressHydrationWarning
+          >
             Prize up to ₹{match.max_prize_pool.toLocaleString("en-IN")}
           </span>
         </CardDescription>
@@ -128,7 +143,7 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
       <div className="flex items-center justify-between px-6 pb-4">
         <TeamOrb label={teamA} logoUrl={match.team_a_logo_url} />
         <span className="text-muted-foreground max-w-[7rem] text-center text-xs font-medium leading-tight">
-          {isUpcoming ? "Opens when match is live" : "Tap for contests"}
+          {isUpcoming ? "Tap to create or join" : "Tap for contests"}
         </span>
         <TeamOrb label={teamB} logoUrl={match.team_b_logo_url} />
       </div>
@@ -137,19 +152,19 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
 
   return (
     <li>
-      {isUpcoming ? (
-        <div
-          className="block"
-          role="group"
-          aria-label="Upcoming match — open for contests when the match is live"
-        >
-          {card}
-        </div>
-      ) : (
-        <Link href={`/matches/${match.id}`} className="block">
-          {card}
-        </Link>
-      )}
+      <Link
+        href={`/matches/${match.id}`}
+        className="block"
+        aria-label={
+          isUpcoming
+            ? "Open match — create or join contests"
+            : isLive
+              ? "Open match — view contests and live scores"
+              : "Open match — view contests and results"
+        }
+      >
+        {card}
+      </Link>
     </li>
   );
 }

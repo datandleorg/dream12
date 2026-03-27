@@ -29,11 +29,15 @@ export default async function CreateContestPage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id,name,start_time,tournament_name,team_a,team_b")
+    .select("id,name,start_time,status,tournament_name,team_a,team_b")
     .eq("id", matchId)
     .single();
 
   if (!match) notFound();
+
+  if (String(match.status).toLowerCase() !== "upcoming") {
+    redirect(`/matches/${matchId}`);
+  }
 
   if (isTeamEditLocked(match.start_time)) {
     redirect(`/matches/${matchId}`);
