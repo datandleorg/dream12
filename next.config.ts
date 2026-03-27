@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
     "joesph-nonalliterative-nelida.ngrok-free.dev",
     "*.ngrok-free.dev",
   ],
+  async redirects() {
+    return [
+      {
+        source: "/favicon.ico",
+        destination: "/brand-logo.png",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -10,9 +10,9 @@
   "icons": [
     {
       "src": "/brand-logo.png",
-      "sizes": "512x512",
+      "sizes": "1024x558",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

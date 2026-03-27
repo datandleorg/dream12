@@ -21,9 +21,9 @@ export function BrandLogo({
         <Image
           src="/brand-logo.png"
           alt="Fantasy Cricket League"
-          width={44}
-          height={44}
-          className="size-11 shrink-0 rounded-lg object-cover shadow-md ring-2 ring-primary/40"
+          width={1024}
+          height={558}
+          className="h-11 w-auto max-w-[5.5rem] shrink-0 rounded-lg object-contain object-left shadow-md ring-2 ring-primary/40"
           priority
         />
         <div className="flex min-w-0 flex-col leading-none">
@@ -48,9 +48,9 @@ export function BrandLogo({
         <Image
           src="/brand-logo.png"
           alt="Fantasy Cricket League — logo"
-          width={320}
-          height={320}
-          className="relative w-[min(88vw,300px)] max-w-full rounded-2xl object-contain shadow-2xl ring-2 ring-accent/50"
+          width={1024}
+          height={558}
+          className="relative w-[min(94vw,380px)] max-w-full rounded-2xl object-contain shadow-2xl ring-2 ring-accent/50"
           priority
         />
       </div>
