@@ -25,6 +25,11 @@ export default async function MainLayout({
 
   const initialBalance = Number(profile?.wallet_balance ?? 0);
 
+  const { count: unreadNotifications } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .is("read_at", null);
+
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-1 flex-col pt-[env(safe-area-inset-top)]">
       <Suspense
@@ -35,7 +40,10 @@ export default async function MainLayout({
           </header>
         }
       >
-        <AppHeader initialBalance={initialBalance} />
+        <AppHeader
+          initialBalance={initialBalance}
+          unreadNotifications={unreadNotifications ?? 0}
+        />
       </Suspense>
       <main className="flex-1 px-4 pb-24">{children}</main>
       <BottomNav />

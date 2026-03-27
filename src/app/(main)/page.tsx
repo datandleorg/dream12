@@ -1,11 +1,14 @@
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   HomeUpcomingCard,
   type HomeMatchCardModel,
 } from "@/components/home-upcoming-card";
-import { MatchListFilterTabs, type MatchListFilter } from "@/components/match-list-filter";
+import { MatchListSection } from "@/components/match-list-filter";
+import {
+  parseMatchListFilter,
+  type MatchListFilter,
+} from "@/lib/match-list-filter";
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
 
 const matchColumns =
@@ -25,11 +28,6 @@ type MatchRow = {
   sm_fixture_status: string | null;
 };
 
-function parseFilter(raw: string | undefined): MatchListFilter {
-  if (raw === "upcoming" || raw === "completed") return raw;
-  return "live";
-}
-
 const EMPTY_COPY: Record<MatchListFilter, string> = {
   live: "No live matches right now.",
   upcoming: "No upcoming matches.",
@@ -42,7 +40,7 @@ export default async function HomePage({
   searchParams: Promise<{ filter?: string }>;
 }) {
   const { filter: raw } = await searchParams;
-  const filter = parseFilter(raw);
+  const filter = parseMatchListFilter(raw);
 
   const supabase = await createClient();
   const {
@@ -139,27 +137,21 @@ export default async function HomePage({
         <p className="text-muted-foreground text-sm">{subtitle}</p>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="bg-muted/50 h-12 animate-pulse rounded-xl border" aria-hidden />
-        }
-      >
-        <MatchListFilterTabs />
-      </Suspense>
-
-      {!matches.length ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{EMPTY_COPY[filter]}</CardTitle>
-          </CardHeader>
-        </Card>
-      ) : (
-        <ul className="space-y-3">
-          {matches.map((m) => (
-            <HomeUpcomingCard key={String(m.id)} match={m} />
-          ))}
-        </ul>
-      )}
+      <MatchListSection>
+        {!matches.length ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{EMPTY_COPY[filter]}</CardTitle>
+            </CardHeader>
+          </Card>
+        ) : (
+          <ul className="space-y-3">
+            {matches.map((m) => (
+              <HomeUpcomingCard key={String(m.id)} match={m} />
+            ))}
+          </ul>
+        )}
+      </MatchListSection>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { NAVIGATION_START_EVENT } from "@/lib/navigation-events";
 
 /**
  * Thin indeterminate bar during in-app navigations (internal link clicks).
@@ -25,6 +26,12 @@ export function NavigationProgress() {
       return () => cancelAnimationFrame(id);
     }
   }, [routeKey]);
+
+  useEffect(() => {
+    const onProgrammaticStart = () => setActive(true);
+    window.addEventListener(NAVIGATION_START_EVENT, onProgrammaticStart);
+    return () => window.removeEventListener(NAVIGATION_START_EVENT, onProgrammaticStart);
+  }, []);
 
   useEffect(() => {
     const onPointerDown = (e: PointerEvent) => {
@@ -54,10 +61,10 @@ export function NavigationProgress() {
 
   return (
     <div
-      className="pointer-events-none fixed top-0 right-0 left-0 z-[150] h-1 overflow-hidden bg-primary/15"
+      className="pointer-events-none fixed top-0 right-0 left-0 z-[150] h-1 overflow-hidden bg-red-600/20"
       aria-hidden
     >
-      <div className="nav-progress-indeterminate h-full w-full bg-primary/90" />
+      <div className="nav-progress-indeterminate h-full w-full bg-red-600" />
     </div>
   );
 }

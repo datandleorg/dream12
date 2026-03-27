@@ -15,11 +15,13 @@ export function LeaderboardRealtime({
   contestId,
   initialRows,
   refreshNonce = 0,
+  currentUserId = null,
 }: {
   contestId: string;
   initialRows: Row[];
   /** Increment after `router.refresh()` to re-sync from server `initialRows`. */
   refreshNonce?: number;
+  currentUserId?: string | null;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [flash, setFlash] = useState<Record<string, "up" | "down">>({});
@@ -102,6 +104,8 @@ export function LeaderboardRealtime({
             "flex min-h-11 items-center justify-between rounded-xl border px-4 py-3 transition-colors",
             flash[r.id] === "up" && "bg-emerald-500/15",
             flash[r.id] === "down" && "bg-red-500/10",
+            currentUserId && r.user_id === currentUserId &&
+              "border-primary bg-primary/8 ring-primary/25 ring-1",
           )}
         >
           <span className="text-muted-foreground w-8 font-medium tabular-nums">

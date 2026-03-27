@@ -10,9 +10,11 @@ const PULL_THRESHOLD_PX = 56;
 export function LeaderboardPullRefresh({
   contestId,
   initialRows,
+  currentUserId = null,
 }: {
   contestId: string;
   initialRows: Row[];
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -89,6 +91,7 @@ export function LeaderboardPullRefresh({
           contestId={contestId}
           initialRows={initialRows}
           refreshNonce={refreshNonce}
+          currentUserId={currentUserId}
         />
       </div>
     </div>

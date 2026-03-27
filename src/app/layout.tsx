@@ -47,10 +47,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Extensions (e.g. Chrome __gchrome_remoteframetoken) may alter <html> before hydrate.
   return (
     <html
       lang="en"
       className={`${display.variable} ${body.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-dvh flex flex-col font-sans">
         <Suspense fallback={null}>

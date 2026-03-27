@@ -7,6 +7,7 @@ import {
   extractSportmonksPositionName,
   inferRoleFromPositionLabel,
 } from "./infer-role-from-position-label";
+import { notifyLineupPublishedOnce } from "@/lib/notifications/lineup-notify";
 
 /** SportMonks v2 nests includes as `{ data: T | T[] }` or a plain array. */
 function unwrapIncludedList<T>(raw: unknown): T[] {
@@ -209,6 +210,8 @@ export async function syncPlayersForMatch(
         .join(" · "),
     };
   }
+
+  await notifyLineupPublishedOnce(matchId);
 
   return { inserted: rows.length, note: metaNote };
 }

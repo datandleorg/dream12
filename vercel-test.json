@@ -8,6 +8,14 @@
     {
       "path": "/api/cron/live-scores",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/finalize-scores",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/settle-contests",
+      "schedule": "45 * * * *"
     }
   ]
 }

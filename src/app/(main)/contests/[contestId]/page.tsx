@@ -37,7 +37,9 @@ export default async function ContestLeaderboardPage({
 
   const { data: contest } = await supabase
     .from("contests")
-    .select("id,name,match_id,created_by,creator_joined_at")
+    .select(
+      "id,name,match_id,created_by,creator_joined_at,entry_fee,prize_pool,max_participants,winner_count,prize_breakup",
+    )
     .eq("id", contestId)
     .single();
 
@@ -118,6 +120,28 @@ export default async function ContestLeaderboardPage({
     username: nameByUser.get(t.user_id as string) ?? null,
   }));
 
+  const sortedForRank = [...initialRows].sort((a, b) => b.total_points - a.total_points);
+  const myIndex =
+    user && userHasTeamInContest
+      ? sortedForRank.findIndex((r) => r.user_id === user.id)
+      : -1;
+  const myStandings =
+    myIndex >= 0
+      ? { rank: myIndex + 1, points: sortedForRank[myIndex]!.total_points }
+      : null;
+
+  type PrizeSlab = { rank_from: number; rank_to: number; amount: number };
+  const prizeSlabs: PrizeSlab[] = Array.isArray(contest.prize_breakup)
+    ? (contest.prize_breakup as unknown[]).filter(
+        (x): x is PrizeSlab =>
+          x != null &&
+          typeof x === "object" &&
+          "rank_from" in x &&
+          "rank_to" in x &&
+          "amount" in x,
+      )
+    : [];
+
   const matchSubtitle =
     matchRow?.team_a && matchRow?.team_b
       ? `${matchRow.team_a} vs ${matchRow.team_b}`
@@ -161,10 +185,39 @@ export default async function ContestLeaderboardPage({
         />
       ) : null}
 
+      <div className="bg-muted/40 space-y-2 rounded-xl border px-3 py-2.5 text-sm">
+        <p className="font-medium tabular-nums">
+          Pool ₹{Number(contest.prize_pool ?? 0).toFixed(0)} · Entry ₹
+          {Number(contest.entry_fee ?? 0).toFixed(0)} · {contest.max_participants} spots · Top{" "}
+          {Number(contest.winner_count ?? 1)} paid
+        </p>
+        {prizeSlabs.length ? (
+          <ul className="text-muted-foreground space-y-0.5 text-xs">
+            {prizeSlabs.map((s, i) => (
+              <li key={i} className="tabular-nums">
+                Ranks {s.rank_from}–{s.rank_to}: ₹{Number(s.amount).toFixed(0)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground text-xs">Prize slabs use contest defaults.</p>
+        )}
+      </div>
+
+      {myStandings ? (
+        <p className="border-primary/40 bg-primary/5 text-foreground rounded-xl border px-3 py-2 text-sm font-medium tabular-nums">
+          Your rank #{myStandings.rank} · {myStandings.points.toFixed(1)} pts
+        </p>
+      ) : null}
+
       {!initialRows.length ? (
         <p className="text-muted-foreground text-sm">No teams yet.</p>
       ) : (
-        <LeaderboardPullRefresh contestId={contestId} initialRows={initialRows} />
+        <LeaderboardPullRefresh
+          contestId={contestId}
+          initialRows={initialRows}
+          currentUserId={user?.id ?? null}
+        />
       )}
     </div>
   );
