@@ -26,7 +26,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { FlowHeader } from "@/components/team-flow/flow-header";
+import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
+import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { cn } from "@/lib/utils";
 
 function roleCounts(players: TeamFlowPlayerRow[]) {
@@ -88,6 +90,11 @@ export function SquadPicker({
   );
   const creditsLeft = MAX_CREDITS - creditsUsed;
 
+  const lineupConflictSelected = useMemo(
+    () => countSelectedNotInPlayingXi(selected),
+    [selected],
+  );
+
   const selectedA = selected.filter((p) => p.team === teamA).length;
   const selectedB = selected.filter((p) => p.team === teamB).length;
 
@@ -120,6 +127,12 @@ export function SquadPicker({
         squadSize={SQUAD_SIZE}
         creditsLeft={creditsLeft}
       />
+
+      {lineupConflictSelected > 0 ? (
+        <div className="px-1 pt-2">
+          <LineupConflictBanner count={lineupConflictSelected} />
+        </div>
+      ) : null}
 
       <div className="bg-[#f5f4ef] -mx-4 px-3 pt-0 pb-4 sm:px-4">
         <Tabs value={roleTab} onValueChange={(v) => setRoleTab(v as RoleKey)}>
@@ -216,8 +229,15 @@ export function SquadPicker({
                       </span>
                     </div>
                     <div className="min-w-0 pl-1">
-                      <div className="truncate text-[15px] font-semibold leading-tight text-zinc-900">
-                        {p.name}
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-[15px] font-semibold leading-tight text-zinc-900">
+                          {p.name}
+                        </span>
+                        {p.in_playing_xi === false ? (
+                          <span className="shrink-0 rounded border border-amber-400/80 bg-amber-100/90 px-1 py-px text-[9px] font-bold tracking-wide text-amber-950 uppercase">
+                            Not in XI
+                          </span>
+                        ) : null}
                       </div>
                       <div className="text-zinc-500 mt-1 text-[11px] tabular-nums">
                         Sel by {selPct.toFixed(2)}%

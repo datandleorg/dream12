@@ -24,4 +24,12 @@ begin
   end if;
 end $$;
 
+-- SportMonks reference data (migration 20260333000000; skip if not applied).
+do $$
+begin
+  if to_regclass('public.sm_leagues') is not null then
+    execute 'truncate table public.sm_season_squad, public.sm_season_team, public.sm_seasons, public.sm_teams, public.sm_leagues restart identity cascade';
+  end if;
+end $$;
+
 commit;

@@ -11,6 +11,8 @@ export type BuilderPlayer = {
   selection_pct?: number | null;
   played_last_match?: boolean | null;
   photo_url?: string | null;
+  /** null = unknown; false = not in official XI per sync */
+  in_playing_xi?: boolean | null;
 };
 
 type State = {
@@ -41,7 +43,10 @@ export function mapRowToBuilderPlayer(row: {
   selection_pct?: number | null;
   played_last_match?: boolean | null;
   photo_url?: string | null;
+  in_playing_xi?: boolean | null;
 }): BuilderPlayer {
+  const xi =
+    row.in_playing_xi === true ? true : row.in_playing_xi === false ? false : null;
   return {
     id: row.id,
     name: row.name,
@@ -52,6 +57,7 @@ export function mapRowToBuilderPlayer(row: {
     selection_pct: row.selection_pct ?? null,
     played_last_match: row.played_last_match ?? false,
     photo_url: row.photo_url ?? null,
+    in_playing_xi: xi,
   };
 }
 

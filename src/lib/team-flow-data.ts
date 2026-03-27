@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { countRosterNotInPlayingXi } from "@/lib/lineup-conflict";
 
 export type TeamFlowPlayerRow = {
   id: string;
@@ -11,6 +12,8 @@ export type TeamFlowPlayerRow = {
   selection_pct: number | null;
   played_last_match: boolean | null;
   photo_url: string | null;
+  /** null = lineup not synced; false = known not in official XI; true = in XI */
+  in_playing_xi: boolean | null;
 };
 
 export type TeamFlowMatchRow = {
@@ -33,7 +36,7 @@ export type TeamFlowContestSummary = {
 };
 
 const PLAYERS_SELECT =
-  "id,name,team,role,credit_value,season_points,selection_pct,played_last_match,photo_url" as const;
+  "id,name,team,role,credit_value,season_points,selection_pct,played_last_match,photo_url,in_playing_xi" as const;
 
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -46,7 +49,11 @@ async function loadPlayersForMatch(
     .select(PLAYERS_SELECT)
     .eq("match_id", matchId)
     .order("credit_value", { ascending: false });
-  return (players ?? []) as TeamFlowPlayerRow[];
+  return (players ?? []).map((p) => ({
+    ...p,
+    in_playing_xi:
+      p.in_playing_xi === true ? true : p.in_playing_xi === false ? false : null,
+  })) as TeamFlowPlayerRow[];
 }
 
 /** Re-fetch players for a match (e.g. after SportMonks sync). */
@@ -96,6 +103,11 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
     initialRoster = roster?.map((r) => r.player_id as string) ?? [];
   }
 
+  const xiMap = new Map<string, boolean | null>(
+    players.map((p) => [p.id, p.in_playing_xi]),
+  );
+  const lineupConflictCount = countRosterNotInPlayingXi(initialRoster, xiMap);
+
   const contestSummary: TeamFlowContestSummary = {
     id: contest.id,
     name: contest.name,
@@ -113,5 +125,6 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
     initialRoster,
     initialCaptainId: (team?.captain_id as string) ?? null,
     initialViceId: (team?.vice_captain_id as string) ?? null,
+    lineupConflictCount,
   };
 }

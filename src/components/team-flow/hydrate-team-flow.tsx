@@ -27,7 +27,11 @@ export function HydrateTeamFlow({
   const setCaptain = useTeamBuilderStore((s) => s.setCaptain);
   const setViceCaptain = useTeamBuilderStore((s) => s.setViceCaptain);
 
-  const hydrateKey = `${contestId}|${initialRoster.join(",")}|${initialCaptainId ?? ""}|${initialViceId ?? ""}`;
+  const xiSig = players
+    .map((p) => `${p.id}:${p.in_playing_xi === true ? "t" : p.in_playing_xi === false ? "f" : "n"}`)
+    .sort()
+    .join(";");
+  const hydrateKey = `${contestId}|${initialRoster.join(",")}|${initialCaptainId ?? ""}|${initialViceId ?? ""}|${xiSig}`;
 
   useEffect(() => {
     const pre = initialRoster

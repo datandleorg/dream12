@@ -9,8 +9,10 @@ import { mockCaptainPct, mockVicePct } from "@/lib/fantasy/mock-stats";
 import { playerAvatarUrl } from "@/lib/avatar-url";
 import { useTeamBuilderStore } from "@/stores/team-builder";
 import type { TeamFlowMatchRow } from "@/lib/team-flow-data";
+import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { Button } from "@/components/ui/button";
 import { FlowHeader } from "@/components/team-flow/flow-header";
+import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { cn } from "@/lib/utils";
 
 export function CaptainSelector({
@@ -41,6 +43,7 @@ export function CaptainSelector({
   const creditsLeft = MAX_CREDITS - creditsUsed;
   const selectedA = selected.filter((p) => p.team === teamA).length;
   const selectedB = selected.filter((p) => p.team === teamB).length;
+  const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
@@ -64,6 +67,13 @@ export function CaptainSelector({
         squadSize={SQUAD_SIZE}
         creditsLeft={creditsLeft}
       />
+
+      {lineupConflictSelected > 0 ? (
+        <LineupConflictBanner
+          count={lineupConflictSelected}
+          editHref={`${base}/squad`}
+        />
+      ) : null}
 
       <Link
         href={`${base}/squad`}

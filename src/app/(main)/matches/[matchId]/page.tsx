@@ -16,6 +16,7 @@ import {
   isCreatorDraftContest,
 } from "@/lib/contest-visibility";
 import { cn } from "@/lib/utils";
+import { getLineupConflictCountsByContest } from "@/lib/lineup-conflict-queries";
 
 export default async function MatchDetailPage({
   params,
@@ -69,6 +70,15 @@ export default async function MatchDetailPage({
   );
 
   const contestIds = contests.map((c) => c.id);
+  let lineupConflictsByContest = new Map<string, number>();
+  if (user && contestIds.length) {
+    lineupConflictsByContest = await getLineupConflictCountsByContest(
+      matchId,
+      user.id,
+      contestIds,
+    );
+  }
+
   const filledByContest = new Map<string, number>();
   if (contestIds.length) {
     const { data: teamRows } = await supabase
@@ -132,12 +142,23 @@ export default async function MatchDetailPage({
         <ul className="space-y-3">
           {contests.map((c) => {
             const filled = filledByContest.get(c.id) ?? 0;
+            const lineupConflict = lineupConflictsByContest.get(c.id) ?? 0;
             return (
               <li key={c.id}>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">
-                      {c.name?.trim() || "Contest"}
+                    <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
+                      <span>{c.name?.trim() || "Contest"}</span>
+                      {lineupConflict > 0 ? (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/60 bg-amber-500/10 font-semibold text-amber-950 dark:text-amber-100"
+                        >
+                          {lineupConflict === 1
+                            ? "1 not in XI"
+                            : `${lineupConflict} not in XI`}
+                        </Badge>
+                      ) : null}
                     </CardTitle>
                     <CardDescription>
                       Entry ₹{Number(c.entry_fee)} · Pool ₹

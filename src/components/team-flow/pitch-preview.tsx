@@ -24,6 +24,8 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
+import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
+import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 
 export function PitchPreview({
   matchId,
@@ -55,6 +57,7 @@ export function PitchPreview({
 
   const creditsUsed = selected.reduce((s, p) => s + p.credit_value, 0);
   const creditsLeft = MAX_CREDITS - creditsUsed;
+  const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
@@ -115,6 +118,13 @@ export function PitchPreview({
           ← Captain
         </Link>
       </div>
+
+      {lineupConflictSelected > 0 ? (
+        <LineupConflictBanner
+          count={lineupConflictSelected}
+          editHref={`${base}/squad`}
+        />
+      ) : null}
 
       <TeamFieldPreview
         teamA={teamA}

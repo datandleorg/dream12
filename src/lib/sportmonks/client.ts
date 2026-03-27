@@ -35,6 +35,7 @@ export async function sportmonksFetch<T = unknown>(
 
 /** Team / league includes from Cricket API v2 list/detail responses */
 export interface SmTeamInclude {
+  id?: number;
   name?: string;
   /** Often a full URL or CDN path from SportMonks */
   image_path?: string;
@@ -53,6 +54,10 @@ export interface SmFixture {
   localteam?: SmTeamInclude;
   visitorteam?: SmTeamInclude;
   league?: SmLeagueInclude;
+  league_id?: number;
+  season_id?: number;
+  localteam_id?: number;
+  visitorteam_id?: number;
   status?: string;
   /** Cricket API uses 0/1 or boolean for in-progress */
   live?: boolean | number;
