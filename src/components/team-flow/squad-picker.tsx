@@ -194,16 +194,18 @@ export function SquadPicker({
                   key={r}
                   value={r}
                   className={cn(
-                    "min-h-12 flex-none rounded-none bg-transparent px-1 py-3 text-xs font-medium text-zinc-500 shadow-none",
-                    "border-0 border-x-0 border-t-0 border-b-2 border-transparent pb-3",
-                    "-mb-px",
+                    "group flex min-h-12 flex-none items-end justify-center rounded-none border-0 bg-transparent px-1 py-3 text-xs font-medium text-zinc-500 shadow-none",
                     "after:hidden",
-                    "data-active:border-primary data-active:font-bold data-active:text-zinc-900",
                     "hover:text-zinc-700",
-                    "dark:data-active:text-zinc-100",
                   )}
                 >
-                  <span className="tabular-nums">
+                  <span
+                    className={cn(
+                      "tabular-nums -mb-px inline-block border-b-2 border-transparent pb-0.5",
+                      "group-data-[active]:border-primary group-data-[active]:font-bold group-data-[active]:text-zinc-900",
+                      "dark:group-data-[active]:text-zinc-100",
+                    )}
+                  >
                     {tabShort(r)} ({rc[r]})
                   </span>
                 </TabsTrigger>

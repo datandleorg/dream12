@@ -15,6 +15,13 @@ function mapRpcError(msg: string): string {
   }
   if (m.includes("deadline")) return "Team lock deadline has passed.";
   if (m.includes("not authenticated")) return "Sign in again to save your team.";
+  if (
+    m.includes("duplicate key") ||
+    m.includes("unique constraint") ||
+    m.includes("user_teams_user_id_contest_id")
+  ) {
+    return "You already have a team in this contest.";
+  }
   return msg;
 }
 

@@ -139,14 +139,18 @@ export default async function MatchDetailPage({
   }
 
   const filledByContest = new Map<string, number>();
+  const joinedContestIds = new Set<string>();
   if (contestIds.length) {
     const { data: teamRows } = await supabase
       .from("user_teams")
-      .select("contest_id")
+      .select("contest_id,user_id")
       .in("contest_id", contestIds);
     for (const r of teamRows ?? []) {
       const id = r.contest_id as string;
       filledByContest.set(id, (filledByContest.get(id) ?? 0) + 1);
+      if (user && r.user_id === user.id) {
+        joinedContestIds.add(id);
+      }
     }
   }
 
@@ -326,6 +330,16 @@ export default async function MatchDetailPage({
                               Continue setup
                             </Link>
                           )
+                        ) : joinedContestIds.has(c.id) ? (
+                          <Link
+                            href={`/matches/${matchId}/contests/${c.id}/squad`}
+                            className={cn(
+                              buttonVariants({ variant: "secondary" }),
+                              "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
+                            )}
+                          >
+                            My team
+                          </Link>
                         ) : (
                           <JoinContestButton
                             matchId={matchId}

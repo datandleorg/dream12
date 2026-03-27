@@ -54,6 +54,17 @@ export default async function ContestLeaderboardPage({
     notFound();
   }
 
+  let userHasTeamInContest = false;
+  if (user) {
+    const { data: myTeamRow } = await supabase
+      .from("user_teams")
+      .select("id")
+      .eq("contest_id", contestId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    userHasTeamInContest = Boolean(myTeamRow);
+  }
+
   const matchId = Number(contest.match_id);
   const { data: matchRow } = await supabase
     .from("matches")
@@ -122,15 +133,17 @@ export default async function ContestLeaderboardPage({
           <h1 className="text-xl font-semibold leading-tight">{title}</h1>
           <p className="text-muted-foreground text-sm">Live leaderboard</p>
         </div>
-        <Link
-          href={`/matches/${contest.match_id}/contests/${contestId}/squad`}
-          className={cn(
-            buttonVariants({ variant: "outline", size: "sm" }),
-            "inline-flex min-h-11 shrink-0 items-center justify-center",
-          )}
-        >
-          My team
-        </Link>
+        {userHasTeamInContest ? (
+          <Link
+            href={`/matches/${contest.match_id}/contests/${contestId}/squad`}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "inline-flex min-h-11 shrink-0 items-center justify-center",
+            )}
+          >
+            My team
+          </Link>
+        ) : null}
       </div>
 
       {matchRow ? (
