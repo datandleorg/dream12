@@ -63,6 +63,15 @@ Edit `vercel.json`, then rebuild/restart the cron container so the crontab is re
 
 Avoid quotes, `$`, and backticks in `CRON_SECRET`; the crontab is generated with shell quoting. Use a long alphanumeric secret.
 
+## Admin console and wallet UPI
+
+- **Admin login:** [http://localhost:3000/adminlogin](http://localhost:3000/adminlogin) (only users with `profiles.is_admin = true`).
+- **First admin:** In Supabase SQL editor, after creating a user under **Authentication**, run:
+  `update public.profiles set is_admin = true where id = '<that-user-uuid>';`
+- **Disable public sign-up:** In Supabase **Authentication → Providers → Email**, turn off **Allow new users to sign up** so only admins can create accounts (the app also redirects `/signup` to `/login`).
+- **Wallet pay-in:** Set `NEXT_PUBLIC_COMPANY_UPI_VPA` (and optionally `NEXT_PUBLIC_COMPANY_UPI_PAYEE_NAME`) in `.env` so players get a correct `upi://pay` intent on the wallet page.
+- **Service role:** Creating users from **Admin → Users** uses `SUPABASE_SERVICE_ROLE_KEY` on the server; keep it secret.
+
 ## Running without ngrok
 
 Stop only that service: `docker compose up web cron` (or comment out the `ngrok` block temporarily).

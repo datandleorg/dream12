@@ -8,10 +8,14 @@ Copy `.env.example` to `.env.local` and fill in values.
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Client + server | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client + server | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server only | Service role (admin checks, Razorpay wallet finalize, cron) |
-| `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Client + server | Razorpay key id for Checkout (safe to expose) |
-| `RAZORPAY_KEY_ID` | Server only (optional) | Same as public key id if you prefer not to duplicate env names on the server |
-| `RAZORPAY_KEY_SECRET` | Server only | Razorpay secret for orders API and signature verification — **never** put this in client code |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server only | Service role (admin user management, cron) — **never** in client code |
+| `NEXT_PUBLIC_COMPANY_UPI_VPA` | Client + server | Company UPI ID for wallet pay-in intents (e.g. `merchant@paytm`) |
+| `NEXT_PUBLIC_COMPANY_UPI_PAYEE_NAME` | Client (optional) | Display name in UPI intent |
+| `NEXT_PUBLIC_UPI_MERCHANT_CATEGORY_CODE` | Client (optional) | Used only when `NEXT_PUBLIC_UPI_FULL_LINK_PARAMS=true` — real merchant MCC |
+| `NEXT_PUBLIC_UPI_FULL_LINK_PARAMS` | Client (optional) | If `true`, adds `tr` (+ optional `tn`, `mc`) — **merchant/intent-style**; can trigger **stricter bank limits** than manual P2P. Default is **minimal** link (`pa`,`pn`,`am`,`cu` only). |
+| `NEXT_PUBLIC_UPI_USER_ENTERS_AMOUNT` | Client (optional) | If `true`, omits `am` from the link so the user types the amount in GPay/PhonePe (closest to fully manual send). |
+
+**Wallet UPI links:** Built with `%20` for spaces (not `+`). **Default = minimal** to reduce “exceeded limit for this type of payment” vs manual UPI send (banks often apply lower caps to intent/merchant-style links that include `tr` / `mc`).
 | `SPORTMONKS_API_TOKEN` | Server only | [Cricket API v2.0](https://docs.sportmonks.com/v2/cricket-api/our-api/fixtures/get-all-fixtures) — required for match sync |
 | `SPORTMONKS_LEAGUE_ID` | Server only (optional) | `filter[league_id]` when importing fixtures |
 | `SPORTMONKS_SEASON_ID` | Server only (optional) | `filter[season_id]` for a specific season |
@@ -23,7 +27,7 @@ Match import uses **`filter[starts_between]`** (rolling window), optional **`fil
 
 **IPL (and other leagues):** SportMonks’ walkthrough [IPL 2026: Live Score Coverage & API Demo](https://www.sportmonks.com/blogs/ipl-2026-season-opener-live-score-coverage-api-demo/) recommends (1) `GET /leagues`, find **Indian Premier League**, read **`id`** (league) and **`season_id`**; (2) pull fixtures for that season. In this app, set **`SPORTMONKS_LEAGUE_ID`** to the IPL league id and **`SPORTMONKS_SEASON_ID`** to that `season_id` so sync targets the right tournament. The blog uses example query style `filters=seasonId:…` in places; our client uses documented **`filter[season_id]`** query keys—same intent. For matchday live data, their flow uses **`GET /livescores`** with rich **`include`** (runs, batting, bowling, lineup, toss, venue); that matches how [`/api/cron/live-scores`](src/app/api/cron/live-scores/route.ts) is oriented, which you can extend with more includes per the blog.
 
-For production (e.g. Vercel), set the same variables as encrypted secrets. Use [Razorpay test mode](https://razorpay.com/docs/payments/server-integration/nodejs/payment-gateway/build-integration/#test-mode) keys locally.
+For production (e.g. Vercel), set the same variables as encrypted secrets. Wallet top-ups use manual UPI pay-in requests approved in the admin console.
 
 ### Login over ngrok (or any non-localhost URL)
 

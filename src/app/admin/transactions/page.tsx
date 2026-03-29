@@ -22,9 +22,12 @@ export default async function AdminTransactionsPage() {
   return (
     <div className="space-y-4">
       <p className="text-muted-foreground text-sm">
-        Approve to credit wallet via RPC. Set{" "}
-        <code className="text-xs">is_admin = true</code> on your profile in
-        Supabase for access.
+        Legacy <code className="text-xs">transactions</code> rows (manual UTR / Razorpay history).
+        New top-ups use{" "}
+        <a href="/admin/pay-in-requests" className="text-accent underline underline-offset-4">
+          Pay-in requests
+        </a>
+        .
       </p>
       <AdminTransactionTable
         rows={

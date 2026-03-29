@@ -37,13 +37,13 @@ export default async function ProfilePage() {
       </Card>
       {profile?.is_admin ? (
         <Link
-          href="/admin/transactions"
+          href="/admin/pay-in-requests"
           className={cn(
             buttonVariants({ variant: "default" }),
             "inline-flex min-h-11 w-full items-center justify-center",
           )}
         >
-          Admin: transactions
+          Admin console
         </Link>
       ) : null}
       <SignOutButton />

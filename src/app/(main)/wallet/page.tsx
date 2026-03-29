@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { WalletForm } from "@/components/wallet-form";
-import { WalletRazorpayCard } from "@/components/wallet-top-up-sheet";
+import { WalletPayInSection } from "@/components/wallet-pay-in";
+import { WalletPayOutSection } from "@/components/wallet-pay-out";
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import {
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { safeInternalPath } from "@/lib/safe-return-to";
+import { companyUpiFromEnv } from "@/lib/upi";
 
 export default async function WalletPage({
   searchParams,
@@ -32,7 +33,23 @@ export default async function WalletPage({
     .eq("id", user.id)
     .single();
 
-  const balance = profile?.wallet_balance ?? 0;
+  const balance = Number(profile?.wallet_balance ?? 0);
+
+  const { data: payIns } = await supabase
+    .from("pay_in_requests")
+    .select("id,amount_inr,utr_ref,status,created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const { data: payOuts } = await supabase
+    .from("pay_out_requests")
+    .select("id,amount_inr,payee_upi,status,created_at,payout_utr_ref")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const company = companyUpiFromEnv();
 
   return (
     <div className="space-y-4 py-4">
@@ -51,7 +68,7 @@ export default async function WalletPage({
       <Card>
         <CardHeader>
           <CardTitle className="text-3xl font-bold tabular-nums">
-            ₹{Number(balance).toFixed(2)}
+            ₹{balance.toFixed(2)}
           </CardTitle>
           <CardDescription>Available balance</CardDescription>
         </CardHeader>
@@ -59,37 +76,59 @@ export default async function WalletPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Instant top-up</CardTitle>
+          <CardTitle>Add money (UPI)</CardTitle>
           <CardDescription>
-            Pay with UPI, cards, or net banking via Razorpay. Balance updates immediately after
-            payment.
+            Pay the company UPI ID, then submit your reference for admin approval.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <WalletRazorpayCard returnTo={continueHref} />
+          {!company ? (
+            <p className="text-muted-foreground text-sm">
+              Wallet top-up is not configured yet. Set{" "}
+              <code className="text-xs">NEXT_PUBLIC_COMPANY_UPI_VPA</code> in the environment.
+            </p>
+          ) : (
+            <WalletPayInSection
+              userId={user.id}
+              companyVpa={company.vpa}
+              companyPayeeName={company.payeeName}
+              initialRows={
+                (payIns ?? []).map((r) => ({
+                  id: r.id as string,
+                  amount_inr: Number(r.amount_inr),
+                  utr_ref: r.utr_ref as string,
+                  status: r.status as string,
+                  created_at: r.created_at as string,
+                }))
+              }
+            />
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Add money (manual UTR)</CardTitle>
+          <CardTitle>Withdraw (UPI payout)</CardTitle>
           <CardDescription>
-            Scan the UPI QR, pay, then submit your UTR below. An admin will approve your credit.
+            Request a payout to your UPI ID. An admin will approve and send funds from the company
+            account.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-muted relative mx-auto flex aspect-square w-full max-w-[240px] items-center justify-center overflow-hidden rounded-lg border">
-            {/* Replace with /upi-qr.png in public/ for production */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/upi-qr-placeholder.svg"
-              alt="UPI QR code"
-              width={240}
-              height={240}
-              className="object-contain p-4"
-            />
-          </div>
-          <WalletForm userId={user.id} />
+        <CardContent>
+          <WalletPayOutSection
+            userId={user.id}
+            walletBalance={balance}
+            initialRows={
+              (payOuts ?? []).map((r) => ({
+                id: r.id as string,
+                amount_inr: Number(r.amount_inr),
+                payee_upi: r.payee_upi as string,
+                status: r.status as string,
+                created_at: r.created_at as string,
+                payout_utr_ref: (r.payout_utr_ref as string | null) ?? null,
+              }))
+            }
+          />
         </CardContent>
       </Card>
     </div>

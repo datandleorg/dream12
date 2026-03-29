@@ -4,6 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
+const nav = [
+  { href: "/admin/pay-in-requests", label: "Pay-in" },
+  { href: "/admin/pay-out-requests", label: "Pay-out" },
+  { href: "/admin/users", label: "Users" },
+  { href: "/admin/transactions", label: "Legacy UTR" },
+  { href: "/admin/audit", label: "Audit" },
+] as const;
+
 export default async function AdminLayout({
   children,
 }: {
@@ -13,7 +21,9 @@ export default async function AdminLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    redirect("/adminlogin?next=/admin");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -24,18 +34,32 @@ export default async function AdminLayout({
   if (!profile?.is_admin) redirect("/");
 
   return (
-    <div className="bg-background min-h-dvh px-4 py-6 md:mx-auto md:max-w-4xl">
-      <div className="mb-6 flex items-center justify-between gap-2">
+    <div className="bg-background min-h-dvh px-4 py-6 md:mx-auto md:max-w-5xl">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-lg font-semibold">Admin</h1>
-        <Link
-          href="/"
-          className={cn(
-            buttonVariants({ variant: "outline", size: "sm" }),
-            "inline-flex min-h-11 items-center justify-center",
-          )}
-        >
-          Back to app
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {nav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "inline-flex min-h-9 items-center justify-center",
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <Link
+            href="/"
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "sm" }),
+              "inline-flex min-h-9 items-center justify-center",
+            )}
+          >
+            App
+          </Link>
+        </div>
       </div>
       {children}
     </div>
