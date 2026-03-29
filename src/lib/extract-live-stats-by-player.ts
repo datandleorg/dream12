@@ -12,8 +12,10 @@ function hasStatLikeFields(o: Record<string, unknown>): boolean {
     "b" in o ||
     "fours" in o ||
     "four" in o ||
+    "four_x" in o ||
     "sixes" in o ||
     "six" in o ||
+    "six_x" in o ||
     "wickets" in o ||
     "overs" in o ||
     "runs_conceded" in o ||
@@ -46,11 +48,20 @@ export function collectPlayerIdKeys(o: Record<string, unknown>): Set<string> {
   addKey(keys, o.playerId);
   addKey(keys, o.batsman_id);
   addKey(keys, o.bowler_id);
+  const batsman = o.batsman;
+  if (batsman && typeof batsman === "object" && batsman !== null) {
+    addKey(keys, (batsman as { id?: unknown }).id);
+  }
+  const bowler = o.bowler;
+  if (bowler && typeof bowler === "object" && bowler !== null) {
+    addKey(keys, (bowler as { id?: unknown }).id);
+  }
   const oid = o.id;
   if (
     typeof oid === "number" &&
     Number.isFinite(oid) &&
-    hasStatLikeFields(o)
+    hasStatLikeFields(o) &&
+    keys.size === 0
   ) {
     keys.add(String(oid));
   }

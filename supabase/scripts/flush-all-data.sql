@@ -1,106 +1,46 @@
--- Flush ALL data: auth users, profiles (wallets), fantasy rows, payouts, notifications,
--- manual/Razorpay transactions, SportMonks reference tables.
+-- Flush ALL application data: fantasy rows, SportMonks reference tables, wallets, transactions,
+-- notifications, pay requests, audit log, and every row in auth.users (and auth.identities / sessions).
 --
 -- Irreversible. Run in Supabase Dashboard → SQL Editor, or:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/scripts/flush-all-data.sql
 --
--- Requires a database role that can DELETE from auth.users (e.g. postgres / service connection).
+-- Requires a role that can DELETE from auth.users (e.g. postgres / service connection).
 --
--- Intentionally NOT under supabase/migrations/: adding this as a numbered migration would run once
--- on `supabase db push` and destroy production data.
+-- Intentionally NOT under supabase/migrations/: do not auto-run this on deploy.
 
 begin;
 
--- Pay-in / pay-out / audit (defined in init migration); optional if tables missing.
-do $$
-begin
-  if to_regclass('public.pay_in_requests') is not null then
-    execute 'truncate table public.pay_in_requests restart identity cascade';
-  end if;
-  if to_regclass('public.pay_out_requests') is not null then
-    execute 'truncate table public.pay_out_requests restart identity cascade';
-  end if;
-  if to_regclass('public.admin_audit_log') is not null then
-    execute 'truncate table public.admin_audit_log restart identity cascade';
-  end if;
-end $$;
-
--- Cascades to auth.identities, auth.sessions, etc. (Supabase auth schema), and via
--- public.profiles ON DELETE CASCADE to user_teams, transactions, notifications, razorpay_orders, …
-delete from auth.users;
-
--- Clear everything that may still reference matches / SportMonks (contests survive user delete
--- with created_by set null). Postgres resolves FK order within one TRUNCATE.
+-- 1) Public app data (FK-safe order; CASCADE clears dependent rows if any remain)
 truncate table
   public.team_roster,
   public.contest_payouts,
-  public.notifications,
   public.user_teams,
+  public.notifications,
   public.transactions,
+  public.razorpay_orders,
+  public.pay_in_requests,
+  public.pay_out_requests,
+  public.admin_audit_log,
   public.contests,
   public.players,
-  public.matches,
-  public.profiles
+  public.matches
 restart identity cascade;
 
--- Razorpay audit table (init migration); optional if missing.
-do $$
-begin
-  if to_regclass('public.razorpay_orders') is not null then
-    execute 'truncate table public.razorpay_orders restart identity cascade';
-  end if;
-end $$;
+-- 2) SportMonks reference (venues/stages depend on leagues/seasons)
+truncate table
+  public.sm_season_squad,
+  public.sm_season_team,
+  public.sm_stages,
+  public.sm_venues,
+  public.sm_seasons,
+  public.sm_teams,
+  public.sm_leagues
+restart identity cascade;
 
--- SportMonks reference data (init migration).
-do $$
-begin
-  if to_regclass('public.sm_leagues') is not null then
-    if to_regclass('public.sm_stages') is not null and to_regclass('public.sm_venues') is not null then
-      execute $t$
-        truncate table
-          public.sm_season_squad,
-          public.sm_season_team,
-          public.sm_stages,
-          public.sm_venues,
-          public.sm_seasons,
-          public.sm_teams,
-          public.sm_leagues
-        restart identity cascade
-      $t$;
-    elsif to_regclass('public.sm_stages') is not null then
-      execute $t$
-        truncate table
-          public.sm_season_squad,
-          public.sm_season_team,
-          public.sm_stages,
-          public.sm_seasons,
-          public.sm_teams,
-          public.sm_leagues
-        restart identity cascade
-      $t$;
-    elsif to_regclass('public.sm_venues') is not null then
-      execute $t$
-        truncate table
-          public.sm_season_squad,
-          public.sm_season_team,
-          public.sm_venues,
-          public.sm_seasons,
-          public.sm_teams,
-          public.sm_leagues
-        restart identity cascade
-      $t$;
-    else
-      execute $t$
-        truncate table
-          public.sm_season_squad,
-          public.sm_season_team,
-          public.sm_seasons,
-          public.sm_teams,
-          public.sm_leagues
-        restart identity cascade
-      $t$;
-    end if;
-  end if;
-end $$;
+-- 3) Auth + profiles (profiles.id → auth.users; cascade from user delete)
+delete from auth.users;
+
+-- 4) Safety: empty profiles if any orphan rows ever existed (normally empty after step 3)
+truncate table public.profiles restart identity cascade;
 
 commit;

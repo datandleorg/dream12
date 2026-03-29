@@ -1,15 +1,42 @@
--- Mock contest + 24 users for match id 69518 only (same logic as seed-mock-users-contest-for-match.sql).
--- Contest UUID: a1b2c3d4-e5f6-4789-a012-000000010f6e
--- Password: Dream12Mock!Seed
--- With 0 players, set v_auto_seed_players := true (default) to insert 22 mock squad rows.
--- For other fixture ids use: seed-mock-users-contest-for-match.sql
+-- Mock users + one contest + 24 fantasy teams for a given public.matches.id (fixture id).
+--
+-- Preconditions
+--   - Row exists in public.matches for v_match
+--   - At least 22 rows in public.players for v_match (or leave v_auto_seed_players := true to insert
+--     22 mock players when count is 0 — same as seed-minimal-players-for-match.sql)
+--   - If 1..21 players exist, add more or run seed-minimal-players-for-match.sql with v_replace_existing
+--
+-- Edit v_match (and optionally v_num_users, v_entry_fee) below, then run in SQL Editor
+-- (postgres / service role). Needs INSERT on auth.users + auth.identities.
+--
+-- If auth.instances is empty, the block reuses instance_id from an existing auth.users row,
+-- else falls back to the all-zero UUID (works on many Supabase builds).
+--
+-- Cleanup before re-run (replace <match_id> and use the contest id printed in NOTICE):
+--   DELETE FROM public.team_roster WHERE team_id IN (
+--     SELECT id FROM public.user_teams WHERE contest_id = '<contest_uuid>'::uuid
+--   );
+--   DELETE FROM public.contest_payouts WHERE contest_id = '<contest_uuid>'::uuid;
+--   DELETE FROM public.user_teams WHERE contest_id = '<contest_uuid>'::uuid;
+--   DELETE FROM public.contests WHERE id = '<contest_uuid>'::uuid;
+--   DELETE FROM auth.users WHERE email LIKE format('mock_%s_u%%@dream12.test', '<match_id>') ESCAPE '\';
+--
+-- After seed — verify scoring for a completed match
+--   1. Ensure public.matches.fixture_scoreboard_raw is populated (sync or paste JSON).
+--   2. Run app finalize: cron /api/cron/finalize-scores or call update path for that match.
+--   3. Or use scripts/apply-mock-contest-points.ts if you have a matching stats JSON fixture.
+--   4. Optional: UPDATE public.matches SET status = 'completed' WHERE id = v_match;
+--   5. See supabase/scripts/verify-completed-match-scoring.sql for comparison queries.
+--
+-- Login (all mock users share the same password):
+--   Password: Dream12Mock!Seed
 
 do $seed$
 declare
-  v_match bigint := 69518;
+  v_match bigint := 69518; -- <<< CHANGE to your public.matches.id (fixture id)
   v_num_users int := 24;
   v_entry_fee numeric(12, 2) := 49;
-  v_auto_seed_players boolean := true;
+  v_auto_seed_players boolean := true; -- when true and 0 players, insert 22 mock squad rows
   v_instance uuid;
   v_contest uuid;
   n_players int;
@@ -92,7 +119,7 @@ begin
   end if;
 
   if exists (select 1 from public.contests where id = v_contest) then
-    raise exception 'contest % already exists — run cleanup first', v_contest;
+    raise exception 'contest % already exists — run cleanup in script header first', v_contest;
   end if;
 
   select array_agg(id order by name, id) into v_players from public.players where match_id = v_match;
@@ -112,7 +139,7 @@ begin
   ) values (
     v_contest,
     v_match,
-    'Mock mega league 69518',
+    format('Mock mega league %s', v_match),
     v_entry_fee,
     5000,
     100,
@@ -179,6 +206,7 @@ begin
       timezone('utc', now())
     );
 
+    -- Ensure profile row exists (trigger can fail silently on some hosts; missing profile breaks login).
     insert into public.profiles (id, username, wallet_balance)
     values (v_uid, v_uname, 10000.00)
     on conflict (id) do update set

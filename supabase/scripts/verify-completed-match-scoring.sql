@@ -1,0 +1,52 @@
+-- Verify fantasy scoring after a match is completed (manual / cron / finalize pipeline).
+--
+-- Prerequisites
+--   - public.matches.fixture_scoreboard_raw populated for the fixture
+--   - public.players rows for that match with sportmonks_id aligned to scoreboard keys
+--   - user_teams + team_roster filled (e.g. seed-mock-users-contest-for-match.sql)
+--
+-- Typical flow
+--   1) Set match to completed (optional if you only care about points math):
+--        update public.matches
+--        set status = 'completed',
+--            scoring_finalized_at = null
+--        where id = <MATCH_ID>;
+--   2) Recompute points from DB + SportMonks:
+--        - Deployed: GET /api/cron/finalize-scores with CRON_SECRET, or
+--        - App code path: finalizeScoringForMatch / runFinalizeScoringBatch
+--   3) Or set totals from a known-good JSON fixture:
+--        - npm run mock:apply-points   (match 69518 + fixtures/mock-live-stats-69518.json only)
+--
+-- Replace <MATCH_ID> below and run sections as needed.
+
+-- ---------------------------------------------------------------------------
+-- Leaderboard-style totals (compare after finalize)
+-- ---------------------------------------------------------------------------
+-- select
+--   p.username,
+--   ut.total_points,
+--   ut.id as user_team_id
+-- from public.user_teams ut
+-- join public.profiles p on p.id = ut.user_id
+-- where ut.match_id = <MATCH_ID>
+-- order by ut.total_points desc;
+
+-- ---------------------------------------------------------------------------
+-- Per-player breakdown (from app: contest team breakdown action / UI)
+-- ---------------------------------------------------------------------------
+-- Use the contest preview / leaderboard for the seeded contest, or query roster + live map in code.
+
+-- ---------------------------------------------------------------------------
+-- Contest settlement check (after scoring_finalized_at set and ranks stable)
+-- ---------------------------------------------------------------------------
+-- select public.settle_contest_prizes('<CONTEST_UUID>'::uuid);
+--
+-- Payout rows:
+-- select * from public.contest_payouts where contest_id = '<CONTEST_UUID>'::uuid order by rank;
+
+-- ---------------------------------------------------------------------------
+-- Minimal “match is ready to settle” flags
+-- ---------------------------------------------------------------------------
+-- select id, status, scoring_finalized_at, fixture_scoreboard_raw is not null as has_scoreboard
+-- from public.matches
+-- where id = <MATCH_ID>;

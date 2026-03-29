@@ -1,6 +1,6 @@
 -- Dream12 — full schema (single migration). No seed data.
 -- After your first Auth user exists, run supabase/scripts/bootstrap-admin.sql to set is_admin.
--- Wipe app data: supabase/scripts/flush-all-data.sql
+-- Wipe all data (auth + app + SportMonks refs): supabase/scripts/flush-all-data.sql
 
 create extension if not exists "pgcrypto";
 

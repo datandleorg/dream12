@@ -2,11 +2,14 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type {
-  LiveBattingRow,
-  LiveBowlingRow,
-  LiveInningsCard,
-  LiveSnapshot,
+import {
+  completedTeamScoreLines,
+  formatMatchResultSummary,
+  isSnapshotShortLinePlaceholder,
+  type LiveBattingRow,
+  type LiveBowlingRow,
+  type LiveInningsCard,
+  type LiveSnapshot,
 } from "@/lib/sportmonks/normalize-live-snapshot";
 import { cn } from "@/lib/utils";
 
@@ -128,28 +131,68 @@ function BowlingScoreTable({ rows, empty }: { rows: LiveBowlingRow[]; empty: str
   );
 }
 
-function InningsScorecardBlock({ card }: { card: LiveInningsCard }) {
-  return (
-    <div className="space-y-3">
-      <div
+function InningsScorecardBlock({
+  card,
+  compact,
+  showDetailTables = true,
+}: {
+  card: LiveInningsCard;
+  compact?: boolean;
+  /** When false, only the team total strip (no batting/bowling tables). */
+  showDetailTables?: boolean;
+}) {
+  const header = (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-2 rounded-md text-white shadow-sm",
+        "bg-emerald-800",
+        compact ? "px-2.5 py-2" : "px-3 py-2.5",
+      )}
+    >
+      <span
         className={cn(
-          "flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2.5",
-          "bg-emerald-800 text-white shadow-sm",
+          "font-bold tracking-tight",
+          compact ? "text-xs" : "text-sm",
         )}
       >
-        <span className="text-sm font-bold tracking-tight">{card.battingTeamName}</span>
-        <span className="font-mono text-sm font-semibold tabular-nums">
-          {card.headerLine.replace(`${card.battingTeamName} `, "")}
-        </span>
-      </div>
+        {card.battingTeamName}
+      </span>
+      <span
+        className={cn(
+          "font-mono font-semibold tabular-nums",
+          compact ? "text-xs" : "text-sm",
+        )}
+      >
+        {card.headerLine.replace(`${card.battingTeamName} `, "")}
+      </span>
+    </div>
+  );
+
+  if (!showDetailTables) {
+    return header;
+  }
+
+  return (
+    <div className={cn("space-y-3", compact && "space-y-2")}>
+      {header}
       <div>
-        <p className="text-muted-foreground mb-2 text-xs font-semibold uppercase tracking-wide">
+        <p
+          className={cn(
+            "text-muted-foreground font-semibold uppercase tracking-wide",
+            compact ? "mb-1.5 text-[10px]" : "mb-2 text-xs",
+          )}
+        >
           Batting
         </p>
         <BattingScoreTable rows={card.battingRows} empty="No batting rows for this innings." />
       </div>
       <div>
-        <p className="text-muted-foreground mb-2 text-xs font-semibold uppercase tracking-wide">
+        <p
+          className={cn(
+            "text-muted-foreground font-semibold uppercase tracking-wide",
+            compact ? "mb-1.5 text-[10px]" : "mb-2 text-xs",
+          )}
+        >
           Bowling
         </p>
         <BowlingScoreTable rows={card.bowlingRows} empty="No bowling rows for this innings." />
@@ -158,88 +201,191 @@ function InningsScorecardBlock({ card }: { card: LiveInningsCard }) {
   );
 }
 
+function SnapshotScoreSummaryBody({
+  snapshot,
+  compact,
+  isCompleted = false,
+}: {
+  snapshot: LiveSnapshot;
+  compact?: boolean;
+  /** Per-team scores + optional winner line; no duplicate totals-only line. */
+  isCompleted?: boolean;
+}) {
+  const resultLine = isCompleted ? formatMatchResultSummary(snapshot) : null;
+  const teamLines = isCompleted ? completedTeamScoreLines(snapshot) : [];
+  const hasShort = !isSnapshotShortLinePlaceholder(snapshot);
+
+  return (
+    <div className={cn("space-y-3", compact ? "text-xs" : "text-sm")}>
+      {isCompleted ? (
+        <>
+          {teamLines.length > 0 ? (
+            <ul
+              className={cn(
+                "text-foreground space-y-1 font-medium tabular-nums [&>li]:list-none",
+                compact ? "text-xs" : "text-sm",
+              )}
+            >
+              {teamLines.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          ) : hasShort ? (
+            <p className="font-medium tabular-nums">{snapshot.shortLine}</p>
+          ) : null}
+          {resultLine ? (
+            <p
+              className={cn(
+                "font-semibold text-foreground",
+                compact ? "text-sm" : "text-base",
+              )}
+            >
+              {resultLine}
+            </p>
+          ) : null}
+        </>
+      ) : hasShort ? (
+        <p className="font-medium tabular-nums">{snapshot.shortLine}</p>
+      ) : snapshot.teamScores?.length ? (
+        <ul className="text-muted-foreground space-y-1">
+          {snapshot.teamScores.map((t, i) => (
+            <li key={i}>
+              {t.teamLabel}: {t.runs}/{t.wickets ?? "—"} ({t.overs ?? "—"} ov)
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {snapshot.summaryNote ? (
+        <p className="text-muted-foreground text-xs">{snapshot.summaryNote}</p>
+      ) : null}
+      <p className="text-muted-foreground text-xs">
+        Updated {formatSnapshotUpdatedAt(snapshot.updatedAt)}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * `full`: batting/bowling tables (live / in-progress).
+ * `short`: innings total strips and/or summary lines only (completed matches).
+ */
+export function MatchSnapshotScorecardContent({
+  snapshot,
+  className,
+  compact = false,
+  variant = "full",
+}: {
+  snapshot: LiveSnapshot;
+  className?: string;
+  compact?: boolean;
+  variant?: "full" | "short";
+}) {
+  const useInningsCards =
+    Array.isArray(snapshot.inningsCards) && snapshot.inningsCards.length > 0;
+
+  const denseTables = cn(
+    compact &&
+      "[&_table]:text-[11px] [&_th]:px-1 [&_th]:py-1.5 [&_th]:text-[10px] [&_td]:px-1 [&_td]:py-1.5",
+  );
+
+  if (variant === "short") {
+    return (
+      <div className={cn(className)}>
+        <Card className={cn(compact && "border-border/80 shadow-none")}>
+          <CardContent className={cn(compact ? "px-3 pb-3 pt-3" : "pt-6")}>
+            <SnapshotScoreSummaryBody snapshot={snapshot} compact={compact} isCompleted />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("space-y-4", compact && "space-y-3", className)}>
+      {useInningsCards ? (
+        snapshot.inningsCards!.map((card, idx) => (
+          <Card
+            key={card.scoreboardKey ?? `${card.battingTeamId ?? "x"}-${idx}`}
+            className={cn(compact && "border-border/80 shadow-none")}
+          >
+            <CardContent className={cn(compact ? "px-3 pb-3 pt-3" : "pt-6")}>
+              <div className={denseTables}>
+                <InningsScorecardBlock card={card} compact={compact} />
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      ) : (
+        <div className={denseTables}>
+          <Card className={cn(compact && "border-border/80 shadow-none")}>
+            <CardHeader className={cn(compact ? "pb-1.5 pt-3" : "pb-2")}>
+              <CardTitle className={cn(compact ? "text-sm" : "text-base")}>
+                Batting
+              </CardTitle>
+            </CardHeader>
+            <CardContent className={cn(compact && "px-3 pb-3")}>
+              <BattingScoreTable
+                rows={snapshot.battingRows ?? []}
+                empty="No batting rows in snapshot yet."
+              />
+            </CardContent>
+          </Card>
+          <Card className={cn(compact && "border-border/80 mt-3 shadow-none")}>
+            <CardHeader className={cn(compact ? "pb-1.5 pt-3" : "pb-2")}>
+              <CardTitle className={cn(compact ? "text-sm" : "text-base")}>
+                Bowling
+              </CardTitle>
+            </CardHeader>
+            <CardContent className={cn(compact && "px-3 pb-3")}>
+              <BowlingScoreTable
+                rows={snapshot.bowlingRows ?? []}
+                empty="No bowling rows in snapshot yet."
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MatchLiveScoreTabs({
   snapshot,
   className,
   defaultTab = "summary",
+  isCompleted = false,
 }: {
   snapshot: LiveSnapshot;
   className?: string;
   /** Default panel: `summary` or `scorecard` (e.g. contest page). */
   defaultTab?: "summary" | "scorecard";
+  /** Finished matches: one summary line only; full scorecard tab hidden. */
+  isCompleted?: boolean;
 }) {
-  const useInningsCards =
-    Array.isArray(snapshot.inningsCards) && snapshot.inningsCards.length > 0;
+  const effectiveDefault =
+    isCompleted && defaultTab === "scorecard" ? "summary" : defaultTab;
 
   return (
-    <Tabs defaultValue={defaultTab} className={cn("w-full", className)}>
+    <Tabs defaultValue={effectiveDefault} className={cn("w-full", className)}>
       <TabsList variant="line" className="mb-3 w-full justify-start gap-1">
         <TabsTrigger value="summary">Summary</TabsTrigger>
-        <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
+        {!isCompleted ? <TabsTrigger value="scorecard">Scorecard</TabsTrigger> : null}
       </TabsList>
       <TabsContent value="summary">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Match summary</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <p className="font-medium tabular-nums">{snapshot.shortLine}</p>
-            {snapshot.teamScores?.length ? (
-              <ul className="text-muted-foreground space-y-1">
-                {snapshot.teamScores.map((t, i) => (
-                  <li key={i}>
-                    {t.teamLabel}: {t.runs}/{t.wickets ?? "—"} ({t.overs ?? "—"} ov)
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {snapshot.summaryNote ? (
-              <p className="text-muted-foreground text-xs">{snapshot.summaryNote}</p>
-            ) : null}
-            <p className="text-muted-foreground text-xs">
-              Updated {formatSnapshotUpdatedAt(snapshot.updatedAt)}
-            </p>
+          <CardContent>
+            <SnapshotScoreSummaryBody snapshot={snapshot} isCompleted={isCompleted} />
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="scorecard">
-        <div className="space-y-6">
-          {useInningsCards ? (
-            snapshot.inningsCards!.map((card, idx) => (
-              <Card key={card.scoreboardKey ?? `${card.battingTeamId ?? "x"}-${idx}`}>
-                <CardContent className="pt-6">
-                  <InningsScorecardBlock card={card} />
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Batting</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <BattingScoreTable
-                    rows={snapshot.battingRows ?? []}
-                    empty="No batting rows in snapshot yet."
-                  />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Bowling</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <BowlingScoreTable
-                    rows={snapshot.bowlingRows ?? []}
-                    empty="No bowling rows in snapshot yet."
-                  />
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </div>
-      </TabsContent>
+      {!isCompleted ? (
+        <TabsContent value="scorecard">
+          <MatchSnapshotScorecardContent snapshot={snapshot} className="space-y-6" />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }

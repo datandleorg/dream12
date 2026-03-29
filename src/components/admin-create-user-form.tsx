@@ -16,7 +16,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export function AdminCreateUserForm() {
+export function AdminCreateUserForm({
+  authAdminBlocked = false,
+  authAdminBlockedReason,
+  authCreateNote,
+}: {
+  /** When the env key is anon — only case we hard-block create. */
+  authAdminBlocked?: boolean;
+  authAdminBlockedReason?: string;
+  /** Shown when list-users failed but create may still work (e.g. service_role JWT). */
+  authCreateNote?: string;
+} = {}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,6 +55,14 @@ export function AdminCreateUserForm() {
       <CardHeader>
         <CardTitle className="text-lg">Create user</CardTitle>
         <CardDescription>New accounts must be created by an admin (sign-up is disabled).</CardDescription>
+        {authAdminBlocked && authAdminBlockedReason ? (
+          <p className="text-destructive pt-2 text-sm">{authAdminBlockedReason}</p>
+        ) : null}
+        {!authAdminBlocked && authCreateNote ? (
+          <p className="text-muted-foreground border-primary/20 bg-primary/5 mt-2 rounded-md border px-2 py-2 text-xs leading-relaxed">
+            {authCreateNote}
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="grid max-w-md gap-4">
@@ -57,6 +75,7 @@ export function AdminCreateUserForm() {
               className="min-h-11"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={authAdminBlocked}
             />
           </div>
           <div className="grid gap-2">
@@ -67,6 +86,7 @@ export function AdminCreateUserForm() {
               className="min-h-11"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={authAdminBlocked}
             />
           </div>
           <div className="grid gap-2">
@@ -79,9 +99,10 @@ export function AdminCreateUserForm() {
               className="min-h-11"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={authAdminBlocked}
             />
           </div>
-          <Button type="submit" disabled={loading} className="min-h-11 w-fit">
+          <Button type="submit" disabled={loading || authAdminBlocked} className="min-h-11 w-fit">
             Create user
           </Button>
         </form>

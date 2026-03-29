@@ -47,7 +47,9 @@ describe("teamPointsBreakdown", () => {
     };
     const rosterCore = roster.map(({ player_name, team_label, ...r }) => r);
     const sum = aggregateTeamPoints(rosterCore, "a", "b", live);
-    const { computedTotal } = teamPointsBreakdown(roster, "a", "b", live);
+    const { computedTotal, lines } = teamPointsBreakdown(roster, "a", "b", live);
     expect(computedTotal).toBe(sum);
+    const sumLines = lines.reduce((acc, l) => acc + l.points, 0);
+    expect(sumLines).toBe(computedTotal);
   });
 });

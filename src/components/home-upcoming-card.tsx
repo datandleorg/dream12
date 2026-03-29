@@ -11,7 +11,12 @@ import {
 import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
 import { MatchShortScore } from "@/components/match-short-score";
 import { MatchStatusBadge } from "@/components/match-status-badge";
-import { parseLiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
+import {
+  completedTeamScoreLines,
+  formatMatchResultSummary,
+  isSnapshotShortLinePlaceholder,
+  parseLiveSnapshot,
+} from "@/lib/sportmonks/normalize-live-snapshot";
 import { formatMatchCountdownCoarse, msUntilStart } from "@/lib/time/match-countdown";
 import { cn } from "@/lib/utils";
 
@@ -104,13 +109,22 @@ export function HomeUpcomingCard({
 
   const href = linkHref === false ? null : (linkHref ?? `/matches/${match.id}`);
   const isContestVariant = variant === "contest";
+  const completedTeamLines =
+    isCompleted && liveSnap ? completedTeamScoreLines(liveSnap) : [];
+  const completedResultLine =
+    isCompleted && liveSnap ? formatMatchResultSummary(liveSnap) : null;
+  const completedHasShort =
+    Boolean(isCompleted && liveSnap && !isSnapshotShortLinePlaceholder(liveSnap));
 
-  const card = (
-    <Card
-      className={cn(
-        href && "tap-app cursor-pointer transition-colors hover:border-primary/40 hover:bg-card/90",
-      )}
-    >
+  const openMatchAria =
+    isUpcoming
+      ? "Open match — create or join contests"
+      : isLive
+        ? "Open match — view contests and live scores"
+        : "Open match — view contests and results";
+
+  const cardBody = (
+    <>
       <CardHeader className="pb-2">
         {match.tournament_name ? (
           <p className="text-accent mb-1 text-[11px] font-semibold tracking-wide uppercase">
@@ -127,12 +141,40 @@ export function HomeUpcomingCard({
         <FixtureSmStatusLine label={match.sm_fixture_status} className="pt-0.5" />
         <CardDescription className="flex flex-col gap-1 pt-1">
           {isCompleted ? (
-            <span className="tabular-nums" suppressHydrationWarning>
-              Played{" "}
-              {new Date(match.start_time).toLocaleString(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })}
+            <span className="flex flex-col gap-1">
+              <span className="tabular-nums" suppressHydrationWarning>
+                Played{" "}
+                {new Date(match.start_time).toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </span>
+              {liveSnap ? (
+                <span className="flex flex-col gap-1.5">
+                  {completedTeamLines.length > 0 ? (
+                    <span className="flex flex-col gap-0.5">
+                      {completedTeamLines.map((line, i) => (
+                        <span
+                          key={i}
+                          className="text-foreground/90 text-sm font-medium tabular-nums"
+                        >
+                          {line}
+                        </span>
+                      ))}
+                    </span>
+                  ) : completedHasShort ? (
+                    <MatchShortScore
+                      snapshot={liveSnap}
+                      className="text-foreground/90 font-normal"
+                    />
+                  ) : null}
+                  {completedResultLine ? (
+                    <span className="text-foreground/90 text-sm font-semibold">
+                      {completedResultLine}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
             </span>
           ) : isLive ? (
             <span className="flex flex-col gap-1">
@@ -185,31 +227,31 @@ export function HomeUpcomingCard({
         </span>
         <TeamOrb label={teamB} logoUrl={match.team_b_logo_url} />
       </div>
+    </>
+  );
+
+  const cardShellClass = cn(
+    href && "tap-app transition-colors hover:border-primary/40 hover:bg-card/90",
+  );
+
+  const linkedCard = (
+    <Card className={cardShellClass}>
+      {cardBody}
     </Card>
   );
 
   if (!href) {
     return (
       <div className="list-none">
-        {card}
+        <Card>{cardBody}</Card>
       </div>
     );
   }
 
   return (
     <li className="list-none">
-      <Link
-        href={href}
-        className="block"
-        aria-label={
-          isUpcoming
-            ? "Open match — create or join contests"
-            : isLive
-              ? "Open match — view contests and live scores"
-              : "Open match — view contests and results"
-        }
-      >
-        {card}
+      <Link href={href} className="block" aria-label={openMatchAria}>
+        {linkedCard}
       </Link>
     </li>
   );

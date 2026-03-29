@@ -71,6 +71,7 @@ export function ContestDashboard({
 }) {
   const [preview, setPreview] = useState<{ teamId: string; username: string | null } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const matchCompleted = matchCard.status.toLowerCase() === "completed";
 
   const openPreview = (row: Row) => {
     if (!currentUserId) return;
@@ -199,7 +200,11 @@ export function ContestDashboard({
         </TabsContent>
 
         <TabsContent value="scorecard" className="mt-3">
-          <MatchLiveScoreTabs snapshot={liveSnapshot} defaultTab="scorecard" />
+          <MatchLiveScoreTabs
+            snapshot={liveSnapshot}
+            defaultTab="scorecard"
+            isCompleted={matchCompleted}
+          />
         </TabsContent>
 
         <TabsContent value="stats" className="mt-3">

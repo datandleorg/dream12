@@ -12,6 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { ContestTeamPointsBreakdown } from "@/components/contest-team-points-breakdown";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { SQUAD_SIZE } from "@/lib/fantasy/rules";
 
@@ -89,6 +90,7 @@ export function ContestTeamPreviewSheet({
                   value: data.computedTotal.toFixed(1),
                 }}
               />
+              <ContestTeamPointsBreakdown lines={data.lines} />
               <p className="text-muted-foreground border-t pt-2 text-[11px]">
                 Leaderboard total (stored):{" "}
                 <span className="font-medium tabular-nums text-foreground">

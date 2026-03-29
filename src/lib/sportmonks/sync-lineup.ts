@@ -1,5 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/service";
-import type { SmFixture, SmTeamInclude } from "./client";
+import type { SmFixture } from "./client";
 import { SM_FIXTURE_LINEUP_INCLUDE, sportmonksFetch, sportmonksToken } from "./client";
 import { isSportmonksFixtureId } from "./sportmonks-ids";
 import { upsertSingleSmFixture } from "./sync-fixture-upsert";
@@ -92,38 +93,16 @@ function creditHeuristic(): number {
 }
 
 /**
- * Pull lineup for a fixture when Sportmonks includes `lineup` on the fixture detail.
- * Sets `in_playing_xi` for the match after a successful non-empty lineup sync.
+ * Apply `fixture.lineup` to `players` for this match (upsert + `in_playing_xi` flags).
+ * Used after an HTTP fetch or when merging a live fixture payload that already includes `lineup`.
  */
-export async function syncPlayersForMatch(
+export async function applyLineupFromFixturePayload(
+  supabase: SupabaseClient,
   matchId: number,
+  fixture: SmFixture & { lineup?: unknown },
+  options?: { skipNotify?: boolean; metaNote?: string },
 ): Promise<{ inserted: number; note?: string }> {
-  if (!sportmonksToken()) {
-    return { inserted: 0, note: "SPORTMONKS_API_TOKEN missing" };
-  }
-
-  let detail: FixtureDetailResponse;
-  try {
-    detail = await sportmonksFetch<FixtureDetailResponse>(
-      `/fixtures/${matchId}`,
-      { include: SM_FIXTURE_LINEUP_INCLUDE },
-    );
-  } catch (e) {
-    return {
-      inserted: 0,
-      note: e instanceof Error ? e.message : "fixture fetch failed",
-    };
-  }
-
-  const fixture = detail.data;
-  if (!fixture) {
-    return { inserted: 0, note: "No fixture data in API response." };
-  }
-
-  const supabaseMeta = createServiceClient();
-  const metaUpsert = await upsertSingleSmFixture(supabaseMeta, fixture);
-  const metaNote = metaUpsert.ok ? undefined : `Fixture metadata: ${metaUpsert.error}`;
-
+  const metaNote = options?.metaNote;
   const lineup = unwrapIncludedList<RawLineupRow>(fixture.lineup);
   if (!lineup.length) {
     return {
@@ -134,7 +113,6 @@ export async function syncPlayersForMatch(
     };
   }
 
-  const supabase = supabaseMeta;
   const rows = lineup
     .map((l) => {
       const nested = nestedPlayerPayload(l);
@@ -211,9 +189,47 @@ export async function syncPlayersForMatch(
     };
   }
 
-  await notifyLineupPublishedOnce(matchId);
+  if (!options?.skipNotify) {
+    await notifyLineupPublishedOnce(matchId);
+  }
 
   return { inserted: rows.length, note: metaNote };
+}
+
+/**
+ * Pull lineup for a fixture when Sportmonks includes `lineup` on the fixture detail.
+ * Sets `in_playing_xi` for the match after a successful non-empty lineup sync.
+ */
+export async function syncPlayersForMatch(
+  matchId: number,
+): Promise<{ inserted: number; note?: string }> {
+  if (!sportmonksToken()) {
+    return { inserted: 0, note: "SPORTMONKS_API_TOKEN missing" };
+  }
+
+  let detail: FixtureDetailResponse;
+  try {
+    detail = await sportmonksFetch<FixtureDetailResponse>(
+      `/fixtures/${matchId}`,
+      { include: SM_FIXTURE_LINEUP_INCLUDE },
+    );
+  } catch (e) {
+    return {
+      inserted: 0,
+      note: e instanceof Error ? e.message : "fixture fetch failed",
+    };
+  }
+
+  const fixture = detail.data;
+  if (!fixture) {
+    return { inserted: 0, note: "No fixture data in API response." };
+  }
+
+  const supabaseMeta = createServiceClient();
+  const metaUpsert = await upsertSingleSmFixture(supabaseMeta, fixture);
+  const metaNote = metaUpsert.ok ? undefined : `Fixture metadata: ${metaUpsert.error}`;
+
+  return applyLineupFromFixturePayload(supabaseMeta, matchId, fixture, { metaNote });
 }
 
 const SYNC_PLAYERS_MATCH_LIMIT = 80;

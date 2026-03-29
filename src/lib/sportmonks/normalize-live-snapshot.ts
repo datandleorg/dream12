@@ -690,3 +690,126 @@ export function isLiveSnapshotMissing(json: unknown): boolean {
     (parsed.bowlingRows?.length ?? 0) > 0;
   return !hasCard;
 }
+
+/** True when `shortLine` is a generic placeholder, not real team totals. */
+export function isSnapshotShortLinePlaceholder(
+  snapshot: LiveSnapshot | null | undefined,
+): boolean {
+  if (!snapshot?.shortLine?.trim()) return true;
+  const s = snapshot.shortLine.trim();
+  return (
+    s === "Score updating…" ||
+    s === "Match in progress — score updating…" ||
+    s === "Match in progress — score updating..."
+  );
+}
+
+/** Whether the snapshot has batting/bowling rows worth rendering as a scorecard. */
+export function hasScorecardTableData(
+  snapshot: LiveSnapshot | null | undefined,
+): boolean {
+  if (!snapshot) return false;
+  if (
+    snapshot.inningsCards?.some(
+      (c) => c.battingRows.length > 0 || c.bowlingRows.length > 0,
+    )
+  ) {
+    return true;
+  }
+  return (
+    (snapshot.battingRows?.length ?? 0) > 0 ||
+    (snapshot.bowlingRows?.length ?? 0) > 0
+  );
+}
+
+function parseInningsTotalFromCard(
+  card: LiveInningsCard,
+): { teamName: string; runs: number; wk: number | null } | null {
+  const name = card.battingTeamName.trim();
+  const line = card.headerLine.trim();
+  if (!name || !line) return null;
+  const rest = line.startsWith(name)
+    ? line.slice(name.length).trim()
+    : line.indexOf(name) === 0
+      ? line.slice(name.length).trim()
+      : null;
+  if (rest == null) return null;
+  const m = /^(\d+)\/(—|\d+)/.exec(rest);
+  if (!m) return null;
+  const runs = Number(m[1]);
+  if (!Number.isFinite(runs)) return null;
+  const wkTok = m[2];
+  if (wkTok === "—") {
+    return { teamName: card.battingTeamName.trim(), runs, wk: null };
+  }
+  const wk = Number(wkTok);
+  return {
+    teamName: card.battingTeamName.trim(),
+    runs,
+    wk: Number.isFinite(wk) ? wk : null,
+  };
+}
+
+function unitPhrase(n: number, singular: string): string {
+  return n === 1 ? `1 ${singular}` : `${n} ${singular}s`;
+}
+
+/**
+ * One line per team for completed UI, e.g. `RCB 203/4 (15.4 ov)`.
+ * Prefers `teamScores`, else full `inningsCards` headers, else splits `shortLine` on `·`.
+ */
+export function completedTeamScoreLines(snapshot: LiveSnapshot): string[] {
+  const ts = snapshot.teamScores;
+  if (ts?.length) {
+    return ts.map((t) => {
+      const w = t.wickets != null && Number.isFinite(t.wickets) ? `${t.wickets}` : "—";
+      const o = t.overs ?? "—";
+      const ov =
+        o === "—" ? "—" : /\bov\b/i.test(String(o)) ? String(o) : `${o} ov`;
+      return `${t.teamLabel} ${t.runs}/${w} (${ov})`;
+    });
+  }
+  const cards = snapshot.inningsCards;
+  if (cards?.length) {
+    return cards.map((c) => c.headerLine.trim()).filter(Boolean);
+  }
+  const sl = snapshot.shortLine?.trim();
+  if (sl && !isSnapshotShortLinePlaceholder(snapshot)) {
+    return sl
+      .split(/\s*·\s*/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * Two-innings limited match: winner + margin from card order (first card = 1st innings, second = chase).
+ * Null when not inferable (e.g. not exactly two innings, or unparseable headers).
+ */
+export function formatMatchResultSummary(snapshot: LiveSnapshot): string | null {
+  const cards = snapshot.inningsCards;
+  if (!cards || cards.length !== 2) return null;
+  const inn1 = parseInningsTotalFromCard(cards[0]!);
+  const inn2 = parseInningsTotalFromCard(cards[1]!);
+  if (!inn1 || !inn2) return null;
+
+  const label1 = abbrevLabel(inn1.teamName);
+  const label2 = abbrevLabel(inn2.teamName);
+
+  if (inn2.runs > inn1.runs) {
+    if (inn2.wk == null) {
+      return `${label2} won`;
+    }
+    const wicketsRemaining = 10 - inn2.wk;
+    if (wicketsRemaining <= 0) {
+      return `${label2} won`;
+    }
+    return `${label2} won by ${unitPhrase(wicketsRemaining, "wicket")}`;
+  }
+  if (inn2.runs < inn1.runs) {
+    const margin = inn1.runs - inn2.runs;
+    return `${label1} won by ${unitPhrase(margin, "run")}`;
+  }
+  return "Match tied";
+}

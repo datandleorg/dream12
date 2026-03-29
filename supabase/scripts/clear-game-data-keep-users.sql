@@ -10,6 +10,8 @@ begin;
 -- One statement so Postgres can resolve FKs between these tables (sequential TRUNCATE often fails).
 truncate table
   public.team_roster,
+  public.contest_payouts,
+  public.notifications,
   public.user_teams,
   public.contests,
   public.players,

@@ -65,7 +65,10 @@ export default async function MatchLiveScorePage({
         </Link>
       </div>
 
-      <MatchLiveScoreTabs snapshot={snapshot} />
+      <MatchLiveScoreTabs
+        snapshot={snapshot}
+        isCompleted={String(matchRow.status).toLowerCase() === "completed"}
+      />
     </div>
   );
 }

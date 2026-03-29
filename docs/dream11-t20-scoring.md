@@ -113,7 +113,8 @@ When finalizing scores from the API, totals may be approximate until the feed ex
 
 ## Mock contest (match 69518)
 
-- SQL seed: [`supabase/scripts/seed-mock-contest-69518.sql`](../supabase/scripts/seed-mock-contest-69518.sql) — 24 users, one platform contest, varied XIs.
+- SQL seed (69518): [`supabase/scripts/seed-mock-contest-69518.sql`](../supabase/scripts/seed-mock-contest-69518.sql) — 24 users, one contest (`a1b2c3d4-e5f6-4789-a012-000000010f6e`), varied XIs.
+- Any fixture id: [`supabase/scripts/seed-mock-users-contest-for-match.sql`](../supabase/scripts/seed-mock-users-contest-for-match.sql) — edit `v_match` in the DO block; contest UUID is deterministic from the match id.
 - Stats fixture: [`fixtures/mock-live-stats-69518.json`](../fixtures/mock-live-stats-69518.json) — 22 per-player stat rows (aligned with this doc).
 - Apply points: `pnpm mock:apply-points` (loads `.env.local`, uses `aggregateTeamPoints` + service role).
 - Then mark the match completed with `scoring_finalized_at` set and run `settle_contest_prizes` (see header comments in the SQL file).

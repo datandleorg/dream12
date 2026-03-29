@@ -1,17 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NormalizedPlayerStats } from "@/lib/fantasy/scoring";
 import { extractLiveStatsByPlayer } from "@/lib/extract-live-stats-by-player";
-import { extractScoreboardRawToLiveMap } from "@/lib/extract-scoreboard-raw-to-live-map";
+import {
+  extractScoreboardRawToLiveMap,
+  mergeFieldingFromBattingRows,
+} from "@/lib/extract-scoreboard-raw-to-live-map";
 import { pickScoreboardRaw } from "@/lib/pick-scoreboard-raw";
+import { sportmonksToken, type SmFixture } from "@/lib/sportmonks/client";
 import { fetchFixtureScoreboardRaw } from "@/lib/sportmonks/fixture-scoreboard";
+import { mapMatchStatusFromSmFixture } from "@/lib/sportmonks/match-status-from-sm";
+import { buildLiveSnapshotFromFixture } from "@/lib/sportmonks/normalize-live-snapshot";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
-import { sportmonksToken } from "@/lib/sportmonks/client";
 import { updateUserTeamsPointsForMatch } from "@/lib/update-user-teams-for-match";
 
 /**
- * One completed match: recompute fantasy points from stored scoreboard JSON or SportMonks fixture, then mark scoring finalized.
+ * One completed match: fetch latest SportMonks fixture when possible, persist scoreboard/snapshot/balls on `matches`,
+ * recompute fantasy points, then set `scoring_finalized_at`.
  * Non–SportMonks matches: mark finalized without changing totals.
- * SportMonks: skips marking finalized if token+fetched raw is null (retry next cron).
+ * SportMonks: if the API returns nothing and stored scoreboard is empty, skips finalizing (retry next cron).
  */
 export async function finalizeScoringForMatch(
   supabase: SupabaseClient,
@@ -35,20 +41,53 @@ export async function finalizeScoringForMatch(
     .eq("id", matchId)
     .maybeSingle();
 
-  let liveMap: Record<string, Partial<NormalizedPlayerStats>> = {};
-  const storedRaw = matchRow?.fixture_scoreboard_raw;
-  if (storedRaw != null) {
-    liveMap = extractScoreboardRawToLiveMap(storedRaw);
-  }
+  const nowIso = new Date().toISOString();
+  const persist: Record<string, unknown> = {
+    scoring_finalized_at: nowIso,
+  };
 
-  if (Object.keys(liveMap).length === 0) {
-    const raw = await fetchFixtureScoreboardRaw(matchId);
-    if (!raw) {
-      return { ok: false, updatedTeams: 0, skippedAwaitingData: true };
-    }
-    liveMap = extractScoreboardRawToLiveMap(pickScoreboardRaw(raw));
+  let liveMap: Record<string, Partial<NormalizedPlayerStats>> = {};
+  const raw = await fetchFixtureScoreboardRaw(matchId);
+
+  if (raw) {
+    const merged = raw as Record<string, unknown>;
+    const picked = pickScoreboardRaw(merged);
+    liveMap = extractScoreboardRawToLiveMap(picked);
     if (Object.keys(liveMap).length === 0) {
-      liveMap = extractLiveStatsByPlayer(raw);
+      liveMap = extractLiveStatsByPlayer(merged);
+      mergeFieldingFromBattingRows(liveMap, picked);
+    }
+
+    const snapshot = buildLiveSnapshotFromFixture(merged);
+    persist.fixture_scoreboard_raw = picked;
+    persist.fixture_scoreboard_raw_at = nowIso;
+    persist.live_snapshot = snapshot as unknown as Record<string, unknown>;
+    persist.live_snapshot_at = nowIso;
+
+    if (merged.balls != null) {
+      persist.fixture_balls_raw = merged.balls;
+      persist.fixture_balls_raw_at = nowIso;
+    }
+
+    const st = merged.status;
+    if (typeof st === "string" && st.trim()) {
+      persist.sm_fixture_status = st.trim();
+    }
+
+    const asF = merged as Partial<SmFixture>;
+    if (asF.starting_at && (asF.id === matchId || asF.id == null)) {
+      persist.status = mapMatchStatusFromSmFixture({
+        ...asF,
+        id: matchId,
+      } as SmFixture);
+    }
+  } else {
+    const storedRaw = matchRow?.fixture_scoreboard_raw;
+    if (storedRaw != null) {
+      liveMap = extractScoreboardRawToLiveMap(storedRaw);
+    }
+    if (Object.keys(liveMap).length === 0) {
+      return { ok: false, updatedTeams: 0, skippedAwaitingData: true };
     }
   }
 
@@ -57,10 +96,7 @@ export async function finalizeScoringForMatch(
     n = await updateUserTeamsPointsForMatch(supabase, matchId, liveMap);
   }
 
-  await supabase
-    .from("matches")
-    .update({ scoring_finalized_at: new Date().toISOString() })
-    .eq("id", matchId);
+  await supabase.from("matches").update(persist).eq("id", matchId);
 
   return { ok: true, updatedTeams: n };
 }

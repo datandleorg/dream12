@@ -4,6 +4,8 @@
  *
  *   pnpm mock:apply-points
  *
+ * Optional env: MOCK_MATCH_ID (default 69518). Contest id is derived to match SQL seed.
+ *
  * Loads `.env` then `.env.local` from the repo root (same idea as Next.js; local overrides).
  */
 import { readFileSync } from "node:fs";
@@ -16,8 +18,14 @@ import { createClient } from "@supabase/supabase-js";
 import type { NormalizedPlayerStats } from "@/lib/fantasy/scoring";
 import { aggregateTeamPoints, type RosterRow } from "@/lib/live-scoring";
 
-const MATCH_ID = 69518;
-const CONTEST_ID = "a1b2c3d4-e5f6-4789-a012-680695180001";
+/** Same formula as supabase/scripts/seed-mock-users-contest-for-match.sql */
+function contestIdForMatch(matchId: number): string {
+  const hex = matchId.toString(16).padStart(12, "0").slice(-12);
+  return `a1b2c3d4-e5f6-4789-a012-${hex}`;
+}
+
+const MATCH_ID = Number(process.env.MOCK_MATCH_ID ?? 69518);
+const CONTEST_ID = contestIdForMatch(MATCH_ID);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
