@@ -4,8 +4,8 @@ import { aggregateTeamPoints } from "./live-scoring";
 describe("aggregateTeamPoints", () => {
   it("sums roster with captain multiplier", () => {
     const roster = [
-      { player_id: "a", sportmonks_id: 1, role: "BAT" },
-      { player_id: "b", sportmonks_id: 2, role: "BOWL" },
+      { player_id: "a", sportmonks_id: 1, role: "BAT", in_playing_xi: null },
+      { player_id: "b", sportmonks_id: 2, role: "BOWL", in_playing_xi: true },
     ];
     const live = {
       "1": { runs: 20, ballsFaced: 12, isDismissed: false },

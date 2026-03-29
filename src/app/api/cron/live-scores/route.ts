@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     for (const team of teams) {
       const { data: rosterJoin } = await supabase
         .from("team_roster")
-        .select("player_id, players ( sportmonks_id, role )")
+        .select("player_id, players ( sportmonks_id, role, in_playing_xi )")
         .eq("team_id", team.id);
 
       const roster =
@@ -76,12 +76,17 @@ export async function GET(request: NextRequest) {
           const p = r.players as unknown;
           const row =
             p && typeof p === "object" && !Array.isArray(p)
-              ? (p as { sportmonks_id?: number | null; role?: string })
+              ? (p as {
+                  sportmonks_id?: number | null;
+                  role?: string;
+                  in_playing_xi?: boolean | null;
+                })
               : null;
           return {
             player_id: r.player_id as string,
             sportmonks_id: row?.sportmonks_id ?? null,
             role: row?.role ?? "BAT",
+            in_playing_xi: row?.in_playing_xi ?? null,
           };
         }) ?? [];
 

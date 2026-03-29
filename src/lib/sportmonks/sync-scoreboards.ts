@@ -1,11 +1,21 @@
 import type { SmFixture } from "./client";
 import { createServiceClient } from "@/lib/supabase/service";
 import { mapMatchStatusFromSmFixture } from "./match-status-from-sm";
-import { buildLiveSnapshotFromFixture } from "./normalize-live-snapshot";
+import {
+  buildLiveSnapshotFromFixture,
+  isLiveSnapshotMissing,
+} from "./normalize-live-snapshot";
 import { fetchFixtureScoreboardRaw, fetchLivescoresNowByFixtureId } from "./fixture-scoreboard";
 import { isSportmonksFixtureId } from "./sportmonks-ids";
 
 const MAX_FIXTURES_PER_RUN = 25;
+const FETCH_WINDOW = 80;
+
+function scoreboardCompletedLookbackDays(): number {
+  const n = Number(process.env.SPORTMONKS_SCOREBOARD_COMPLETED_DAYS);
+  if (Number.isFinite(n) && n > 0) return Math.min(Math.floor(n), 90);
+  return 7;
+}
 
 export type SyncScoreboardsResult = {
   updated: number;
@@ -15,21 +25,61 @@ export type SyncScoreboardsResult = {
 };
 
 /**
- * Upsert `live_snapshot` + `live_snapshot_at` for live/upcoming SportMonks fixtures.
+ * Build fixture id list: live first, then recently completed matches still missing a stored scorecard (one-shot until success).
+ * Upcoming matches are omitted — fixture metadata is refreshed by sync-fixtures; scoreboard payloads are not useful until live.
+ */
+async function collectScoreboardCandidateIds(
+  supabase: ReturnType<typeof createServiceClient>,
+): Promise<number[]> {
+  const cap = MAX_FIXTURES_PER_RUN;
+  const seen = new Set<number>();
+  const out: number[] = [];
+
+  const pushUnique = (ids: number[]) => {
+    for (const id of ids) {
+      if (!Number.isFinite(id) || !isSportmonksFixtureId(id)) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+      if (out.length >= cap) return;
+    }
+  };
+
+  const { data: liveRows } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("status", "live")
+    .order("start_time", { ascending: true })
+    .limit(FETCH_WINDOW);
+  pushUnique((liveRows ?? []).map((r) => Number(r.id)));
+  if (out.length >= cap) return out;
+
+  const days = scoreboardCompletedLookbackDays();
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - days);
+
+  const { data: completedRows } = await supabase
+    .from("matches")
+    .select("id,live_snapshot")
+    .eq("status", "completed")
+    .gte("start_time", cutoff.toISOString())
+    .order("start_time", { ascending: false })
+    .limit(FETCH_WINDOW);
+
+  const completedNeedingSnapshot = (completedRows ?? [])
+    .filter((r) => isLiveSnapshotMissing(r.live_snapshot))
+    .map((r) => Number(r.id));
+
+  pushUnique(completedNeedingSnapshot);
+  return out;
+}
+
+/**
+ * Upsert `live_snapshot` + `live_snapshot_at` for live matches each run, and one-shot final snapshots for recently completed matches that still lack scorecard data.
  */
 export async function syncScoreboardSnapshots(): Promise<SyncScoreboardsResult> {
   const supabase = createServiceClient();
-  const { data: rows } = await supabase
-    .from("matches")
-    .select("id,status")
-    .in("status", ["live", "upcoming"])
-    .order("start_time", { ascending: true })
-    .limit(80);
-
-  const candidates = (rows ?? [])
-    .map((r) => Number(r.id))
-    .filter((id) => Number.isFinite(id) && isSportmonksFixtureId(id))
-    .slice(0, MAX_FIXTURES_PER_RUN);
+  const candidates = await collectScoreboardCandidateIds(supabase);
 
   let updated = 0;
   let skipped = 0;

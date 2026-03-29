@@ -2,11 +2,15 @@ import type { SmFixture } from "./client";
 import { sportmonksFetch, sportmonksToken } from "./client";
 import { isSportmonksFixtureId } from "./sportmonks-ids";
 
-/** Rich includes for scoreboard snapshot (trimmed in DB by normalize-live-snapshot). */
+/** Rich includes for scoreboard snapshot (balls supplies batsman/bowler names when rows only have player_id). */
 export const SM_FIXTURE_SCOREBOARD_INCLUDE =
-  "localteam,visitorteam,runs,batting,bowling,batting.player,bowling.player";
+  "localteam,visitorteam,runs,scoreboards,batting,bowling,balls";
 
-const SM_FIXTURE_SCOREBOARD_FALLBACK = "localteam,visitorteam,runs,batting,bowling";
+const SM_FIXTURE_SCOREBOARD_FALLBACK =
+  "localteam,visitorteam,runs,batting,bowling,balls";
+
+const SM_FIXTURE_SCOREBOARD_FALLBACK_MIN =
+  "localteam,visitorteam,runs,batting,bowling";
 
 /**
  * Fetch one fixture with scoreboard-style includes for live snapshot sync / on-demand refresh.
@@ -32,11 +36,19 @@ export async function fetchFixtureScoreboardRaw(
       try {
         const json = await sportmonksFetch<{ data?: SmFixture & Record<string, unknown> }>(
           `/fixtures/${fixtureId}`,
-          { include: "localteam,visitorteam" },
+          { include: SM_FIXTURE_SCOREBOARD_FALLBACK_MIN },
         );
         return (json.data as Record<string, unknown> | undefined) ?? null;
       } catch {
-        return null;
+        try {
+          const json = await sportmonksFetch<{ data?: SmFixture & Record<string, unknown> }>(
+            `/fixtures/${fixtureId}`,
+            { include: "localteam,visitorteam" },
+          );
+          return (json.data as Record<string, unknown> | undefined) ?? null;
+        } catch {
+          return null;
+        }
       }
     }
   }

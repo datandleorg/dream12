@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/sync-scoreboards",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/1 * * * *"
     },
     {
       "path": "/api/cron/finalize-scores",

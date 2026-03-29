@@ -14,6 +14,12 @@ export function extractLiveStatsByPlayer(
     if (typeof pid === "number" || typeof pid === "string") {
       const key = String(pid);
       const cur = out[key] ?? {};
+      const bowledLbw =
+        o.bowled_lbw_dismissals ??
+        o.bowledLbwDismissals ??
+        o.dismissals_bowled_lbw;
+      const rDirect = o.run_out_direct ?? o.runOutDirect;
+      const rIndirect = o.run_out_indirect ?? o.runOutIndirect;
       out[key] = {
         ...cur,
         runs: Number(o.runs ?? o.run ?? cur.runs ?? 0),
@@ -22,11 +28,17 @@ export function extractLiveStatsByPlayer(
         sixes: Number(o.sixes ?? o.six ?? cur.sixes ?? 0),
         isDismissed: Boolean(o.dismissed ?? o.out ?? cur.isDismissed),
         wickets: Number(o.wickets ?? cur.wickets ?? 0),
+        bowledLbwDismissals:
+          bowledLbw != null ? Number(bowledLbw) : cur.bowledLbwDismissals,
         oversBowled: Number(o.overs ?? o.oversBowled ?? cur.oversBowled ?? 0),
         runsConceded: Number(o.runs_conceded ?? o.conceded ?? cur.runsConceded ?? 0),
         maidens: Number(o.maidens ?? cur.maidens ?? 0),
         catches: Number(o.catches ?? cur.catches ?? 0),
         stumpings: Number(o.stumpings ?? cur.stumpings ?? 0),
+        runOutDirect:
+          rDirect != null ? Number(rDirect) : cur.runOutDirect,
+        runOutIndirect:
+          rIndirect != null ? Number(rIndirect) : cur.runOutIndirect,
         runOuts: Number(o.run_outs ?? o.runouts ?? cur.runOuts ?? 0),
       };
     }

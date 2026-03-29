@@ -51,9 +51,13 @@ All times below are **UTC** unless you set `TZ` on the `cron` service.
 |----------|---------|
 | `30 20 * * *` | Every day at **20:30 UTC** — full SportMonks sync (`/api/cron/sync`). |
 | `30 21 * * *` | Every day at **21:30 UTC** — live fantasy points from `/livescores` (`/api/cron/live-scores`). |
-| `*/2 * * * *` | Every **2 minutes** — scoreboard snapshots for upcoming/live matches (`/api/cron/sync-scoreboards`). |
+| `*/1 * * * *` | Every **minute** — scoreboard snapshots: **live** and **upcoming** matches each run; **completed** only until a first real scorecard is stored (`/api/cron/sync-scoreboards`). |
 | `15 * * * *` | At **:15** every hour — finalize scores for completed matches (`/api/cron/finalize-scores`). |
 | `45 * * * *` | At **:45** every hour — settle contests / payouts when ready (`/api/cron/settle-contests`). |
+
+## Scoreboard sync env (optional)
+
+- **`SPORTMONKS_SCOREBOARD_COMPLETED_DAYS`** — How far back (in days) to scan for **completed** matches that still lack scorecard rows in `matches.live_snapshot`. Default **7**; max **90**. Live/upcoming are not limited by this.
 
 ## Changing jobs
 
@@ -63,11 +67,12 @@ Edit `vercel.json`, then rebuild/restart the cron container so the crontab is re
 
 Avoid quotes, `$`, and backticks in `CRON_SECRET`; the crontab is generated with shell quoting. Use a long alphanumeric secret.
 
+If a **SportMonks `api_token`** was ever committed or shared, **rotate it** in the SportMonks dashboard and update your deployment env.
+
 ## Admin console and wallet UPI
 
 - **Admin login:** [http://localhost:3000/adminlogin](http://localhost:3000/adminlogin) (only users with `profiles.is_admin = true`).
-- **First admin:** In Supabase SQL editor, after creating a user under **Authentication**, run:
-  `update public.profiles set is_admin = true where id = '<that-user-uuid>';`
+- **First admin:** After creating a user under **Authentication** (Dashboard or app sign-up), open [`supabase/scripts/bootstrap-admin.sql`](../supabase/scripts/bootstrap-admin.sql), set the email to match that user, and run it in the SQL editor.
 - **Disable public sign-up:** In Supabase **Authentication → Providers → Email**, turn off **Allow new users to sign up** so only admins can create accounts (the app also redirects `/signup` to `/login`).
 - **Wallet pay-in:** Set `NEXT_PUBLIC_COMPANY_UPI_VPA` (and optionally `NEXT_PUBLIC_COMPANY_UPI_PAYEE_NAME`) in `.env` so players get a correct `upi://pay` intent on the wallet page.
 - **Service role:** Creating users from **Admin → Users** uses `SUPABASE_SERVICE_ROLE_KEY` on the server; keep it secret.

@@ -185,7 +185,7 @@ export async function syncMatches(opts?: {
       stagesUpserted: 0,
       teamsUpserted: 0,
       note:
-        "No fixtures (check SPORTMONKS_* env, league/season IDs, or SQL seed 20260328000000_seed_mock_data.sql).",
+        "No fixtures (check SPORTMONKS_* env, league/season IDs, or insert test matches manually).",
     };
   }
 

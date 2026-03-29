@@ -11,7 +11,7 @@
 
 begin;
 
--- Pay-in / pay-out / audit (migration 20260340000000); optional if not applied yet.
+-- Pay-in / pay-out / audit (defined in init migration); optional if tables missing.
 do $$
 begin
   if to_regclass('public.pay_in_requests') is not null then
@@ -43,7 +43,7 @@ truncate table
   public.profiles
 restart identity cascade;
 
--- Razorpay audit table (migration 20260326120000); separate in case an old DB never had it.
+-- Razorpay audit table (init migration); optional if missing.
 do $$
 begin
   if to_regclass('public.razorpay_orders') is not null then
@@ -51,7 +51,7 @@ begin
   end if;
 end $$;
 
--- SportMonks reference data (migrations 20260333000000, 20260334000000).
+-- SportMonks reference data (init migration).
 do $$
 begin
   if to_regclass('public.sm_leagues') is not null then

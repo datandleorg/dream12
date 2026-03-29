@@ -1,3 +1,5 @@
+-- LEGACY: New projects use supabase/migrations/20260326000000_init.sql only. Keep this for old DBs.
+--
 -- Paste and run in Supabase → SQL → New query if you see:
 --   "Could not find the function public.create_user_contest(...) in the schema cache"
 -- (Same as migration 20260331000000_user_create_contest.sql — safe to re-run; idempotent.)
