@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { aggregateTeamPoints } from "./live-scoring";
+import {
+  aggregateTeamPoints,
+  teamPointsBreakdown,
+  type TeamBreakdownRosterRow,
+} from "./live-scoring";
 
 describe("aggregateTeamPoints", () => {
   it("sums roster with captain multiplier", () => {
@@ -14,5 +18,36 @@ describe("aggregateTeamPoints", () => {
     const baseBat = 20; // simplified expectation: at least runs
     const total = aggregateTeamPoints(roster, "a", "b", live);
     expect(total).toBeGreaterThan(baseBat);
+  });
+});
+
+describe("teamPointsBreakdown", () => {
+  it("matches aggregateTeamPoints total", () => {
+    const roster: TeamBreakdownRosterRow[] = [
+      {
+        player_id: "a",
+        sportmonks_id: 1,
+        role: "BAT",
+        in_playing_xi: true,
+        player_name: "A",
+        team_label: "T1",
+      },
+      {
+        player_id: "b",
+        sportmonks_id: 2,
+        role: "BOWL",
+        in_playing_xi: false,
+        player_name: "B",
+        team_label: "T1",
+      },
+    ];
+    const live = {
+      "1": { runs: 10, ballsFaced: 12, isDismissed: false },
+      "2": { wickets: 1, oversBowled: 2, runsConceded: 12 },
+    };
+    const rosterCore = roster.map(({ player_name, team_label, ...r }) => r);
+    const sum = aggregateTeamPoints(rosterCore, "a", "b", live);
+    const { computedTotal } = teamPointsBreakdown(roster, "a", "b", live);
+    expect(computedTotal).toBe(sum);
   });
 });

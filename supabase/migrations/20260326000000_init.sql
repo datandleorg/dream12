@@ -122,6 +122,8 @@ create table public.matches (
   match_format text,
   live_snapshot jsonb,
   live_snapshot_at timestamptz,
+  fixture_scoreboard_raw jsonb,
+  fixture_scoreboard_raw_at timestamptz,
   sm_fixture_status text,
   scoring_finalized_at timestamptz,
   lineup_notified_at timestamptz
@@ -143,6 +145,8 @@ comment on column public.matches.stage_id is 'SportMonks stage id.';
 comment on column public.matches.match_format is 'SportMonks fixture type e.g. T20, ODI.';
 comment on column public.matches.live_snapshot is 'Normalized live score / scoreboard JSON for fast reads.';
 comment on column public.matches.live_snapshot_at is 'When live_snapshot was last written.';
+comment on column public.matches.fixture_scoreboard_raw is 'Whitelisted fixture scoreboard fragment for unified fantasy scoring.';
+comment on column public.matches.fixture_scoreboard_raw_at is 'When fixture_scoreboard_raw was last written.';
 comment on column public.matches.sm_fixture_status is 'SportMonks fixture status label for display.';
 comment on column public.matches.scoring_finalized_at is 'Set after final fantasy points recompute for completed matches (cron).';
 comment on column public.matches.lineup_notified_at is 'Set when users were notified that playing XI is available (once per match).';

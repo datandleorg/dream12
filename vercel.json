@@ -5,11 +5,7 @@
       "schedule": "30 20 * * *"
     },
     {
-      "path": "/api/cron/live-scores",
-      "schedule": "30 21 * * *"
-    },
-    {
-      "path": "/api/cron/sync-scoreboards",
+      "path": "/api/cron/live-match-tick",
       "schedule": "*/1 * * * *"
     },
     {
@@ -22,5 +18,3 @@
     }
   ]
 }
-
-

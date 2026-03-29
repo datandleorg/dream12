@@ -28,6 +28,8 @@ export type HomeMatchCardModel = {
   max_prize_pool: number;
   live_snapshot?: unknown;
   sm_fixture_status?: string | null;
+  /** Shown on contest leaderboard hero (second line under pool). */
+  entry_fee?: number;
 };
 
 function TeamOrb({
@@ -66,7 +68,17 @@ function TeamOrb({
   );
 }
 
-export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
+export function HomeUpcomingCard({
+  match,
+  linkHref,
+  variant = "home",
+}: {
+  match: HomeMatchCardModel;
+  /** Default `/matches/${match.id}`. Set `false` for static card (no navigation). */
+  linkHref?: string | false;
+  /** `contest`: pool + entry copy, no “tap” hint. */
+  variant?: "home" | "contest";
+}) {
   const [countdown, setCountdown] = useState("—");
   const teamA = match.team_a?.trim() || match.name.split(/\s+vs\s+/i)[0]?.trim() || "Team A";
   const teamB =
@@ -90,10 +102,13 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
     return () => window.clearInterval(id);
   }, [match.start_time, isCompleted]);
 
+  const href = linkHref === false ? null : (linkHref ?? `/matches/${match.id}`);
+  const isContestVariant = variant === "contest";
+
   const card = (
     <Card
       className={cn(
-        "tap-app cursor-pointer transition-colors hover:border-primary/40 hover:bg-card/90",
+        href && "tap-app cursor-pointer transition-colors hover:border-primary/40 hover:bg-card/90",
       )}
     >
       <CardHeader className="pb-2">
@@ -132,28 +147,59 @@ export function HomeUpcomingCard({ match }: { match: HomeMatchCardModel }) {
           ) : (
             <span className="tabular-nums">Starts in {countdown}</span>
           )}
-          <span
-            className="text-foreground/90 text-sm font-medium tabular-nums"
-            suppressHydrationWarning
-          >
-            Prize up to ₹{match.max_prize_pool.toLocaleString("en-IN")}
-          </span>
+          {isContestVariant ? (
+            <>
+              <span
+                className="text-foreground/90 text-sm font-medium tabular-nums"
+                suppressHydrationWarning
+              >
+                Pool ₹{match.max_prize_pool.toLocaleString("en-IN")}
+              </span>
+              {match.entry_fee != null && Number.isFinite(match.entry_fee) ? (
+                <span
+                  className="text-muted-foreground text-sm font-medium tabular-nums"
+                  suppressHydrationWarning
+                >
+                  Entry ₹{Number(match.entry_fee).toFixed(0)}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span
+              className="text-foreground/90 text-sm font-medium tabular-nums"
+              suppressHydrationWarning
+            >
+              Prize up to ₹{match.max_prize_pool.toLocaleString("en-IN")}
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <div className="flex items-center justify-between px-6 pb-4">
         <TeamOrb label={teamA} logoUrl={match.team_a_logo_url} />
         <span className="text-muted-foreground max-w-[7rem] text-center text-xs font-medium leading-tight">
-          {isUpcoming ? "Tap to create or join" : "Tap for contests"}
+          {isContestVariant
+            ? "Contest match"
+            : isUpcoming
+              ? "Tap to create or join"
+              : "Tap for contests"}
         </span>
         <TeamOrb label={teamB} logoUrl={match.team_b_logo_url} />
       </div>
     </Card>
   );
 
+  if (!href) {
+    return (
+      <div className="list-none">
+        {card}
+      </div>
+    );
+  }
+
   return (
-    <li>
+    <li className="list-none">
       <Link
-        href={`/matches/${match.id}`}
+        href={href}
         className="block"
         aria-label={
           isUpcoming

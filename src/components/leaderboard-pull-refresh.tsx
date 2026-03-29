@@ -11,10 +11,22 @@ export function LeaderboardPullRefresh({
   contestId,
   initialRows,
   currentUserId = null,
+  onRowSelect,
+  payoutByTeamId,
+  prizesSettled,
+  prizeBreakup,
+  teamCount,
+  pointsUpdatedAt,
 }: {
   contestId: string;
   initialRows: Row[];
   currentUserId?: string | null;
+  onRowSelect?: (row: Row) => void;
+  payoutByTeamId?: Record<string, number>;
+  prizesSettled?: boolean;
+  prizeBreakup?: unknown;
+  teamCount?: number;
+  pointsUpdatedAt?: string | null;
 }) {
   const router = useRouter();
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -92,6 +104,12 @@ export function LeaderboardPullRefresh({
           initialRows={initialRows}
           refreshNonce={refreshNonce}
           currentUserId={currentUserId}
+          onRowSelect={onRowSelect}
+          payoutByTeamId={payoutByTeamId}
+          prizesSettled={prizesSettled}
+          prizeBreakup={prizeBreakup}
+          teamCount={teamCount}
+          pointsUpdatedAt={pointsUpdatedAt}
         />
       </div>
     </div>

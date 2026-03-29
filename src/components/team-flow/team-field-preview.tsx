@@ -21,6 +21,16 @@ function abbrTeam(name: string): string {
   return name.slice(0, 3).toUpperCase();
 }
 
+function fantasyPtsForPlayer(
+  map: Record<string, number> | undefined,
+  playerId: string,
+): number {
+  if (!map) return 0;
+  const s = String(playerId);
+  if (Object.prototype.hasOwnProperty.call(map, s)) return map[s] ?? 0;
+  return map[playerId] ?? 0;
+}
+
 function shortName(full: string): string {
   const parts = full.trim().split(/\s+/);
   if (parts.length <= 1) return full.slice(0, 12);
@@ -39,6 +49,10 @@ type TeamFieldPreviewProps = {
   captainId?: string | null;
   viceCaptainId?: string | null;
   className?: string;
+  /** When set, show fantasy pts under each player instead of credits. */
+  fantasyPointsByPlayerId?: Record<string, number>;
+  /** Override top-right header (e.g. Team pts when showing fantasy). */
+  statsRightOverride?: { label: string; value: string };
 };
 
 /**
@@ -54,7 +68,11 @@ export function TeamFieldPreview({
   captainId,
   viceCaptainId,
   className,
+  fantasyPointsByPlayerId,
+  statsRightOverride,
 }: TeamFieldPreviewProps) {
+  const showFantasy =
+    fantasyPointsByPlayerId != null && Object.keys(fantasyPointsByPlayerId).length > 0;
   const a = abbrTeam(teamA);
   const b = abbrTeam(teamB);
   const countA = selected.filter((p) => p.team === teamA).length;
@@ -102,15 +120,15 @@ export function TeamFieldPreview({
           </div>
           <div className="flex flex-col items-end gap-0.5 text-right">
             <span className="text-[10px] font-medium tracking-wide text-zinc-500 uppercase">
-              Credits left
+              {statsRightOverride?.label ?? "Credits left"}
             </span>
             <span
               className={cn(
                 "text-xl font-bold tabular-nums leading-none sm:text-2xl",
-                creditsLeft < 0 ? "text-red-400" : "text-white",
+                !statsRightOverride && creditsLeft < 0 ? "text-red-400" : "text-white",
               )}
             >
-              {creditsLeft.toFixed(1)}
+              {statsRightOverride?.value ?? creditsLeft.toFixed(1)}
             </span>
           </div>
         </div>
@@ -155,8 +173,14 @@ export function TeamFieldPreview({
                   {list.map((p) => {
                     const avatar = playerAvatarUrl(p.photo_url, p.name);
                     const isTeamA = p.team === teamA;
-                    const isC = captainId && p.id === captainId;
-                    const isVc = viceCaptainId && p.id === viceCaptainId;
+                    const isC =
+                      captainId != null &&
+                      String(captainId) !== "" &&
+                      String(p.id) === String(captainId);
+                    const isVc =
+                      viceCaptainId != null &&
+                      String(viceCaptainId) !== "" &&
+                      String(p.id) === String(viceCaptainId);
                     return (
                       <div
                         key={p.id}
@@ -194,7 +218,9 @@ export function TeamFieldPreview({
                           {shortName(p.name)}
                         </span>
                         <span className="text-[10px] font-medium tabular-nums text-white/90 drop-shadow">
-                          {p.credit_value.toFixed(1)} Cr
+                          {showFantasy
+                            ? `${fantasyPtsForPlayer(fantasyPointsByPlayerId, p.id).toFixed(1)} pts`
+                            : `${p.credit_value.toFixed(1)} Cr`}
                         </span>
                       </div>
                     );

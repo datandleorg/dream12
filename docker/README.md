@@ -39,7 +39,7 @@ Cron expressions in `vercel.json` follow the usual five-field form and run in **
   ```
 - **Quick manual hit** (same auth the cron uses), from the host:
   ```bash
-  curl -sS -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/sync-scoreboards"
+  curl -sS -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/live-match-tick"
   ```
 - **BusyBox crond** only runs jobs according to the clock inside the `cron` container (default **UTC** unless you set `TZ` in Compose for that service).
 
@@ -50,14 +50,9 @@ All times below are **UTC** unless you set `TZ` on the `cron` service.
 | Schedule | Meaning |
 |----------|---------|
 | `30 20 * * *` | Every day at **20:30 UTC** — full SportMonks sync (`/api/cron/sync`). |
-| `30 21 * * *` | Every day at **21:30 UTC** — live fantasy points from `/livescores` (`/api/cron/live-scores`). |
-| `*/1 * * * *` | Every **minute** — scoreboard snapshots: **live** and **upcoming** matches each run; **completed** only until a first real scorecard is stored (`/api/cron/sync-scoreboards`). |
+| `*/1 * * * *` | Every **minute** — **live** matches only: fetch merged fixture, persist `fixture_scoreboard_raw` + `live_snapshot`, recompute `user_teams.total_points` (`/api/cron/live-match-tick`). |
 | `15 * * * *` | At **:15** every hour — finalize scores for completed matches (`/api/cron/finalize-scores`). |
 | `45 * * * *` | At **:45** every hour — settle contests / payouts when ready (`/api/cron/settle-contests`). |
-
-## Scoreboard sync env (optional)
-
-- **`SPORTMONKS_SCOREBOARD_COMPLETED_DAYS`** — How far back (in days) to scan for **completed** matches that still lack scorecard rows in `matches.live_snapshot`. Default **7**; max **90**. Live/upcoming are not limited by this.
 
 ## Changing jobs
 

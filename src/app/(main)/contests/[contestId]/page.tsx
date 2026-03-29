@@ -1,28 +1,17 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { LeaderboardPullRefresh } from "@/components/leaderboard-pull-refresh";
-import { ContestMatchInfo } from "@/components/contest-match-info";
 import type { Row } from "@/components/leaderboard-realtime";
-import { parseLiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
-import { buttonVariants } from "@/components/ui/button-variants";
-import { cn } from "@/lib/utils";
+import {
+  ContestDashboard,
+  type ContestPayoutDisplayRow,
+  type ContestPrizeSlab,
+} from "@/components/contest-dashboard";
+import type { HomeMatchCardModel } from "@/components/home-upcoming-card";
+import {
+  buildLiveSnapshotFromFixture,
+  parseLiveSnapshot,
+} from "@/lib/sportmonks/normalize-live-snapshot";
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
-
-function venueStageLines(
-  venue: { name?: string | null; city?: string | null } | null,
-  stage: { name?: string | null; code?: string | null } | null,
-): { venueLine: string | null; stageLine: string | null } {
-  const vname = venue?.name?.trim();
-  const vcity = venue?.city?.trim();
-  const venueLine =
-    vname && vcity ? `${vname}, ${vcity}` : vname ?? vcity ?? null;
-  const sname = stage?.name?.trim();
-  const scode = stage?.code?.trim();
-  const stageLine =
-    sname && scode ? `${sname} · ${scode}` : sname ?? scode ?? null;
-  return { venueLine, stageLine };
-}
 
 export default async function ContestLeaderboardPage({
   params,
@@ -38,7 +27,7 @@ export default async function ContestLeaderboardPage({
   const { data: contest } = await supabase
     .from("contests")
     .select(
-      "id,name,match_id,created_by,creator_joined_at,entry_fee,prize_pool,max_participants,winner_count,prize_breakup",
+      "id,name,match_id,created_by,creator_joined_at,entry_fee,prize_pool,max_participants,winner_count,prize_breakup,prizes_settled_at",
     )
     .eq("id", contestId)
     .single();
@@ -71,32 +60,14 @@ export default async function ContestLeaderboardPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,sm_fixture_status",
+      "id,name,start_time,status,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,live_snapshot,live_snapshot_at,sm_fixture_status",
     )
     .eq("id", matchId)
     .maybeSingle();
 
-  const liveSnapshot = parseLiveSnapshot(matchRow?.live_snapshot);
-
-  let venueRow: { name: string | null; city: string | null } | null = null;
-  let stageRow: { name: string | null; code: string | null } | null = null;
-  if (matchRow?.venue_id != null) {
-    const { data: v } = await supabase
-      .from("sm_venues")
-      .select("name,city")
-      .eq("id", matchRow.venue_id)
-      .maybeSingle();
-    venueRow = v;
-  }
-  if (matchRow?.stage_id != null) {
-    const { data: s } = await supabase
-      .from("sm_stages")
-      .select("name,code")
-      .eq("id", matchRow.stage_id)
-      .maybeSingle();
-    stageRow = s;
-  }
-  const { venueLine, stageLine } = venueStageLines(venueRow, stageRow);
+  const liveSnapshot =
+    parseLiveSnapshot(matchRow?.live_snapshot) ?? buildLiveSnapshotFromFixture(null);
+  const pointsUpdatedAt = matchRow?.live_snapshot_at ?? null;
 
   const { data: teams } = await supabase
     .from("user_teams")
@@ -130,10 +101,9 @@ export default async function ContestLeaderboardPage({
       ? { rank: myIndex + 1, points: sortedForRank[myIndex]!.total_points }
       : null;
 
-  type PrizeSlab = { rank_from: number; rank_to: number; amount: number };
-  const prizeSlabs: PrizeSlab[] = Array.isArray(contest.prize_breakup)
+  const prizeSlabs: ContestPrizeSlab[] = Array.isArray(contest.prize_breakup)
     ? (contest.prize_breakup as unknown[]).filter(
-        (x): x is PrizeSlab =>
+        (x): x is ContestPrizeSlab =>
           x != null &&
           typeof x === "object" &&
           "rank_from" in x &&
@@ -142,83 +112,86 @@ export default async function ContestLeaderboardPage({
       )
     : [];
 
+  const prizesSettled = Boolean(contest.prizes_settled_at);
+  const payoutByTeamId: Record<string, number> = {};
+  const payoutRows: ContestPayoutDisplayRow[] = [];
+
+  if (prizesSettled) {
+    const { data: payouts } = await supabase
+      .from("contest_payouts")
+      .select("user_team_id, user_id, rank, amount_inr")
+      .eq("contest_id", contestId)
+      .order("rank", { ascending: true });
+
+    const payoutUserIds = [...new Set((payouts ?? []).map((p) => p.user_id))];
+    const { data: payoutProfiles } = await supabase
+      .from("profile_usernames")
+      .select("id,username")
+      .in("id", payoutUserIds);
+
+    const payoutNames = new Map(
+      (payoutProfiles ?? []).map((p) => [p.id, p.username as string]),
+    );
+
+    for (const p of payouts ?? []) {
+      const tid = p.user_team_id as string;
+      payoutByTeamId[tid] = Number(p.amount_inr);
+      payoutRows.push({
+        rank: p.rank as number,
+        username: payoutNames.get(p.user_id as string) ?? "Player",
+        amount: Number(p.amount_inr),
+        userTeamId: tid,
+      });
+    }
+  }
+
   const matchSubtitle =
     matchRow?.team_a && matchRow?.team_b
       ? `${matchRow.team_a} vs ${matchRow.team_b}`
       : (matchRow?.name ?? "Match");
-  const title =
+  const contestTitle =
     contest.name?.trim() ||
     (matchRow ? `Contest · ${matchSubtitle}` : "Contest");
 
+  const squadHref = `/matches/${contest.match_id}/contests/${contestId}/squad`;
+
+  const matchCard: HomeMatchCardModel = {
+    id: matchId,
+    name: String(matchRow?.name ?? "Match"),
+    start_time: String(matchRow?.start_time ?? new Date(0).toISOString()),
+    status: String(matchRow?.status ?? "upcoming"),
+    tournament_name: matchRow?.tournament_name ?? null,
+    team_a: matchRow?.team_a ?? null,
+    team_b: matchRow?.team_b ?? null,
+    team_a_logo_url: matchRow?.team_a_logo_url ?? null,
+    team_b_logo_url: matchRow?.team_b_logo_url ?? null,
+    max_prize_pool: Number(contest.prize_pool ?? 0),
+    live_snapshot: matchRow?.live_snapshot,
+    sm_fixture_status: matchRow?.sm_fixture_status as string | null,
+    entry_fee: Number(contest.entry_fee ?? 0),
+  };
+
   return (
-    <div className="space-y-4 py-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold leading-tight">{title}</h1>
-          <p className="text-muted-foreground text-sm">Live leaderboard</p>
-        </div>
-        {userHasTeamInContest ? (
-          <Link
-            href={`/matches/${contest.match_id}/contests/${contestId}/squad`}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "inline-flex min-h-11 shrink-0 items-center justify-center",
-            )}
-          >
-            My team
-          </Link>
-        ) : null}
-      </div>
-
-      {matchRow ? (
-        <ContestMatchInfo
-          matchId={matchId}
-          startIso={matchRow.start_time}
-          status={String(matchRow.status)}
-          tournamentName={matchRow.tournament_name}
-          subtitle={matchSubtitle}
-          matchFormat={matchRow.match_format ?? null}
-          venueLine={venueLine}
-          stageLine={stageLine}
-          liveSnapshot={liveSnapshot}
-          smFixtureStatus={matchRow.sm_fixture_status as string | null}
-        />
-      ) : null}
-
-      <div className="bg-muted/40 space-y-2 rounded-xl border px-3 py-2.5 text-sm">
-        <p className="font-medium tabular-nums">
-          Pool ₹{Number(contest.prize_pool ?? 0).toFixed(0)} · Entry ₹
-          {Number(contest.entry_fee ?? 0).toFixed(0)} · {contest.max_participants} spots · Top{" "}
-          {Number(contest.winner_count ?? 1)} paid
-        </p>
-        {prizeSlabs.length ? (
-          <ul className="text-muted-foreground space-y-0.5 text-xs">
-            {prizeSlabs.map((s, i) => (
-              <li key={i} className="tabular-nums">
-                Ranks {s.rank_from}–{s.rank_to}: ₹{Number(s.amount).toFixed(0)}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted-foreground text-xs">Prize slabs use contest defaults.</p>
-        )}
-      </div>
-
-      {myStandings ? (
-        <p className="border-primary/40 bg-primary/5 text-foreground rounded-xl border px-3 py-2 text-sm font-medium tabular-nums">
-          Your rank #{myStandings.rank} · {myStandings.points.toFixed(1)} pts
-        </p>
-      ) : null}
-
-      {!initialRows.length ? (
-        <p className="text-muted-foreground text-sm">No teams yet.</p>
-      ) : (
-        <LeaderboardPullRefresh
-          contestId={contestId}
-          initialRows={initialRows}
-          currentUserId={user?.id ?? null}
-        />
-      )}
-    </div>
+    <ContestDashboard
+      contestId={contestId}
+      contestTitle={contestTitle}
+      entryFee={Number(contest.entry_fee ?? 0)}
+      prizePool={Number(contest.prize_pool ?? 0)}
+      maxParticipants={Number(contest.max_participants ?? 0)}
+      winnerCount={Number(contest.winner_count ?? 1)}
+      prizeSlabs={prizeSlabs}
+      prizeBreakupJson={contest.prize_breakup}
+      prizesSettled={prizesSettled}
+      payoutByTeamId={payoutByTeamId}
+      payoutRows={payoutRows}
+      liveSnapshot={liveSnapshot}
+      matchCard={matchCard}
+      initialRows={initialRows}
+      currentUserId={user?.id ?? null}
+      userHasTeamInContest={userHasTeamInContest}
+      myStandings={myStandings}
+      squadHref={squadHref}
+      pointsUpdatedAt={pointsUpdatedAt}
+    />
   );
 }

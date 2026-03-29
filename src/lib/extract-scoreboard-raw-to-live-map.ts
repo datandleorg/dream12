@@ -1,0 +1,105 @@
+import type { NormalizedPlayerStats } from "@/lib/fantasy/scoring";
+import {
+  collectPlayerIdKeys,
+  mergeNodeIntoStats,
+} from "@/lib/extract-live-stats-by-player";
+import { parseCricketOversToDecimal } from "@/lib/live-stats-from-snapshot";
+
+function unwrapData<T>(node: unknown): T | null {
+  if (!node || typeof node !== "object") return null;
+  const o = node as Record<string, unknown>;
+  const inner = o.data;
+  if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+    return inner as T;
+  }
+  return o as T;
+}
+
+/** Batting/bowling may be `{ data: [...] }` or a plain array. */
+function asObjectArray(raw: unknown): Record<string, unknown>[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter((x) => x && typeof x === "object") as Record<string, unknown>[];
+  }
+  const u = unwrapData<Record<string, unknown>>(raw);
+  if (u && Array.isArray(u.data)) {
+    return (u.data as unknown[]).filter(
+      (x) => x && typeof x === "object",
+    ) as Record<string, unknown>[];
+  }
+  return [];
+}
+
+function dismissedFromScoreboardRow(row: Record<string, unknown>): boolean {
+  if (row.dismissed != null || row.out != null) {
+    return Boolean(row.dismissed ?? row.out);
+  }
+  const w = row.wicket_id;
+  if (w == null) return false;
+  if (typeof w === "object" && w !== null) return true;
+  if (typeof w === "number") return w !== 0;
+  if (typeof w === "string") {
+    const t = w.trim();
+    return t !== "" && t !== "0";
+  }
+  return Boolean(w);
+}
+
+function normalizeBattingRowForMerge(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...row,
+    dismissed: dismissedFromScoreboardRow(row),
+  };
+}
+
+function normalizeBowlingRowForMerge(row: Record<string, unknown>): Record<string, unknown> {
+  const rawOvers = row.overs ?? row.oversBowled;
+  let oversNum = 0;
+  if (typeof rawOvers === "string") {
+    oversNum = parseCricketOversToDecimal(rawOvers);
+  } else if (typeof rawOvers === "number" && Number.isFinite(rawOvers)) {
+    oversNum = rawOvers;
+  }
+  const concede = row.runs_conceded ?? row.conceded ?? row.runs;
+  const { runs: _r, ...rest } = row;
+  return {
+    ...rest,
+    runs_conceded: concede,
+    conceded: concede,
+    overs: oversNum,
+    oversBowled: oversNum,
+    maidens: row.maidens ?? row.medians,
+  };
+}
+
+/**
+ * Walk persisted (or merged) fixture `batting` / `bowling` only → stats keyed by SportMonks player id string.
+ * Aligns with `extractLiveStatsByPlayer` + `mergeNodeIntoStats` field names.
+ */
+export function extractScoreboardRawToLiveMap(
+  raw: unknown,
+): Record<string, Partial<NormalizedPlayerStats>> {
+  const out: Record<string, Partial<NormalizedPlayerStats>> = {};
+  if (!raw || typeof raw !== "object") return out;
+  const r = raw as Record<string, unknown>;
+
+  for (const row of asObjectArray(r.batting)) {
+    const n = normalizeBattingRowForMerge(row);
+    const keys = collectPlayerIdKeys(n);
+    if (!keys.size) continue;
+    for (const key of keys) {
+      out[key] = mergeNodeIntoStats(n, out[key] ?? {});
+    }
+  }
+
+  for (const row of asObjectArray(r.bowling)) {
+    const n = normalizeBowlingRowForMerge(row);
+    const keys = collectPlayerIdKeys(n);
+    if (!keys.size) continue;
+    for (const key of keys) {
+      out[key] = mergeNodeIntoStats(n, out[key] ?? {});
+    }
+  }
+
+  return out;
+}

@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyCronRequest } from "@/lib/cron-auth";
 import { recordCronRun } from "@/lib/cron-run-log";
-import { syncScoreboardSnapshots } from "@/lib/sportmonks/sync-scoreboards";
+import { runLiveMatchTick } from "@/lib/live-match-tick";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
 
-const ROUTE = "/api/cron/sync-scoreboards";
+const ROUTE = "/api/cron/live-match-tick";
 
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
@@ -13,18 +14,13 @@ export async function GET(request: NextRequest) {
   }
 
   const t0 = Date.now();
-  console.log(`[dream12-api-cron] ${ROUTE} START (every-2m scoreboard snapshots)`);
+  console.log(`[dream12-api-cron] ${ROUTE} START`);
 
   try {
-    const result = await syncScoreboardSnapshots();
+    const supabase = createServiceClient();
+    const result = await runLiveMatchTick(supabase);
     const durationMs = Date.now() - t0;
-    console.log(`[dream12-api-cron] ${ROUTE} DONE`, {
-      durationMs,
-      updated: result.updated,
-      skipped: result.skipped,
-      errors: result.errors,
-      fixtureIds: result.ids,
-    });
+    console.log(`[dream12-api-cron] ${ROUTE} DONE`, { durationMs, ...result });
     recordCronRun({
       route: ROUTE,
       durationMs,
@@ -35,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
   } catch (e) {
     const durationMs = Date.now() - t0;
-    const msg = e instanceof Error ? e.message : "Sync failed";
+    const msg = e instanceof Error ? e.message : String(e);
     console.error(`[dream12-api-cron] ${ROUTE} ERROR`, { durationMs, msg });
     recordCronRun({
       route: ROUTE,

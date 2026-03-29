@@ -161,15 +161,18 @@ function InningsScorecardBlock({ card }: { card: LiveInningsCard }) {
 export function MatchLiveScoreTabs({
   snapshot,
   className,
+  defaultTab = "summary",
 }: {
   snapshot: LiveSnapshot;
   className?: string;
+  /** Default panel: `summary` or `scorecard` (e.g. contest page). */
+  defaultTab?: "summary" | "scorecard";
 }) {
   const useInningsCards =
     Array.isArray(snapshot.inningsCards) && snapshot.inningsCards.length > 0;
 
   return (
-    <Tabs defaultValue="summary" className={cn("w-full", className)}>
+    <Tabs defaultValue={defaultTab} className={cn("w-full", className)}>
       <TabsList variant="line" className="mb-3 w-full justify-start gap-1">
         <TabsTrigger value="summary">Summary</TabsTrigger>
         <TabsTrigger value="scorecard">Scorecard</TabsTrigger>

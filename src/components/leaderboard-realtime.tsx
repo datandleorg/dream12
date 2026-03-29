@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { prizeAmountForRank } from "@/lib/contest-prize";
 import { cn } from "@/lib/utils";
 
 export type Row = {
@@ -11,17 +12,53 @@ export type Row = {
   username: string | null;
 };
 
+/** Fixed locale + TZ so SSR and browser match (avoids hydration mismatch). */
+const POINTS_UPDATED_AT_FORMAT = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: "UTC",
+});
+
+function formatPointsUpdatedAtLabel(iso: string): string {
+  return POINTS_UPDATED_AT_FORMAT.format(new Date(iso));
+}
+
+function initialsFromUsername(u: string | null): string {
+  if (!u?.trim()) return "?";
+  const t = u.trim();
+  const parts = t.split(/[\s_]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0]![0] + parts[1]![0]).toUpperCase();
+  }
+  return t.slice(0, 2).toUpperCase();
+}
+
 export function LeaderboardRealtime({
   contestId,
   initialRows,
   refreshNonce = 0,
   currentUserId = null,
+  onRowSelect,
+  payoutByTeamId = {},
+  prizesSettled = false,
+  prizeBreakup,
+  teamCount,
+  pointsUpdatedAt = null,
 }: {
   contestId: string;
   initialRows: Row[];
-  /** Increment after `router.refresh()` to re-sync from server `initialRows`. */
   refreshNonce?: number;
   currentUserId?: string | null;
+  onRowSelect?: (row: Row) => void;
+  payoutByTeamId?: Record<string, number>;
+  prizesSettled?: boolean;
+  prizeBreakup?: unknown;
+  teamCount?: number;
+  pointsUpdatedAt?: string | null;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [flash, setFlash] = useState<Record<string, "up" | "down">>({});
@@ -95,30 +132,92 @@ export function LeaderboardRealtime({
     };
   }, [contestId]);
 
+  const count = teamCount ?? sorted.length;
+
   return (
-    <ol className="space-y-2">
-      {sorted.map((r, i) => (
-        <li
-          key={r.id}
-          className={cn(
-            "flex min-h-11 items-center justify-between rounded-xl border px-4 py-3 transition-colors",
-            flash[r.id] === "up" && "bg-emerald-500/15",
+    <div className="space-y-2">
+      {pointsUpdatedAt ? (
+        <p className="text-muted-foreground px-0.5 text-center text-[11px] font-medium tracking-wide">
+          Points last updated {formatPointsUpdatedAtLabel(pointsUpdatedAt)}
+        </p>
+      ) : null}
+      <div className="text-muted-foreground grid grid-cols-[1fr_auto_auto] gap-2 border-b px-1 pb-2 text-xs font-semibold">
+        <span>All teams ({count.toLocaleString("en-IN")})</span>
+        <span className="text-right">Points</span>
+        <span className="w-12 text-right">Rank</span>
+      </div>
+      <ol className="space-y-0 divide-y divide-border rounded-xl border bg-card">
+        {sorted.map((r, i) => {
+          const rank = i + 1;
+          const won = prizesSettled ? payoutByTeamId[r.id] : undefined;
+          const projected =
+            !prizesSettled && prizeBreakup != null
+              ? prizeAmountForRank(prizeBreakup, rank)
+              : 0;
+          const interactive = Boolean(onRowSelect && currentUserId);
+          const rowCls = cn(
+            "flex w-full items-center gap-3 px-3 py-3 text-left transition-colors",
+            flash[r.id] === "up" && "bg-emerald-500/10",
             flash[r.id] === "down" && "bg-red-500/10",
-            currentUserId && r.user_id === currentUserId &&
-              "border-primary bg-primary/8 ring-primary/25 ring-1",
-          )}
-        >
-          <span className="text-muted-foreground w-8 font-medium tabular-nums">
-            {i + 1}
-          </span>
-          <span className="flex-1 truncate font-medium">
-            {r.username ?? r.user_id.slice(0, 8)}
-          </span>
-          <span className="tabular-nums font-semibold">
-            {Number(r.total_points).toFixed(1)}
-          </span>
-        </li>
-      ))}
-    </ol>
+            currentUserId && r.user_id === currentUserId && "bg-primary/8 ring-primary/20 ring-1",
+            interactive && "cursor-pointer hover:bg-muted/50",
+            !interactive && onRowSelect && !currentUserId && "opacity-90",
+          );
+          const inner = (
+            <>
+              <div
+                className="border-border bg-secondary/80 flex size-10 shrink-0 items-center justify-center rounded-full border text-xs font-bold"
+                aria-hidden
+              >
+                {initialsFromUsername(r.username)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">
+                  {(r.username ?? r.user_id.slice(0, 8)).toUpperCase()}
+                </div>
+                {won != null && won > 0 ? (
+                  <div className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold tabular-nums">
+                    Won ₹{won.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </div>
+                ) : !prizesSettled && projected > 0 ? (
+                  <div className="text-muted-foreground text-xs tabular-nums">
+                    Proj. ₹{projected.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </div>
+                ) : null}
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-semibold tabular-nums">
+                  {Number(r.total_points).toLocaleString("en-IN", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 1,
+                  })}
+                </div>
+              </div>
+              <div className="text-muted-foreground w-12 shrink-0 text-right text-sm font-semibold tabular-nums">
+                #{rank}
+              </div>
+            </>
+          );
+          if (interactive) {
+            return (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  className={rowCls}
+                  onClick={() => onRowSelect?.(r)}
+                >
+                  {inner}
+                </button>
+              </li>
+            );
+          }
+          return (
+            <li key={r.id} className={rowCls}>
+              {inner}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
