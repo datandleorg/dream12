@@ -25,7 +25,7 @@ export async function sportmonksFetch<T = unknown>(
       url.searchParams.set(k, v);
     }
   }
-  const res = await fetch(url.toString(), { next: { revalidate: 0 } });
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Sportmonks ${res.status}: ${text.slice(0, 200)}`);
@@ -90,6 +90,11 @@ export interface SmFixture {
   status?: string;
   /** Cricket API uses 0/1 or boolean for in-progress */
   live?: boolean | number;
+  toss?: unknown;
+  /** Cricket v2 fixture root (often with `include=tosswon`). */
+  toss_won_team_id?: number;
+  elected?: string;
+  tosswon?: unknown;
 }
 
 /** Include strings shared by list sync, lineup sync, and on-demand detail fetch */
@@ -98,6 +103,10 @@ export const SM_FIXTURE_LIST_INCLUDE =
 
 export const SM_FIXTURE_LINEUP_INCLUDE =
   "lineup,localteam,visitorteam,league,venue,stage";
+
+/** Prematch: lineup + `tosswon` (not `toss` — that include is rejected on many plans). */
+export const SM_FIXTURE_PREMATCH_INCLUDE =
+  "lineup,localteam,visitorteam,league,venue,stage,tosswon";
 
 export interface SmFixturesResponse {
   data?: SmFixture[];

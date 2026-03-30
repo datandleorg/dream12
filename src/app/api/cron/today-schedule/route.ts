@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyCronRequest } from "@/lib/cron-auth";
 import { recordCronRun } from "@/lib/cron-run-log";
-import { runMatchPipeline } from "@/lib/live-match-tick";
 import { createServiceClient } from "@/lib/supabase/service";
+import { runTodayScheduleMonitor } from "@/lib/today-schedule-monitor";
 
 export const dynamic = "force-dynamic";
 
-const ROUTE = "/api/cron/live-match-tick";
+const ROUTE = "/api/cron/today-schedule";
 
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createServiceClient();
-    const result = await runMatchPipeline(supabase);
+    const result = await runTodayScheduleMonitor(supabase);
     const durationMs = Date.now() - t0;
     console.log(`[dream12-api-cron] ${ROUTE} DONE`, { durationMs, ...result });
     recordCronRun({

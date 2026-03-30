@@ -79,6 +79,7 @@ export function ContestDashboard({
     live_snapshot_at: pointsUpdatedAt,
     status: matchCard.status,
     sm_fixture_status: matchCard.sm_fixture_status ?? null,
+    fixture_scoreboard_raw: matchCard.fixture_scoreboard_raw,
     initialParsedSnapshot: liveSnapshot,
   });
 
@@ -92,7 +93,8 @@ export function ContestDashboard({
     [matchCard, live.status, live.snapshot, live.smFixtureStatus],
   );
 
-  const matchCompleted = String(live.status).toLowerCase() === "completed";
+  const liveSt = String(live.status).toLowerCase();
+  const matchCompleted = liveSt === "completed" || liveSt === "in_review";
 
   const openPreview = (row: Row) => {
     if (!currentUserId) return;
@@ -223,6 +225,7 @@ export function ContestDashboard({
         <TabsContent value="scorecard" className="mt-3">
           <MatchLiveScoreTabs
             snapshot={live.snapshot}
+            fixtureScoreboardRaw={live.fixtureScoreboardRaw}
             defaultTab="scorecard"
             isCompleted={matchCompleted}
           />

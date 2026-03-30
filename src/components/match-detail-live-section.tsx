@@ -18,6 +18,7 @@ export function MatchDetailLiveSection({
   live_snapshot_at,
   status: initialStatus,
   sm_fixture_status,
+  fixture_scoreboard_raw,
   initialParsedSnapshot,
 }: {
   matchId: number;
@@ -29,6 +30,7 @@ export function MatchDetailLiveSection({
   live_snapshot_at: string | null;
   status: string;
   sm_fixture_status: string | null;
+  fixture_scoreboard_raw?: unknown;
   initialParsedSnapshot?: LiveSnapshot | null;
 }) {
   const { snapshot, status, smFixtureStatus } = useMatchLiveRow({
@@ -37,13 +39,14 @@ export function MatchDetailLiveSection({
     live_snapshot_at,
     status: initialStatus,
     sm_fixture_status,
+    fixture_scoreboard_raw,
     initialParsedSnapshot,
   });
 
   const statusKey = String(status).toLowerCase();
   const isUpcoming = statusKey === "upcoming";
   const isLive = statusKey === "live";
-  const isCompleted = statusKey === "completed";
+  const isCompleted = statusKey === "completed" || statusKey === "in_review";
 
   return (
     <div>
@@ -73,7 +76,11 @@ export function MatchDetailLiveSection({
       </p>
       <FixtureSmStatusLine label={smFixtureStatus} className="mt-1" />
       <MatchShortScore snapshot={snapshot} className="mt-1" />
-      {isCompleted ? (
+      {statusKey === "in_review" ? (
+        <p className="text-amber-800 dark:text-amber-200 mt-1 text-sm font-medium">
+          Match ended — final scores under review
+        </p>
+      ) : isCompleted ? (
         <p className="text-muted-foreground mt-1 text-sm font-medium">Match finished</p>
       ) : isLive ? (
         <p className="text-emerald-700 dark:text-emerald-400 mt-1 text-sm font-medium">

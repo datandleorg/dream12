@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  buildInningsCardsFromScoreboardRaw,
   completedTeamScoreLines,
   formatMatchResultSummary,
   isSnapshotShortLinePlaceholder,
@@ -18,6 +20,22 @@ function formatSnapshotUpdatedAt(iso: string): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return iso;
   return `${new Date(t).toISOString().replace("T", " ").slice(0, 19)} UTC`;
+}
+
+function isNotOutBattingRow(row: LiveBattingRow): boolean {
+  const d = row.dismissal;
+  if (d == null) return true;
+  const t = String(d).trim();
+  if (t.length === 0) return true;
+  return t.toLowerCase() === "not out";
+}
+
+function shouldShowDismissalSubline(row: LiveBattingRow): boolean {
+  const d = row.dismissal;
+  if (d == null) return false;
+  const t = String(d).trim();
+  if (t.length === 0) return false;
+  return t.toLowerCase() !== "not out";
 }
 
 function BattingScoreTable({ rows, empty }: { rows: LiveBattingRow[]; empty: string }) {
@@ -49,8 +67,19 @@ function BattingScoreTable({ rows, empty }: { rows: LiveBattingRow[]; empty: str
               )}
             >
               <td className="max-w-[min(220px,45vw)] py-2 pr-3">
-                <div className="text-primary font-medium">{r.name}</div>
-                {r.dismissal ? (
+                <div className="text-primary font-medium">
+                  <span>{r.name}</span>
+                  {isNotOutBattingRow(r) ? (
+                    <span
+                      className="ml-0.5 font-semibold text-foreground"
+                      aria-label="Not out"
+                      title="Not out"
+                    >
+                      *
+                    </span>
+                  ) : null}
+                </div>
+                {shouldShowDismissalSubline(r) ? (
                   <div className="text-muted-foreground mt-0.5 text-xs leading-snug">
                     {r.dismissal}
                   </div>
@@ -351,25 +380,38 @@ export function MatchSnapshotScorecardContent({
 
 export function MatchLiveScoreTabs({
   snapshot,
+  fixtureScoreboardRaw,
   className,
   defaultTab = "summary",
   isCompleted = false,
 }: {
   snapshot: LiveSnapshot;
+  /** Authoritative batting/bowling trees from DB; when present, scorecard uses them for dismissal detail. */
+  fixtureScoreboardRaw?: unknown;
   className?: string;
   /** Default panel: `summary` or `scorecard` (e.g. contest page). */
   defaultTab?: "summary" | "scorecard";
-  /** Finished matches: one summary line only; full scorecard tab hidden. */
+  /** Affects summary copy only; scorecard stays available for finished matches. */
   isCompleted?: boolean;
 }) {
-  const effectiveDefault =
-    isCompleted && defaultTab === "scorecard" ? "summary" : defaultTab;
+  const rawJson =
+    fixtureScoreboardRaw != null && typeof fixtureScoreboardRaw === "object"
+      ? JSON.stringify(fixtureScoreboardRaw)
+      : String(fixtureScoreboardRaw ?? "");
+
+  const scorecardSnapshot = useMemo((): LiveSnapshot => {
+    const cards = buildInningsCardsFromScoreboardRaw(fixtureScoreboardRaw);
+    if (cards.length > 0) {
+      return { ...snapshot, inningsCards: cards };
+    }
+    return snapshot;
+  }, [snapshot, rawJson]);
 
   return (
-    <Tabs defaultValue={effectiveDefault} className={cn("w-full", className)}>
+    <Tabs defaultValue={defaultTab} className={cn("w-full", className)}>
       <TabsList variant="line" className="mb-3 w-full justify-start gap-1">
         <TabsTrigger value="summary">Summary</TabsTrigger>
-        {!isCompleted ? <TabsTrigger value="scorecard">Scorecard</TabsTrigger> : null}
+        <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
       </TabsList>
       <TabsContent value="summary">
         <Card>
@@ -381,11 +423,9 @@ export function MatchLiveScoreTabs({
           </CardContent>
         </Card>
       </TabsContent>
-      {!isCompleted ? (
-        <TabsContent value="scorecard">
-          <MatchSnapshotScorecardContent snapshot={snapshot} className="space-y-6" />
-        </TabsContent>
-      ) : null}
+      <TabsContent value="scorecard">
+        <MatchSnapshotScorecardContent snapshot={scorecardSnapshot} className="space-y-6" />
+      </TabsContent>
     </Tabs>
   );
 }

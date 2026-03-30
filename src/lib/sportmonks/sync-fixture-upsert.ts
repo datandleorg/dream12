@@ -52,7 +52,7 @@ export type MatchUpsertRow = {
   id: number;
   name: string;
   start_time: string;
-  status: "upcoming" | "live" | "completed";
+  status: "upcoming" | "live" | "completed" | "in_review";
   sm_fixture_status: string | null;
   tournament_name: string | null;
   team_a: string | null;

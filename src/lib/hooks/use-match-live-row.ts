@@ -14,6 +14,8 @@ export type MatchLiveRowArgs = {
   live_snapshot_at: string | null;
   status: string;
   sm_fixture_status: string | null;
+  /** Persisted scoreboard fragment; kept in sync for rich scorecard (nested wicket/bowler rows). */
+  fixture_scoreboard_raw?: unknown;
   /**
    * When the server already merged a fresher snapshot (e.g. resolveLiveSnapshotForPage),
    * use this for the first paint; DB + realtime remain the source of truth after.
@@ -36,6 +38,7 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
   liveSnapshotAt: string | null;
   status: string;
   smFixtureStatus: string | null;
+  fixtureScoreboardRaw: unknown;
 } {
   const { matchId } = args;
 
@@ -49,12 +52,16 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
   const [smFixtureStatus, setSmFixtureStatus] = useState<string | null>(
     args.sm_fixture_status,
   );
+  const [fixtureScoreboardRaw, setFixtureScoreboardRaw] = useState<unknown>(
+    () => args.fixture_scoreboard_raw,
+  );
 
   useEffect(() => {
     setSnapshot(snapshotFromInitial(args));
     setLiveSnapshotAt(args.live_snapshot_at);
     setStatus(args.status);
     setSmFixtureStatus(args.sm_fixture_status);
+    setFixtureScoreboardRaw(args.fixture_scoreboard_raw);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when navigating to another match or new SSR payload
   }, [
     matchId,
@@ -66,6 +73,11 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
     typeof args.live_snapshot === "object" && args.live_snapshot !== null
       ? JSON.stringify(args.live_snapshot)
       : String(args.live_snapshot),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    typeof args.fixture_scoreboard_raw === "object" &&
+    args.fixture_scoreboard_raw !== null
+      ? JSON.stringify(args.fixture_scoreboard_raw)
+      : String(args.fixture_scoreboard_raw ?? ""),
   ]);
 
   useEffect(() => {
@@ -105,6 +117,9 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
               setSmFixtureStatus(null);
             }
           }
+          if ("fixture_scoreboard_raw" in row) {
+            setFixtureScoreboardRaw(row.fixture_scoreboard_raw);
+          }
         },
       )
       .subscribe();
@@ -121,7 +136,9 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
         const supabase = createClient();
         const { data, error } = await supabase
           .from("matches")
-          .select("live_snapshot,live_snapshot_at,status,sm_fixture_status")
+          .select(
+            "live_snapshot,live_snapshot_at,status,sm_fixture_status,fixture_scoreboard_raw",
+          )
           .eq("id", matchId)
           .maybeSingle();
         if (error || !data) return;
@@ -148,11 +165,14 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
               : null,
           );
         }
+        if ("fixture_scoreboard_raw" in d) {
+          setFixtureScoreboardRaw(d.fixture_scoreboard_raw);
+        }
       })();
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [matchId]);
 
-  return { snapshot, liveSnapshotAt, status, smFixtureStatus };
+  return { snapshot, liveSnapshotAt, status, smFixtureStatus, fixtureScoreboardRaw };
 }

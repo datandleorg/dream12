@@ -47,11 +47,11 @@ export default async function HomePage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let query = supabase.from("matches").select(matchColumns).eq("status", filter);
+  let query = supabase.from("matches").select(matchColumns);
   query =
     filter === "completed"
-      ? query.order("start_time", { ascending: false })
-      : query.order("start_time", { ascending: true });
+      ? query.in("status", ["completed", "in_review"]).order("start_time", { ascending: false })
+      : query.eq("status", filter).order("start_time", { ascending: true });
 
   const { data: statusRows, error: matchErr } = await query;
 

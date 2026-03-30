@@ -5,16 +5,20 @@
       "schedule": "30 20 * * *"
     },
     {
+      "path": "/api/cron/today-schedule",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/cron/live-match-tick",
-      "schedule": "*/30 * * * * *"
+      "schedule": "* 14-23,0 * * *"
     },
     {
       "path": "/api/cron/finalize-scores",
-      "schedule": "15 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/settle-contests",
-      "schedule": "45 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

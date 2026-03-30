@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { ROLE_ORDER } from "@/lib/fantasy/rules";
 import { playerAvatarUrl } from "@/lib/avatar-url";
 import type { BuilderPlayer } from "@/stores/team-builder";
+import { PlayingXiDot } from "@/components/team-flow/playing-xi-dot";
 import { cn } from "@/lib/utils";
 
 const ROLE_HEADLINES: Record<string, string> = {
@@ -91,6 +92,11 @@ export function TeamFieldPreview({
     return m;
   }, [selected]);
 
+  const showXiLegend = useMemo(
+    () => selected.some((p) => p.in_playing_xi != null),
+    [selected],
+  );
+
   return (
     <div
       className={cn(
@@ -132,6 +138,11 @@ export function TeamFieldPreview({
             </span>
           </div>
         </div>
+        {showXiLegend ? (
+          <p className="mt-2 border-t border-zinc-800 pt-2 text-center text-[10px] leading-snug text-zinc-500">
+            Green = playing XI · Red = not in XI · Gray = unknown
+          </p>
+        ) : null}
       </header>
 
       {/* Grass field */}
@@ -194,6 +205,11 @@ export function TeamFieldPreview({
                             width={52}
                             height={52}
                             className="size-[52px] rounded-full border-2 border-white/90 object-cover shadow-md ring-1 ring-black/10"
+                          />
+                          <PlayingXiDot
+                            in_playing_xi={p.in_playing_xi}
+                            className="-top-0.5 -right-0.5"
+                            size="md"
                           />
                           {isC ? (
                             <span className="absolute -right-0.5 -bottom-0.5 rounded bg-red-600 px-1 text-[8px] font-bold text-white shadow">

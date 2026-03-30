@@ -2,6 +2,9 @@ import type { SmFixture } from "./client";
 
 type MatchBucket = "upcoming" | "live" | "completed";
 
+/** Persisted `matches.status` including post-match review. */
+export type DbMatchStatus = "upcoming" | "live" | "completed" | "in_review";
+
 function norm(s: string): string {
   return s.trim().toLowerCase();
 }
@@ -94,4 +97,31 @@ export function mapMatchStatusFromSmFixture(f: SmFixture): MatchBucket {
   }
 
   return "upcoming";
+}
+
+/**
+ * Map SportMonks + previous DB row → next `matches.status` during live pipeline.
+ * Live → provider finished becomes `in_review` (not `completed`) until finalize.
+ */
+export function resolveDbStatusAfterLiveTick(
+  previous: DbMatchStatus,
+  f: SmFixture,
+): { status: DbMatchStatus; setMatchFinishedAt: boolean } {
+  const sm = mapMatchStatusFromSmFixture(f);
+
+  if (previous === "in_review") {
+    return { status: "in_review", setMatchFinishedAt: false };
+  }
+
+  if (previous === "live" && sm === "completed") {
+    return { status: "in_review", setMatchFinishedAt: true };
+  }
+
+  if (sm === "completed") {
+    return { status: "completed", setMatchFinishedAt: false };
+  }
+  if (sm === "live") {
+    return { status: "live", setMatchFinishedAt: false };
+  }
+  return { status: "upcoming", setMatchFinishedAt: false };
 }

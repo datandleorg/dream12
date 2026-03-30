@@ -4,18 +4,23 @@ This document describes **how cricket match data enters Dream12**, **where it is
 
 ## 1. Overview
 
+Match lifecycle is **state-aware**: `upcoming` → `live` → `in_review` → `completed` (with `scoring_finalized_at`), then contest settlement. The **minutely** job ([`runMatchPipeline`](../src/lib/live-match-tick.ts)) handles prematch toss/lineup, promotes `upcoming`→`live`, and ticks **`live` and `in_review`** until finalize locks scores.
+
 ```mermaid
 flowchart LR
   SM[SportMonks API]
-  SM --> CronSync[Daily /api/cron/sync]
-  SM --> LiveTick[Minute /api/cron/live-match-tick]
-  SM --> Finalize[Hourly finalize-scores]
-  CronSync --> DB[(Postgres / Supabase)]
-  LiveTick --> DB
+  SM --> CronSync[Daily sync]
+  SM --> TodayHr[Hourly today-schedule]
+  SM --> Pipe[Minutely live-match-tick]
+  SM --> Finalize[Finalize every 15m]
+  SM --> Settle[Settle every 5m]
+  CronSync --> DB[(Postgres)]
+  TodayHr --> DB
+  Pipe --> DB
   Finalize --> DB
-  DB --> LiveMap["liveMap: sportmonks_id to stats"]
-  LiveMap --> Agg[aggregateTeamPoints]
-  Agg --> UT[user_teams.total_points]
+  Settle --> DB
+  DB --> LiveMap[liveMap per player]
+  LiveMap --> UT[user_teams.total_points]
 ```
 
 - **SportMonks Cricket API v2.0** — fixture list and `GET /fixtures/:id` with `include` fragments.
@@ -45,13 +50,16 @@ Implementation: [`src/lib/sportmonks/client.ts`](../src/lib/sportmonks/client.ts
 | Batting | Per-batsman rows | `batting` + nested `batting.batsman`, `batting.wicket`, `batting.catchstump`, `batting.batsmanout`, `batting.runoutby` for fielding and bowled/LBW bonuses |
 | Bowling | Per-bowler rows | `bowling` + `bowling.bowler` |
 | Balls | Ball-by-ball | `balls` (stored separately from the whitelisted scoreboard JSON; see persistence) |
-| Lineup | Playing XI | `lineup` (synced on daily job, throttled during live tick) |
+| Lineup | Playing XI | `lineup` (daily sync + minutely prematch + live tick) |
+| Toss | Winner / decision | Cricket v2: fixture root **`toss_won_team_id`**, **`elected`**, and include **`tosswon`** (nested team). Parsed in [`toss.ts`](../src/lib/sportmonks/toss.ts). The legacy include **`toss`** is not used (often **400** on plans). |
 
 List fixtures: `SM_FIXTURE_LIST_INCLUDE` = `localteam,visitorteam,league,venue,stage`.
 
 Lineup-only fetch: `SM_FIXTURE_LINEUP_INCLUDE` = `lineup,localteam,visitorteam,league,venue,stage`.
 
-Live / scoreboard snapshot: `SM_FIXTURE_SCOREBOARD_INCLUDE` in [`fixture-scoreboard.ts`](../src/lib/sportmonks/fixture-scoreboard.ts), with **fallback** shorter includes if the API rejects an oversized query.
+Prematch (minutely Condition A): `SM_FIXTURE_PREMATCH_INCLUDE` includes **`tosswon`** plus lineup/teams/venue — see [`client.ts`](../src/lib/sportmonks/client.ts) and [`fetchFixturePrematchRaw`](../src/lib/sportmonks/fixture-scoreboard.ts).
+
+Live / scoreboard snapshot: `SM_FIXTURE_SCOREBOARD_INCLUDE` in [`fixture-scoreboard.ts`](../src/lib/sportmonks/fixture-scoreboard.ts) includes **`tosswon`**, `lineup`, nested batting/bowling, `balls`, with **fallback** shorter includes if the API rejects an oversized query.
 
 ## 4. Persistence (`matches` table)
 
@@ -61,14 +69,21 @@ Live / scoreboard snapshot: `SM_FIXTURE_SCOREBOARD_INCLUDE` in [`fixture-scorebo
 | `fixture_scoreboard_raw_at` | Last write time for the above |
 | `fixture_balls_raw` | Last ball-by-ball snapshot from SportMonks (`balls` array) |
 | `fixture_balls_raw_at` | Last write time for balls |
-| `live_snapshot` | Normalized snapshot for fast UI reads |
+| `live_snapshot` | Normalized snapshot for fast UI reads (short line, team totals, optional flattened batting/bowling). Batting rows include synthesized dismissal text when `how_out`/`dismissal` are empty but nested wicket/bowler data exists (see [`normalize-live-snapshot.ts`](../src/lib/sportmonks/normalize-live-snapshot.ts), [`dismissal-format.ts`](../src/lib/sportmonks/dismissal-format.ts)). Scorecard tables cap at **40** rows per innings (`SCORECARD_MAX_ROWS`). |
 | `live_snapshot_at` | Last write time |
 | `last_lineup_sync_at` | Throttle anchor for applying `lineup` during live tick |
-| `scoring_finalized_at` | Set after final points recompute for completed matches |
+| `lineup_synced` | After XI applied from API; minutely router skips lineup-only polls when true |
+| `toss_winner_team_id`, `toss_decision`, `toss_recorded_at`, `toss_raw` | Toss metadata from SportMonks |
+| `match_finished_at` | Set when leaving `live` for `in_review` (provider finished) |
+| `schedule_checked_at` | Last hourly today-monitor touch |
+| `status` | `match_status` enum: `upcoming` \| `live` \| `in_review` \| `completed` |
+| `scoring_finalized_at` | Set after final points recompute; required before contest settlement |
 
-Columns `fixture_balls_raw`, `fixture_balls_raw_at`, and `last_lineup_sync_at` are added in [`supabase/migrations/20260329180000_match_balls_lineup_sync.sql`](../supabase/migrations/20260329180000_match_balls_lineup_sync.sql).
+Columns `fixture_balls_raw`, `fixture_balls_raw_at`, and `last_lineup_sync_at` are added in [`20260329180000_match_balls_lineup_sync.sql`](../supabase/migrations/20260329180000_match_balls_lineup_sync.sql). Lifecycle + toss columns and `in_review` enum value are in [`20260331120000_match_lifecycle_toss_in_review.sql`](../supabase/migrations/20260331120000_match_lifecycle_toss_in_review.sql).
 
-**Realtime (browser):** `public.matches` is in the `supabase_realtime` publication (see [`20260330120000_realtime_matches.sql`](../supabase/migrations/20260330120000_realtime_matches.sql)). Authenticated clients subscribe via [`useMatchLiveRow`](../src/lib/hooks/use-match-live-row.ts) on match detail, live score, and contest pages so `live_snapshot` / `status` updates from the cron tick appear without a full refresh. RLS on `matches` is `authenticated` only, so signed-out users do not receive these events.
+**Realtime (browser):** `public.matches` is in the `supabase_realtime` publication (see [`20260330120000_realtime_matches.sql`](../supabase/migrations/20260330120000_realtime_matches.sql)). Authenticated clients subscribe via [`useMatchLiveRow`](../src/lib/hooks/use-match-live-row.ts) on match detail, live score, and contest pages so `live_snapshot`, **`fixture_scoreboard_raw`**, and `status` updates from the cron tick stay in sync without a full refresh. The **scorecard** tab prefers rebuilding innings from **`fixture_scoreboard_raw`** via [`buildInningsCardsFromScoreboardRaw`](../src/lib/sportmonks/normalize-live-snapshot.ts) so nested provider fields (wicket, bowler, catchstump, run-out links) are not lost when `live_snapshot` was written earlier; the **summary** tab still uses `live_snapshot` for the headline. RLS on `matches` is `authenticated` only, so signed-out users do not receive these events.
+
+**Fallback includes:** If `SM_FIXTURE_SCOREBOARD_INCLUDE` is rejected and a shorter include is used, nested batting relations may be missing from both `fixture_scoreboard_raw` and dismissal synthesis until a successful rich fetch.
 
 Whitelist: [`src/lib/pick-scoreboard-raw.ts`](../src/lib/pick-scoreboard-raw.ts).
 
@@ -78,26 +93,30 @@ Defined in [`vercel.json`](../vercel.json). All cron routes require `Authorizati
 
 | Route | Schedule (UTC) | Role |
 |-------|----------------|------|
-| `GET /api/cron/sync` | `30 20 * * *` | Full SportMonks sync: leagues, seasons, matches, venues, stages, teams, squads, capped lineup pull |
-| `GET /api/cron/live-match-tick` | `* * * * *` | Live matches: merge `/livescores/now` + fixture detail, persist snapshots, fielding-aware `liveMap`, points, optional lineup + balls |
-| `GET /api/cron/finalize-scores` | `15 * * * *` | Completed matches without `scoring_finalized_at`: fetch latest fixture when possible, persist scoreboard/snapshot/balls (same shape as live tick), recompute points, set `scoring_finalized_at` |
-| `GET /api/cron/settle-contests` | `45 * * * *` | RPC `settle_contest_prizes` for contests not yet settled |
+| `GET /api/cron/sync` | `30 20 * * *` | Full SportMonks sync: leagues, seasons, matches, venues, stages, teams, squads, capped lineup pull (does **not** hydrate full scoreboards for every fixture) |
+| `GET /api/cron/today-schedule` | `0 * * * *` | Next 24h matches: refresh `start_time`, `sm_fixture_status`, `schedule_checked_at` (does not overwrite lifecycle `status`) |
+| `GET /api/cron/live-match-tick` | `* 15-23,0 * * *` (UTC) | **`runMatchPipeline`**: every minute **only** from **15:00–00:59 UTC** (~3pm–1am end of “midnight” hour). Outside that window the route is not invoked by Vercel; use **admin** `POST /api/admin/sync-match` for manual ticks if needed. |
+| `GET /api/cron/finalize-scores` | `*/15 * * * *` | **`in_review`** rows with `match_finished_at` older than **60 minutes** (and legacy `completed` without finalize): final fetch, `status`→`completed`, set `scoring_finalized_at` |
+| `GET /api/cron/settle-contests` | `*/5 * * * *` | RPC `settle_contest_prizes` when match is `completed` and `scoring_finalized_at` is set |
 
-**Vercel:** cron minimum interval is **one minute**. Sub-minute ball polling requires an external scheduler calling your API or a worker.
+**Vercel:** cron minimum interval is **one minute**.
 
-**Admin refresh (browser-safe):** `POST /api/admin/sync-match` with an **admin** Supabase session cookie. JSON body `{ "matchId": <fixture id> }` syncs one match (lineup throttle bypassed); omit body to run the same batch as cron (up to `MAX_MATCHES_PER_RUN` live matches). Implementation: [`src/app/api/admin/sync-match/route.ts`](../src/app/api/admin/sync-match/route.ts).
+**Admin refresh:** `POST /api/admin/sync-match` — body `{ "matchId": <id> }` runs one match tick with lineup force; no body runs **`runMatchPipeline`** (same as minutely cron). [`sync-match/route.ts`](../src/app/api/admin/sync-match/route.ts).
 
-Batching: live tick processes up to `MAX_MATCHES_PER_RUN` live matches per invocation ([`live-match-tick.ts`](../src/lib/live-match-tick.ts)).
+**Recovery / refresh:** `POST /api/admin/backfill-matches` with JSON `limit`, `cursor`, optional `seasonId`, `includeBalls`, `recomputePoints`. Each batch **always** refetches SportMonks and **overwrites** hydrated columns on every selected row (not limited to null scoreboard/snapshot). Also sets **`schedule_checked_at`** on each successful refresh (same idea as hourly today-schedule). If the row is **`live`**, SportMonks maps the fixture to **finished/completed**, and **`match_finished_at`** is still null, backfill sets **`status` → `in_review`** and **`match_finished_at`** (mirrors the live tick). Page with `nextCursor` until `done: true`. For specific fixtures only, send **`matchId`** and/or **`matchIds`** (max 50 unique). Admin session or `Authorization: Bearer CRON_SECRET`. [`backfill-matches.ts`](../src/lib/backfill-matches.ts).
+
+Batching: pipeline processes up to `MAX_MATCHES_PER_RUN` **`live` + `in_review`** rows per minute for the heavy scoreboard path ([`live-match-tick.ts`](../src/lib/live-match-tick.ts)).
 
 ## 6. Pipeline by match phase
 
 | Phase | What runs |
 |-------|-----------|
-| **Upcoming** | Daily sync imports fixture + squads; `syncPlayers` attempts lineup when SportMonks publishes it |
-| **Live** | Minute tick: fetch + merge, update `matches`, recompute all `user_teams` for that match via `updateUserTeamsPointsForMatch` |
-| **Completed** | `finalize-scores` cron: SportMonks fetch + persist `matches` JSON columns when API succeeds; else fall back to stored scoreboard for `liveMap`; then `scoring_finalized_at`; `settle-contests` distributes prizes when ready |
+| **Upcoming** | Daily sync + squads; minutely **prematch** polls **`lineup`** in the toss window (or after `toss_recorded_at`) until `lineup_synced` |
+| **Live** | Minutely: promote via `livescores/now` / meta fixture; full scoreboard fetch + points |
+| **In review** | Provider finished: `live`→`in_review`, `match_finished_at` set; minutely **still** updates scoreboard/points until audit buffer elapses |
+| **Completed** | Finalize after **60m** buffer: last fetch, `status`→`completed`, `scoring_finalized_at`; then settle contests |
 
-Core modules: [`sync-pipeline.ts`](../src/lib/sportmonks/sync-pipeline.ts), [`live-match-tick.ts`](../src/lib/live-match-tick.ts), [`finalize-match-scoring.ts`](../src/lib/finalize-match-scoring.ts).
+Core modules: [`sync-pipeline.ts`](../src/lib/sportmonks/sync-pipeline.ts), [`live-match-tick.ts`](../src/lib/live-match-tick.ts) (`runMatchPipeline`), [`today-schedule-monitor.ts`](../src/lib/today-schedule-monitor.ts), [`finalize-match-scoring.ts`](../src/lib/finalize-match-scoring.ts), [`toss.ts`](../src/lib/sportmonks/toss.ts).
 
 ## 7. Normalization → `liveMap`
 
@@ -110,7 +129,8 @@ Core modules: [`sync-pipeline.ts`](../src/lib/sportmonks/sync-pipeline.ts), [`li
 ## 8. Lineup and playing XI
 
 - [`sync-lineup.ts`](../src/lib/sportmonks/sync-lineup.ts) — `syncPlayersForMatch` fetches `include=lineup,...`, upserts `players`, sets `in_playing_xi = true` for XI and `false` for others in the pool.
-- **Live tick** — When the merged fixture includes `lineup` and `last_lineup_sync_at` is older than the throttle window, applies the same DB updates without a second HTTP call.
+- **Minutely prematch** — [`runMatchPipeline`](../src/lib/live-match-tick.ts) Condition A: `upcoming`, `lineup_synced = false`, start within ~45m (or `toss_recorded_at` set); `fetchFixturePrematchRaw` + `applyLineupFromFixturePayload`; sets `lineup_synced` when XI rows inserted.
+- **Live / in_review tick** — When merged scoreboard includes `lineup` and `last_lineup_sync_at` is older than the 3m throttle (or admin `forceLineup`), applies lineup; sets `lineup_synced` on success.
 
 UI: [`hydrate-team-flow.tsx`](../src/components/team-flow/hydrate-team-flow.tsx) uses `in_playing_xi` for green / red style hints.
 

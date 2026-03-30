@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { requireAdminService } from "@/lib/admin-server";
 import {
   MAX_MATCHES_PER_RUN,
-  runLiveMatchTick,
   runLiveMatchTickForMatch,
+  runMatchPipeline,
 } from "@/lib/live-match-tick";
+import type { DbMatchStatus } from "@/lib/sportmonks/match-status-from-sm";
 import { fetchLivescoresNowByFixtureId } from "@/lib/sportmonks/fixture-scoreboard";
 
 export const dynamic = "force-dynamic";
@@ -38,12 +39,24 @@ export async function POST(request: Request) {
     } catch {
       nowMap = new Map<number, Record<string, unknown>>();
     }
+    const { data: row } = await service
+      .from("matches")
+      .select("status,last_lineup_sync_at")
+      .eq("id", matchId)
+      .maybeSingle();
+    const st = String(row?.status ?? "live");
+    const previousDbStatus: DbMatchStatus =
+      st === "upcoming" || st === "live" || st === "completed" || st === "in_review"
+        ? st
+        : "live";
     const result = await runLiveMatchTickForMatch(service, matchId, nowMap, {
+      previousDbStatus,
+      lastLineupSyncAt: row?.last_lineup_sync_at as string | null,
       forceLineup: true,
     });
     return NextResponse.json({ matchId, ...result });
   }
 
-  const batch = await runLiveMatchTick(service);
+  const batch = await runMatchPipeline(service);
   return NextResponse.json({ ...batch, maxMatchesPerRun: MAX_MATCHES_PER_RUN });
 }

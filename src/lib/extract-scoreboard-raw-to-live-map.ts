@@ -55,6 +55,13 @@ function dismissedFromScoreboardRow(row: Record<string, unknown>): boolean {
   return Boolean(w);
 }
 
+/** Same rules as fantasy scoring: not-out wicket, no wicket_id, etc. */
+export function isDismissedBattingScoreboardRow(
+  row: Record<string, unknown>,
+): boolean {
+  return dismissedFromScoreboardRow(row);
+}
+
 function normalizeBattingRowForMerge(row: Record<string, unknown>): Record<string, unknown> {
   return {
     ...row,

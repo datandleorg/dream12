@@ -32,6 +32,8 @@ export type HomeMatchCardModel = {
   team_b_logo_url: string | null;
   max_prize_pool: number;
   live_snapshot?: unknown;
+  /** Persisted scoreboard JSON; optional for rich scorecard on contest page. */
+  fixture_scoreboard_raw?: unknown;
   sm_fixture_status?: string | null;
   /** Shown on contest leaderboard hero (second line under pool). */
   entry_fee?: number;
@@ -92,7 +94,7 @@ export function HomeUpcomingCard({
     "Team B";
 
   const statusKey = match.status.toLowerCase();
-  const isCompleted = statusKey === "completed";
+  const isCompleted = statusKey === "completed" || statusKey === "in_review";
   const isLive = statusKey === "live";
   const isUpcoming = statusKey === "upcoming";
   const liveSnap = parseLiveSnapshot(match.live_snapshot);

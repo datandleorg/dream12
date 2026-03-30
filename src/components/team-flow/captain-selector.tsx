@@ -14,6 +14,7 @@ import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { Button } from "@/components/ui/button";
 import { FlowHeader } from "@/components/team-flow/flow-header";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
+import { PlayingXiDot } from "@/components/team-flow/playing-xi-dot";
 import { cn } from "@/lib/utils";
 
 export function CaptainSelector({
@@ -108,14 +109,20 @@ export function CaptainSelector({
               key={p.id}
               className="flex min-h-[52px] items-center gap-3 rounded-xl border px-3 py-2"
             >
-              <div className="relative size-11 shrink-0 overflow-hidden rounded-full border border-border/60 bg-muted">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={avatar}
-                  alt=""
-                  width={44}
-                  height={44}
-                  className="size-full object-cover"
+              <div className="relative size-11 shrink-0">
+                <div className="size-11 overflow-hidden rounded-full border border-border/60 bg-muted">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={avatar}
+                    alt=""
+                    width={44}
+                    height={44}
+                    className="size-full object-cover"
+                  />
+                </div>
+                <PlayingXiDot
+                  in_playing_xi={p.in_playing_xi}
+                  className="-top-0.5 -right-0.5"
                 />
               </div>
               <div className="min-w-0 flex-1">

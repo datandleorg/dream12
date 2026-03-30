@@ -40,7 +40,8 @@ export function ContestMatchInfo({
 }) {
   const statusKey = status.toLowerCase();
   const isLive = statusKey === "live";
-  const isCompleted = statusKey === "completed";
+  const isInReview = statusKey === "in_review";
+  const isCompleted = statusKey === "completed" || isInReview;
 
   return (
     <Card>
@@ -70,7 +71,11 @@ export function ContestMatchInfo({
             timeStyle: "short",
           })}
         </p>
-        {isCompleted ? (
+        {isInReview ? (
+          <p className="text-amber-800 dark:text-amber-200 text-sm font-medium">
+            Final scores under review
+          </p>
+        ) : isCompleted ? (
           <p className="text-muted-foreground text-sm font-medium">Match finished</p>
         ) : isLive ? (
           <p className="text-emerald-700 dark:text-emerald-400 text-sm font-medium">

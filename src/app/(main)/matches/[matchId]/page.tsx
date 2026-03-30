@@ -59,7 +59,7 @@ export default async function MatchDetailPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status",
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status,fixture_scoreboard_raw",
     )
     .eq("id", matchId)
     .single();
@@ -68,7 +68,7 @@ export default async function MatchDetailPage({
 
   const statusKey = String(matchRow.status).toLowerCase();
   const isUpcoming = statusKey === "upcoming";
-  const isCompleted = statusKey === "completed";
+  const isCompleted = statusKey === "completed" || statusKey === "in_review";
 
   let venueRow: { name: string | null; city: string | null } | null = null;
   let stageRow: { name: string | null; code: string | null } | null = null;
@@ -169,6 +169,7 @@ export default async function MatchDetailPage({
           live_snapshot_at={matchRow.live_snapshot_at as string | null}
           status={String(matchRow.status)}
           sm_fixture_status={matchRow.sm_fixture_status as string | null}
+          fixture_scoreboard_raw={matchRow.fixture_scoreboard_raw}
         />
         {venueLine ? (
           <p className="text-muted-foreground mt-1 text-sm">{venueLine}</p>

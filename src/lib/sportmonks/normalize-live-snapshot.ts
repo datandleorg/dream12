@@ -1,3 +1,8 @@
+import { formatDismissalFromBattingRow } from "./dismissal-format";
+
+/** Batting/bowling rows per innings on scorecard tables (provider can send >11). */
+const SCORECARD_MAX_ROWS = 40;
+
 /**
  * Build a compact UI snapshot from SportMonks Cricket fixture / livescore payloads.
  * Handles nested `data` wrappers, `localteam_dl_data` / `visitorteam_dl_data`, `runs` arrays,
@@ -169,6 +174,66 @@ export function buildPlayerIdNameMapFromBalls(
   return map;
 }
 
+function nestedPlayerIdForMap(field: unknown): number | null {
+  if (typeof field === "number" && Number.isFinite(field)) return field;
+  if (field && typeof field === "object") {
+    const id = (field as { id?: unknown }).id;
+    if (typeof id === "number" && Number.isFinite(id)) return id;
+  }
+  return null;
+}
+
+function nestedPlayerNameForMap(field: unknown): string | null {
+  if (!field || typeof field !== "object") return null;
+  const u =
+    unwrapData<Record<string, unknown>>(field) ?? (field as Record<string, unknown>);
+  return nameFromPlayerLikeObject(u);
+}
+
+/**
+ * Collect id→name from nested `batsman` / `bowler` / `catchstump` / etc. on scoreboard rows
+ * (fills gaps when `fixture_scoreboard_raw` has no `balls` for `buildPlayerIdNameMapFromBalls`).
+ */
+export function buildPlayerIdNameMapFromScoreboard(
+  fixture: Record<string, unknown>,
+): Map<number, string> {
+  const map = new Map<number, string>();
+  const scan = (row: Record<string, unknown>) => {
+    for (const key of [
+      "batsman",
+      "bowler",
+      "catchstump",
+      "runoutby",
+      "batsmanout",
+      "player",
+    ] as const) {
+      const f = row[key];
+      const id = nestedPlayerIdForMap(f);
+      const name = nestedPlayerNameForMap(f);
+      if (id != null && name && !map.has(id)) map.set(id, name);
+    }
+    const pid = row.player_id;
+    if (typeof pid === "number" && Number.isFinite(pid)) {
+      const nm = nestedPlayerNameForMap(row.batsman);
+      if (nm && !map.has(pid)) map.set(pid, nm);
+    }
+  };
+  for (const r of asObjectArray(fixture.batting)) {
+    scan(unwrapData<Record<string, unknown>>(r) ?? r);
+  }
+  for (const r of asObjectArray(fixture.bowling)) {
+    scan(unwrapData<Record<string, unknown>>(r) ?? r);
+  }
+  return map;
+}
+
+function mergePlayerIdNameMaps(
+  a: Map<number, string>,
+  b: Map<number, string>,
+): Map<number, string> {
+  return new Map([...a, ...b]);
+}
+
 function playerNameFromRow(
   row: Record<string, unknown>,
   idNameMap?: Map<number, string>,
@@ -225,12 +290,17 @@ function mapBattingRowFromRecord(
   const sixes = firstNumeric(row, ["sixes", "six", "six_x"]);
   const sr =
     row.rate != null ? String(row.rate) : row.strike_rate != null ? String(row.strike_rate) : undefined;
-  const dismissal =
-    typeof row.how_out === "string"
-      ? row.how_out
-      : typeof row.dismissal === "string"
-        ? row.dismissal
+  let dismissal: string | null =
+    typeof row.how_out === "string" && row.how_out.trim()
+      ? row.how_out.trim()
+      : typeof row.dismissal === "string" && row.dismissal.trim()
+        ? row.dismissal.trim()
         : null;
+
+  if (dismissal == null || dismissal === "") {
+    const synthetic = formatDismissalFromBattingRow(row, idNameMap);
+    if (synthetic) dismissal = synthetic;
+  }
 
   if (!Number.isFinite(balls) && runs > 0 && sr != null) {
     const srNum = Number.parseFloat(sr);
@@ -261,7 +331,7 @@ function buildBattingRows(
     const row = unwrapData<Record<string, unknown>>(r) ?? r;
     out.push(mapBattingRowFromRecord(row, idNameMap));
   }
-  return out.slice(0, 30);
+  return out.slice(0, SCORECARD_MAX_ROWS);
 }
 
 function mapBowlingRowFromRecord(
@@ -310,7 +380,7 @@ function buildBowlingRows(
     const row = unwrapData<Record<string, unknown>>(r) ?? r;
     out.push(mapBowlingRowFromRecord(row, idNameMap));
   }
-  return out.slice(0, 30);
+  return out.slice(0, SCORECARD_MAX_ROWS);
 }
 
 function scoreboardSortOrder(key: string): number {
@@ -442,8 +512,12 @@ function buildInningsCards(
                 typeof r.scoreboard === "string" && r.scoreboard.trim() === key,
             );
 
-      const battingRows = rawBat.map((row) => mapBattingRowFromRecord(row, idNameMap)).slice(0, 30);
-      const bowlingRows = bowlRaw.map((row) => mapBowlingRowFromRecord(row, idNameMap)).slice(0, 30);
+      const battingRows = rawBat
+        .map((row) => mapBattingRowFromRecord(row, idNameMap))
+        .slice(0, SCORECARD_MAX_ROWS);
+      const bowlingRows = bowlRaw
+        .map((row) => mapBowlingRowFromRecord(row, idNameMap))
+        .slice(0, SCORECARD_MAX_ROWS);
 
       cards.push({
         scoreboardKey: key === "_extra" ? undefined : key,
@@ -489,8 +563,12 @@ function buildInningsCards(
         battingTeamId: batTid,
         battingTeamName: bname,
         headerLine,
-        battingRows: rawBat.map((row) => mapBattingRowFromRecord(row, idNameMap)).slice(0, 30),
-        bowlingRows: bowlRaw.map((row) => mapBowlingRowFromRecord(row, idNameMap)).slice(0, 30),
+        battingRows: rawBat
+          .map((row) => mapBattingRowFromRecord(row, idNameMap))
+          .slice(0, SCORECARD_MAX_ROWS),
+        bowlingRows: bowlRaw
+          .map((row) => mapBowlingRowFromRecord(row, idNameMap))
+          .slice(0, SCORECARD_MAX_ROWS),
       });
     }
     if (cards.length) return cards;
@@ -519,8 +597,12 @@ function buildInningsCards(
         battingTeamId: batTid,
         battingTeamName: bname,
         headerLine,
-        battingRows: rawBat.map((row) => mapBattingRowFromRecord(row, idNameMap)).slice(0, 30),
-        bowlingRows: bowlRaw.map((row) => mapBowlingRowFromRecord(row, idNameMap)).slice(0, 30),
+        battingRows: rawBat
+          .map((row) => mapBattingRowFromRecord(row, idNameMap))
+          .slice(0, SCORECARD_MAX_ROWS),
+        bowlingRows: bowlRaw
+          .map((row) => mapBowlingRowFromRecord(row, idNameMap))
+          .slice(0, SCORECARD_MAX_ROWS),
       });
     }
     if (cards.length) return cards;
@@ -585,6 +667,43 @@ function formatShortLine(teamScores: LiveTeamScore[]): string {
 }
 
 /**
+ * Innings scorecard blocks from a persisted `fixture_scoreboard_raw` fragment (or same-shaped object).
+ * Prefer this for the scorecard UI so nested wicket/bowler/catchstump data is not stale vs `live_snapshot` alone.
+ */
+export function buildInningsCardsFromScoreboardRaw(raw: unknown): LiveInningsCard[] {
+  const fixture =
+    unwrapData<Record<string, unknown>>(raw) ??
+    (raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null);
+  if (!fixture) return [];
+  const localName = readTeamName(fixture.localteam);
+  const visitorName = readTeamName(fixture.visitorteam);
+  const localId =
+    fixture.localteam_id != null
+      ? Number(fixture.localteam_id)
+      : unwrapData<Record<string, unknown>>(fixture.localteam)?.id != null
+        ? Number((unwrapData(fixture.localteam) as Record<string, unknown>).id)
+        : undefined;
+  const visitorId =
+    fixture.visitorteam_id != null
+      ? Number(fixture.visitorteam_id)
+      : unwrapData<Record<string, unknown>>(fixture.visitorteam)?.id != null
+        ? Number((unwrapData(fixture.visitorteam) as Record<string, unknown>).id)
+        : undefined;
+  const idNameMap = mergePlayerIdNameMaps(
+    buildPlayerIdNameMapFromScoreboard(fixture),
+    buildPlayerIdNameMapFromBalls(fixture),
+  );
+  return buildInningsCards(
+    fixture,
+    idNameMap,
+    localName,
+    visitorName,
+    localId,
+    visitorId,
+  );
+}
+
+/**
  * Build a normalized snapshot from a raw SportMonks fixture or livescore object.
  */
 export function buildLiveSnapshotFromFixture(raw: unknown): LiveSnapshot {
@@ -636,7 +755,10 @@ export function buildLiveSnapshotFromFixture(raw: unknown): LiveSnapshot {
     merged = teamScoresFromRuns(fixture, localName, visitorName, localId, visitorId);
   }
 
-  const idNameMap = buildPlayerIdNameMapFromBalls(fixture);
+  const idNameMap = mergePlayerIdNameMaps(
+    buildPlayerIdNameMapFromScoreboard(fixture),
+    buildPlayerIdNameMapFromBalls(fixture),
+  );
   const battingRows = buildBattingRows(fixture.batting, idNameMap);
   const bowlingRows = buildBowlingRows(fixture.bowling, idNameMap);
   const inningsCards = buildInningsCards(

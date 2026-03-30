@@ -17,6 +17,7 @@ export function MatchLivePageClient({
   live_snapshot_at,
   status: initialStatus,
   sm_fixture_status,
+  fixture_scoreboard_raw,
   initialParsedSnapshot,
 }: {
   matchId: number;
@@ -26,18 +27,21 @@ export function MatchLivePageClient({
   live_snapshot_at: string | null;
   status: string;
   sm_fixture_status: string | null;
+  fixture_scoreboard_raw?: unknown;
   initialParsedSnapshot: LiveSnapshot;
 }) {
-  const { snapshot, status, smFixtureStatus } = useMatchLiveRow({
+  const { snapshot, status, smFixtureStatus, fixtureScoreboardRaw } = useMatchLiveRow({
     matchId,
     live_snapshot,
     live_snapshot_at,
     status: initialStatus,
     sm_fixture_status,
+    fixture_scoreboard_raw,
     initialParsedSnapshot,
   });
 
-  const matchCompleted = String(status).toLowerCase() === "completed";
+  const st = String(status).toLowerCase();
+  const matchCompleted = st === "completed" || st === "in_review";
 
   return (
     <div className="space-y-4 py-4">
@@ -68,6 +72,7 @@ export function MatchLivePageClient({
 
       <MatchLiveScoreTabs
         snapshot={snapshot}
+        fixtureScoreboardRaw={fixtureScoreboardRaw}
         isCompleted={matchCompleted}
       />
     </div>
