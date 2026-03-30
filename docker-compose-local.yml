@@ -22,6 +22,20 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+          ignore:
+            - node_modules/
+            - .next/
+            - .git/
+            - supabase/
+            - docker/
+            - docs/
+            - "*.md"
+            - .env
+            - .env.*
 
   cron:
     build:
@@ -35,6 +49,20 @@ services:
     depends_on:
       web:
         condition: service_healthy
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+          ignore:
+            - node_modules/
+            - .next/
+            - .git/
+            - supabase/
+            - docker/
+            - docs/
+            - "*.md"
+            - .env
+            - .env.*
 
   ngrok:
     image: ngrok/ngrok:latest
