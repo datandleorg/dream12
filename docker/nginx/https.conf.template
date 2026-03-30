@@ -1,6 +1,5 @@
 server {
     listen 80;
-    listen [::]:80;
     server_name ${DOMAINS_SERVER_NAMES};
 
     location /.well-known/acme-challenge/ {
@@ -14,7 +13,6 @@ server {
 
 server {
     listen 443 ssl;
-    listen [::]:443 ssl;
     server_name ${DOMAINS_SERVER_NAMES};
 
     ssl_certificate /etc/letsencrypt/live/${DOMAINS_PRIMARY}/fullchain.pem;

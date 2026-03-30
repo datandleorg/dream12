@@ -102,10 +102,24 @@ Use [`docker-compose.production.yml`](../docker-compose.production.yml) instead 
 
    **Alternative** (manual entrypoint override):  
    `docker compose -f docker-compose.production.yml run --rm --entrypoint /bin/sh -v "$(pwd)/docker/production/certbot-certonly.sh:/certonly.sh:ro" certbot /certonly.sh`
-7. **Enable HTTPS in nginx:** The proxy starts in HTTP-only mode until certs exist. After step 6, reload the config by recreating nginx:
+7. **Enable HTTPS in nginx:** The proxy writes its config **at container start**. After the first cert exists, nginx must be **recreated** (not just `reload`) so the entrypoint picks the HTTPS template.
+
    ```bash
-   docker compose -f docker-compose.production.yml up -d --force-recreate nginx
+   docker compose -f docker-compose.production.yml up -d --no-deps --force-recreate nginx
    ```
+
+   Use **`docker compose`** (v2 plugin, space — not hyphen). Old **`docker-compose` 1.29.x** with a recent Docker Engine can fail with **`KeyError: 'ContainerConfig'`** when it tries to recreate **`web`**. If you only have v1, recreate **nginx** without touching **`web`**:
+
+   ```bash
+   docker-compose -f docker-compose.production.yml stop nginx
+   docker-compose -f docker-compose.production.yml rm -f nginx
+   docker-compose -f docker-compose.production.yml up -d --no-deps nginx
+   ```
+
+   Or install the v2 plugin: `sudo apt install docker-compose-plugin` (package name may vary), then use `docker compose …` as above.
+
+   If **both** `curl` to **127.0.0.1:80** and **:443** fail after this, **nginx** is probably **Exited** — check `docker compose … ps -a` and `docker compose … logs nginx`. A common cause was IPv6 `listen [::]:…` failing on the droplet; templates in this repo use **IPv4-only** `listen` lines — `git pull`, **rebuild** nginx (`docker compose … build nginx` or `up -d --build`), then recreate nginx again.
+
 8. **Renewals:** The **certbot** service renews certificates when they are near expiry. After a successful renewal, reload nginx so it picks up new files:
    ```bash
    docker compose -f docker-compose.production.yml exec nginx nginx -s reload

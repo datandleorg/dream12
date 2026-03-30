@@ -1,6 +1,5 @@
 server {
     listen 80;
-    listen [::]:80;
     server_name ${DOMAINS_SERVER_NAMES};
 
     client_max_body_size 16m;
