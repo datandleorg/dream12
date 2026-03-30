@@ -95,7 +95,7 @@ Defined in [`vercel.json`](../vercel.json). All cron routes require `Authorizati
 |-------|----------------|------|
 | `GET /api/cron/sync` | `30 20 * * *` | Full SportMonks sync: leagues, seasons, matches, venues, stages, teams, squads, capped lineup pull (does **not** hydrate full scoreboards for every fixture) |
 | `GET /api/cron/today-schedule` | `0 * * * *` | Next 24h matches: refresh `start_time`, `sm_fixture_status`, `schedule_checked_at` (does not overwrite lifecycle `status`) |
-| `GET /api/cron/live-match-tick` | `* 15-23,0 * * *` (UTC) | **`runMatchPipeline`**: every minute **only** from **15:00–00:59 UTC** (~3pm–1am end of “midnight” hour). Outside that window the route is not invoked by Vercel; use **admin** `POST /api/admin/sync-match` for manual ticks if needed. |
+| `GET /api/cron/live-match-tick` | `* 8-19 * * *` (UTC) | **`runMatchPipeline`**: every minute **only** in those UTC hours (IST ≈ **14:00–01:29** next morning — targets **2pm–1am IST**; first/last hour are full UTC hours so there is a small buffer). Outside that window the route is not invoked by Vercel; use **admin** `POST /api/admin/sync-match` for manual ticks if needed. |
 | `GET /api/cron/finalize-scores` | `*/15 * * * *` | **`in_review`** rows with `match_finished_at` older than **60 minutes** (and legacy `completed` without finalize): final fetch, `status`→`completed`, set `scoring_finalized_at` |
 | `GET /api/cron/settle-contests` | `*/5 * * * *` | RPC `settle_contest_prizes` when match is `completed` and `scoring_finalized_at` is set |
 
