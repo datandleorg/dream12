@@ -73,6 +73,36 @@ If a **SportMonks `api_token`** was ever committed or shared, **rotate it** in t
 - **Wallet pay-in:** Set `NEXT_PUBLIC_COMPANY_UPI_VPA` (and optionally `NEXT_PUBLIC_COMPANY_UPI_PAYEE_NAME`) in `.env` so players get a correct `upi://pay` intent on the wallet page.
 - **Service role:** Creating users from **Admin → Users** uses `SUPABASE_SERVICE_ROLE_KEY` on the server; keep it secret.
 
+## Production on a VPS (DigitalOcean, etc.): nginx + Let’s Encrypt
+
+Use [`docker-compose.production.yml`](../docker-compose.production.yml) instead of the default compose file. It runs **web**, **cron**, **nginx** (TLS termination and reverse proxy to Next.js), and a **certbot** sidecar that runs `certbot renew` on a 12h loop. **Port 3000 is not published**; only **80** and **443** are exposed.
+
+1. **DNS:** Create an **A** record for **each** hostname in **`DOMAINS`** (e.g. `dream12.botnetworks.in` and `www.dream12.botnetworks.in`) pointing at the droplet’s public IP.
+2. **Env:** In `.env`, set **`DOMAINS`** to a comma-separated list with **no spaces** (or trim-only around commas), **apex first**, e.g. `dream12.botnetworks.in,www.dream12.botnetworks.in`. The first name is where Let’s Encrypt stores certs (`live/<first>/`). Set **`CERTBOT_EMAIL`** for the first certificate step. Keep all other web/cron/Supabase variables; rebuild the web image if you change `NEXT_PUBLIC_*` bake-time vars.
+3. **Supabase:** Under **Authentication → URL configuration**, add **both** site URL variants you use (`https://dream12.botnetworks.in` and `https://www.dream12.botnetworks.in`) plus redirect URLs / `/auth/callback` as needed so OAuth and email links match how users open the app.
+4. **Start stack:**
+   ```bash
+   docker compose -f docker-compose.production.yml up -d --build
+   ```
+5. **First certificate** (after DNS has propagated and HTTP reaches the droplet). With **`DOMAINS`** and **`CERTBOT_EMAIL`** in `.env`, from the **repo root** on the server:
+   ```bash
+   docker compose -f docker-compose.production.yml run --rm \
+     -v "$(pwd)/docker/production/certbot-certonly.sh:/certonly.sh:ro" \
+     certbot sh /certonly.sh
+   ```
+   The script issues one certificate covering every name in **`DOMAINS`** (same order as nginx; apex first).
+6. **Enable HTTPS in nginx:** The proxy starts in HTTP-only mode until certs exist. After step 5, reload the config by recreating nginx:
+   ```bash
+   docker compose -f docker-compose.production.yml up -d --force-recreate nginx
+   ```
+7. **Renewals:** The **certbot** service renews certificates when they are near expiry. After a successful renewal, reload nginx so it picks up new files:
+   ```bash
+   docker compose -f docker-compose.production.yml exec nginx nginx -s reload
+   ```
+   You can add a host **cron** that runs that reload daily if you prefer.
+
+Config and images live under [`docker/nginx/`](nginx/) (templates and entrypoint pick HTTP-only vs HTTPS based on whether `/etc/letsencrypt/live/<first-hostname-in-DOMAINS>/` exists). Helper: [`docker/production/certbot-certonly.sh`](../docker/production/certbot-certonly.sh).
+
 ## Running without ngrok
 
 Stop only that service: `docker compose up web cron` (or comment out the `ngrok` block temporarily).

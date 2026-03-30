@@ -1,0 +1,85 @@
+# Production (VPS / DigitalOcean): Next.js + cron + nginx TLS + certbot renew.
+# Port 3000 is not published; only 80/443 are exposed via nginx.
+#
+# 1. Point DNS A records for every name in DOMAINS to this droplet’s public IP.
+# 2. Set DOMAINS (comma-separated, apex first) and .env for web/cron, then: docker compose -f docker-compose.production.yml up -d --build
+# 3. Issue the first certificate (see docker/README.md), then recreate nginx so it loads HTTPS config.
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set in .env for docker build}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set in .env for docker build}
+    expose:
+      - "3000"
+    env_file:
+      - .env
+    # HOSTNAME/PORT override .env so the app always binds correctly inside the container.
+    environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(\"http://127.0.0.1:\"+(process.env.PORT||3000)).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  cron:
+    build:
+      context: ./docker/cron
+    env_file:
+      - .env
+    # These override .env where needed (internal URL, required secret, default TZ).
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET in .env}
+      CRON_BASE_URL: http://web:3000
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./vercel.json:/config/vercel.json:ro
+    depends_on:
+      web:
+        condition: service_healthy
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    # Comma-separated hostnames; first must match Let’s Encrypt live/<first>/ (same order as certbot -d).
+    environment:
+      DOMAINS: ${DOMAINS:?Set DOMAINS in .env, e.g. dream12.botnetworks.in,www.dream12.botnetworks.in}
+    volumes:
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      web:
+        condition: service_healthy
+
+  certbot:
+    image: certbot/certbot:latest
+    env_file:
+      - .env
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        trap exit TERM
+        while true; do
+          certbot renew --webroot -w /var/www/certbot --quiet || true
+          sleep 12h
+        done
+
+volumes:
+  certbot-etc:
+  certbot-www:
