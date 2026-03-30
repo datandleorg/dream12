@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/live-match-tick",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/30 * * * * *"
     },
     {
       "path": "/api/cron/finalize-scores",

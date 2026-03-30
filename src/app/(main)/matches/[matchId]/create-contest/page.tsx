@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CreateContestWizard } from "@/components/create-contest-wizard";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { platformFeeFractionFromEnv } from "@/lib/fantasy/prize-slabs";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 
@@ -56,6 +57,7 @@ export default async function CreateContestPage({
       : match.name;
 
   const defaultName = `Contest by ${profile?.username?.trim() || "You"}`;
+  const platformFeeFraction = platformFeeFractionFromEnv();
 
   return (
     <div className="py-2">
@@ -64,6 +66,7 @@ export default async function CreateContestPage({
         matchTitle={title}
         startIso={match.start_time}
         defaultContestName={defaultName}
+        platformFeeFraction={platformFeeFraction}
       />
       <p className="text-muted-foreground mt-4 px-1 text-center text-xs">
         After continuing you must pick your XI and save — your contest stays private until then.{" "}

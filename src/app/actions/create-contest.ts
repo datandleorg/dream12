@@ -2,8 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { PrizeSlab } from "@/lib/fantasy/prize-slabs";
-import { ALLOWED_WINNER_COUNTS, sumSlabAmounts } from "@/lib/fantasy/prize-slabs";
+import {
+  ALLOWED_WINNER_COUNTS,
+  buildPrizeSlabs,
+  grossFromEntryAndSpots,
+  netPrizePoolFromGross,
+  platformFeeFractionFromEnv,
+  roundMoney,
+  sumSlabAmounts,
+} from "@/lib/fantasy/prize-slabs";
 
 export type CreateContestResult =
   | { ok: true; contestId: string }
@@ -25,9 +32,7 @@ export async function createContestAction(input: {
   name: string;
   entryFee: number;
   maxParticipants: number;
-  prizePool: number;
   winnerCount: number;
-  prizeBreakup: PrizeSlab[];
   grossCollected: number;
   isFlexible: boolean;
 }): Promise<CreateContestResult> {
@@ -43,13 +48,20 @@ export async function createContestAction(input: {
   if (input.maxParticipants < 2 || input.maxParticipants > 10000) {
     return { ok: false, message: "Spots must be between 2 and 10000." };
   }
-  if (input.entryFee < 0 || input.prizePool < 0) {
+  if (input.entryFee < 0) {
     return { ok: false, message: "Invalid amounts." };
   }
 
-  const sum = sumSlabAmounts(input.prizeBreakup);
-  if (Math.abs(sum - input.prizePool) > 0.02) {
-    return { ok: false, message: "Prize breakdown does not match the prize pool." };
+  const gross = grossFromEntryAndSpots(input.entryFee, input.maxParticipants);
+  if (Math.abs(gross - roundMoney(input.grossCollected)) > 0.05) {
+    return { ok: false, message: "Contest totals do not match. Refresh and try again." };
+  }
+
+  const feeFraction = platformFeeFractionFromEnv();
+  const prizePool = netPrizePoolFromGross(gross, feeFraction);
+  const prizeBreakup = buildPrizeSlabs(prizePool, input.winnerCount);
+  if (Math.abs(sumSlabAmounts(prizeBreakup) - prizePool) > 0.05) {
+    return { ok: false, message: "Could not build prize breakdown. Try again." };
   }
 
   const { data: contestId, error } = await supabase.rpc("create_user_contest", {
@@ -57,10 +69,10 @@ export async function createContestAction(input: {
     p_name: input.name,
     p_entry_fee: input.entryFee,
     p_max_participants: input.maxParticipants,
-    p_prize_pool: input.prizePool,
+    p_prize_pool: prizePool,
     p_winner_count: input.winnerCount,
-    p_prize_breakup: input.prizeBreakup,
-    p_gross_collected: input.grossCollected,
+    p_prize_breakup: prizeBreakup,
+    p_gross_collected: gross,
     p_is_flexible: input.isFlexible,
   });
 
