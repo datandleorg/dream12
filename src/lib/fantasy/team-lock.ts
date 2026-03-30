@@ -8,3 +8,14 @@ export function isTeamEditLocked(startIso: string): boolean {
   const deadlineMs = startMs - 60_000;
   return Date.now() >= deadlineMs;
 }
+
+/**
+ * Create contest / join / squad save: blocked when match is completed, or when upcoming
+ * and within 1 minute of start. Live matches stay open until completed.
+ */
+export function isFantasyTeamMutationLocked(matchStatus: string, startIso: string): boolean {
+  const s = matchStatus.trim().toLowerCase();
+  if (s === "completed") return true;
+  if (s === "live") return false;
+  return isTeamEditLocked(startIso);
+}

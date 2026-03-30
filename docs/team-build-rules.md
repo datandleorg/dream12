@@ -46,7 +46,7 @@ Defined in `ROLE_LIMITS` in `rules.ts`.
 
 ## Lineup conflicts (SportMonks)
 
-- Not a “pick rule” for eligibility: if official XI data is synced, players not in the announced XI may be flagged in the UI; swapping is allowed until the **team lock** deadline (1 minute before scheduled start, same as save RPC).
+- Not a “pick rule” for eligibility: if official XI data is synced, players not in the announced XI may be flagged in the UI; swapping follows the same **team lock** as `save_fantasy_team`: **upcoming** matches lock **1 minute before scheduled start**; while the match is **live**, create/join/save stay allowed until the match is **completed**.
 
 ## Product note
 

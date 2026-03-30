@@ -3,10 +3,8 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BellIcon, PlusIcon } from "lucide-react";
+import { BellIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
-import { buttonVariants } from "@/components/ui/button-variants";
-import { cn } from "@/lib/utils";
 import { safeInternalPath } from "@/lib/safe-return-to";
 
 function formatBalanceChip(n: number) {
@@ -48,23 +46,18 @@ export function AppHeader({
             </span>
           ) : null}
         </Link>
-        <Link
-          href={walletHref}
-          className="text-foreground hover:bg-muted/80 max-w-[7rem] truncate rounded-md px-2 py-1 text-sm font-semibold tabular-nums transition-colors sm:max-w-none"
-          title={`Balance ₹${bal.toFixed(2)} — open wallet`}
-        >
-          {formatBalanceChip(bal)}
-        </Link>
-        <Link
-          href={walletHref}
-          className={cn(
-            buttonVariants({ variant: "default", size: "icon-sm" }),
-            "inline-flex shrink-0 items-center justify-center",
-          )}
-          aria-label="Wallet"
-        >
-          <PlusIcon className="size-4" />
-        </Link>
+        <div className="flex flex-col items-end gap-0.5 text-right">
+          <Link
+            href={walletHref}
+            className="text-foreground hover:bg-muted/80 max-w-[7rem] truncate rounded-md px-2 py-1 text-sm font-semibold tabular-nums transition-colors sm:max-w-none"
+            title={`Mock balance ₹${bal.toFixed(2)} — open wallet`}
+          >
+            {formatBalanceChip(bal)}
+          </Link>
+          <span className="text-muted-foreground max-w-[9rem] text-[10px] leading-tight sm:max-w-[14rem]">
+            This app uses mock money
+          </span>
+        </div>
       </div>
     </header>
   );

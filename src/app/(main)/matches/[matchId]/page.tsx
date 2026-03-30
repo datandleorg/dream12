@@ -18,12 +18,9 @@ import {
 } from "@/lib/contest-visibility";
 import { cn } from "@/lib/utils";
 import { getLineupConflictCountsByContest } from "@/lib/lineup-conflict-queries";
-import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
-import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
-import { MatchShortScore } from "@/components/match-short-score";
-import { MatchStartCountdown } from "@/components/match-start-countdown";
+import { isFantasyTeamMutationLocked } from "@/lib/fantasy/team-lock";
+import { MatchDetailLiveSection } from "@/components/match-detail-live-section";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
-import { parseLiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 
 function venueStageLabels(
@@ -62,17 +59,15 @@ export default async function MatchDetailPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,sm_fixture_status",
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status",
     )
     .eq("id", matchId)
     .single();
 
   if (!matchRow) notFound();
 
-  const liveSnapshot = parseLiveSnapshot(matchRow.live_snapshot);
   const statusKey = String(matchRow.status).toLowerCase();
   const isUpcoming = statusKey === "upcoming";
-  const isLive = statusKey === "live";
   const isCompleted = statusKey === "completed";
 
   let venueRow: { name: string | null; city: string | null } | null = null;
@@ -159,59 +154,32 @@ export default async function MatchDetailPage({
       ? `${match.team_a} vs ${match.team_b}`
       : match.name;
 
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const fantasyMutationLocked = isFantasyTeamMutationLocked(
+    String(matchRow.status),
+    match.start_time,
+  );
 
   return (
     <div className="space-y-4 py-4">
       <div>
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            {match.tournament_name ? (
-              <p className="text-accent mb-1 text-[11px] font-semibold tracking-wide uppercase">
-                {match.tournament_name}
-              </p>
-            ) : null}
-            <h1 className="text-2xl font-semibold leading-tight">{subtitle}</h1>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <MatchStatusBadge status={String(match.status)} />
-            {match.match_format ? (
-              <Badge variant="outline" className="font-mono text-[10px]">
-                {match.match_format}
-              </Badge>
-            ) : null}
-          </div>
-        </div>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {new Date(match.start_time).toLocaleString(undefined, {
-            dateStyle: "full",
-            timeStyle: "short",
-          })}
-        </p>
-        <FixtureSmStatusLine label={matchRow.sm_fixture_status as string | null} className="mt-1" />
-        <MatchShortScore snapshot={liveSnapshot} className="mt-1" />
-        {isCompleted ? (
-          <p className="text-muted-foreground mt-1 text-sm font-medium">Match finished</p>
-        ) : isLive ? (
-          <p className="text-emerald-700 dark:text-emerald-400 mt-1 text-sm font-medium">
-            Match in progress
-          </p>
-        ) : (
-          <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <span>Starts in</span>
-            <MatchStartCountdown
-              startIso={match.start_time}
-              className="font-medium text-foreground"
-            />
-          </p>
-        )}
+        <MatchDetailLiveSection
+          matchId={matchId}
+          title={subtitle}
+          tournamentName={match.tournament_name}
+          startIso={match.start_time}
+          matchFormat={match.match_format}
+          live_snapshot={matchRow.live_snapshot}
+          live_snapshot_at={matchRow.live_snapshot_at as string | null}
+          status={String(matchRow.status)}
+          sm_fixture_status={matchRow.sm_fixture_status as string | null}
+        />
         {venueLine ? (
           <p className="text-muted-foreground mt-1 text-sm">{venueLine}</p>
         ) : null}
         {stageLine ? (
           <p className="text-muted-foreground mt-0.5 text-xs">{stageLine}</p>
         ) : null}
-        {rosterLocked ? (
+        {isUpcoming && fantasyMutationLocked ? (
           <p className="text-muted-foreground mt-2 text-xs">
             Team picks are locked (1 minute before start). You can still open contests if you
             already joined.
@@ -232,8 +200,8 @@ export default async function MatchDetailPage({
             Live score
           </Link>
         </div>
-        {user && isUpcoming ? (
-          rosterLocked ? (
+        {user && !isCompleted ? (
+          fantasyMutationLocked ? (
             <span
               className={cn(
                 buttonVariants({ variant: "secondary" }),
@@ -309,7 +277,7 @@ export default async function MatchDetailPage({
                           },
                           user.id,
                         ) ? (
-                          rosterLocked ? (
+                          fantasyMutationLocked ? (
                             <span
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
@@ -347,7 +315,7 @@ export default async function MatchDetailPage({
                             entryFee={Number(c.entry_fee)}
                             balance={balance}
                             label="Join"
-                            disabled={rosterLocked}
+                            disabled={fantasyMutationLocked}
                             disabledReason="Team lock is on — you cannot join new contests this close to start."
                           />
                         )

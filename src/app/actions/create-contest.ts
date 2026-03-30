@@ -13,6 +13,7 @@ function mapRpcError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes("not authenticated")) return "Sign in again to create a contest.";
   if (m.includes("deadline")) return "Team lock deadline has passed for this match.";
+  if (m.includes("match has finished")) return "This match has finished — new contests are closed.";
   if (m.includes("prize slab")) return "Invalid prize breakdown. Refresh and try again.";
   if (m.includes("sum")) return "Prize slabs must match the prize pool.";
   if (m.includes("spots")) return "Choose a valid number of spots (2–10000).";

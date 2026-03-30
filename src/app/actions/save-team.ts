@@ -14,6 +14,7 @@ function mapRpcError(msg: string): string {
     return "Not enough wallet balance for this contest. Add money and try again.";
   }
   if (m.includes("deadline")) return "Team lock deadline has passed.";
+  if (m.includes("match has finished")) return "This match has finished — teams are locked.";
   if (m.includes("not authenticated")) return "Sign in again to save your team.";
   if (
     m.includes("duplicate key") ||

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { LeaderboardPullRefresh } from "@/components/leaderboard-pull-refresh";
 import type { Row } from "@/components/leaderboard-realtime";
@@ -12,6 +12,7 @@ import {
 import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
 import type { LiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +72,27 @@ export function ContestDashboard({
 }) {
   const [preview, setPreview] = useState<{ teamId: string; username: string | null } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const matchCompleted = matchCard.status.toLowerCase() === "completed";
+
+  const live = useMatchLiveRow({
+    matchId: matchCard.id,
+    live_snapshot: matchCard.live_snapshot,
+    live_snapshot_at: pointsUpdatedAt,
+    status: matchCard.status,
+    sm_fixture_status: matchCard.sm_fixture_status ?? null,
+    initialParsedSnapshot: liveSnapshot,
+  });
+
+  const matchCardLive = useMemo(
+    () => ({
+      ...matchCard,
+      status: live.status,
+      live_snapshot: live.snapshot as unknown,
+      sm_fixture_status: live.smFixtureStatus,
+    }),
+    [matchCard, live.status, live.snapshot, live.smFixtureStatus],
+  );
+
+  const matchCompleted = String(live.status).toLowerCase() === "completed";
 
   const openPreview = (row: Row) => {
     if (!currentUserId) return;
@@ -96,7 +117,7 @@ export function ContestDashboard({
         ) : null}
       </div>
 
-      <HomeUpcomingCard match={matchCard} linkHref={false} variant="contest" />
+      <HomeUpcomingCard match={matchCardLive} linkHref={false} variant="contest" />
 
       {myStandings ? (
         <p className="border-primary/30 bg-primary/5 rounded-xl border px-3 py-2 text-sm font-medium tabular-nums">
@@ -188,7 +209,7 @@ export function ContestDashboard({
               prizesSettled={prizesSettled}
               prizeBreakup={prizeBreakupJson}
               teamCount={initialRows.length}
-              pointsUpdatedAt={pointsUpdatedAt}
+              pointsUpdatedAt={live.liveSnapshotAt ?? pointsUpdatedAt}
             />
           )}
         </TabsContent>
@@ -201,7 +222,7 @@ export function ContestDashboard({
 
         <TabsContent value="scorecard" className="mt-3">
           <MatchLiveScoreTabs
-            snapshot={liveSnapshot}
+            snapshot={live.snapshot}
             defaultTab="scorecard"
             isCompleted={matchCompleted}
           />

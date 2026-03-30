@@ -10,7 +10,7 @@ import { playerAvatarUrl } from "@/lib/avatar-url";
 import { useTeamBuilderStore } from "@/stores/team-builder";
 import type { TeamFlowMatchRow } from "@/lib/team-flow-data";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
-import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { isFantasyTeamMutationLocked } from "@/lib/fantasy/team-lock";
 import { Button } from "@/components/ui/button";
 import { FlowHeader } from "@/components/team-flow/flow-header";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
@@ -45,7 +45,7 @@ export function CaptainSelector({
   const selectedA = selected.filter((p) => p.team === teamA).length;
   const selectedB = selected.filter((p) => p.team === teamB).length;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const rosterLocked = isFantasyTeamMutationLocked(match.status, match.start_time);
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
@@ -81,6 +81,7 @@ export function CaptainSelector({
           count={lineupConflictSelected}
           editHref={`${base}/squad`}
           matchStartIso={match.start_time}
+          matchStatus={match.status}
         />
       ) : null}
 
