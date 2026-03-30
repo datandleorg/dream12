@@ -59,9 +59,11 @@ services:
     volumes:
       - certbot-etc:/etc/letsencrypt:ro
       - certbot-www:/var/www/certbot:ro
+    # Use service_started (not service_healthy): Let’s Encrypt only needs port 80 + /.well-known/;
+    # waiting on the Next.js healthcheck can leave :80 closed indefinitely if the app is slow or failing.
     depends_on:
       web:
-        condition: service_healthy
+        condition: service_started
 
   certbot:
     image: certbot/certbot:latest

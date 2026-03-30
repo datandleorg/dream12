@@ -84,7 +84,15 @@ Use [`docker-compose.production.yml`](../docker-compose.production.yml) instead 
    ```bash
    docker compose -f docker-compose.production.yml up -d --build
    ```
-5. **First certificate** (after DNS has propagated and HTTP reaches the droplet). With **`DOMAINS`** and **`CERTBOT_EMAIL`** in `.env`, from the **repo root** on the server:
+5. **Confirm port 80 before certbot** (Let’s Encrypt uses **HTTP** to `/.well-known/acme-challenge/`). If you see **`connection refused`** to `:80`, the CA cannot reach nginx — fix this before step 6.
+
+   - **`docker compose -f docker-compose.production.yml ps -a`** — **nginx** must be **Up**. If it is *Exited*, run `docker compose … logs nginx`. **cron** still waits for **web** to be **healthy**; **nginx** starts once the **web** **container** has started (so port **80** can open even while Next.js is still warming up — required for Let’s Encrypt).
+   - **On the droplet:** `curl -sS -I http://127.0.0.1/` — you should get an HTTP response from nginx (e.g. **200**, **404**, **301**), not *Connection refused*.
+   - **Listening socket:** `sudo ss -tlnp | grep ':80 '` — you should see **docker-proxy** (or similar) on `0.0.0.0:80` or `[::]:80`.
+   - **DigitalOcean:** Cloud **firewall** attached to the droplet must allow inbound **TCP 80** and **443** (in addition to **22** for SSH).
+   - **ufw** on the VM: if enabled, `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp` then `sudo ufw reload`.
+
+6. **First certificate** (after DNS has propagated and step 5 passes). With **`DOMAINS`** and **`CERTBOT_EMAIL`** in `.env`, from the **repo root** on the server:
    ```bash
    docker compose -f docker-compose.production.yml run --rm certbot-issue
    ```
@@ -94,11 +102,11 @@ Use [`docker-compose.production.yml`](../docker-compose.production.yml) instead 
 
    **Alternative** (manual entrypoint override):  
    `docker compose -f docker-compose.production.yml run --rm --entrypoint /bin/sh -v "$(pwd)/docker/production/certbot-certonly.sh:/certonly.sh:ro" certbot /certonly.sh`
-6. **Enable HTTPS in nginx:** The proxy starts in HTTP-only mode until certs exist. After step 5, reload the config by recreating nginx:
+7. **Enable HTTPS in nginx:** The proxy starts in HTTP-only mode until certs exist. After step 6, reload the config by recreating nginx:
    ```bash
    docker compose -f docker-compose.production.yml up -d --force-recreate nginx
    ```
-7. **Renewals:** The **certbot** service renews certificates when they are near expiry. After a successful renewal, reload nginx so it picks up new files:
+8. **Renewals:** The **certbot** service renews certificates when they are near expiry. After a successful renewal, reload nginx so it picks up new files:
    ```bash
    docker compose -f docker-compose.production.yml exec nginx nginx -s reload
    ```
