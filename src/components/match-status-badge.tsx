@@ -5,10 +5,11 @@ const LABEL: Record<string, string> = {
   upcoming: "Upcoming",
   live: "Live",
   completed: "Completed",
+  in_review: "In review",
 };
 
 /**
- * Distinct styles for `public.matches.status`: upcoming | live | completed.
+ * Distinct styles for `public.matches.status`: upcoming | live | in_review | completed.
  * Live uses a green pulsing dot.
  */
 export function MatchStatusBadge({
@@ -38,6 +39,21 @@ export function MatchStatusBadge({
           />
           {text}
         </span>
+      </Badge>
+    );
+  }
+
+  if (key === "in_review") {
+    return (
+      <Badge
+        variant="outline"
+        className={cn(
+          "border-amber-500/60 bg-amber-500/15 font-semibold text-amber-950",
+          "dark:border-amber-400/50 dark:bg-amber-500/20 dark:text-amber-100",
+          className,
+        )}
+      >
+        {text}
       </Badge>
     );
   }

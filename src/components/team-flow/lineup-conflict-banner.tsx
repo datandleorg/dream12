@@ -20,7 +20,10 @@ export function LineupConflictBanner({
 }) {
   if (count <= 0) return null;
 
-  const locked = matchStartIso ? isTeamEditLocked(matchStartIso) : false;
+  const locked =
+    matchStartIso != null && matchStartIso !== ""
+      ? isTeamEditLocked(matchStartIso)
+      : false;
 
   const label =
     count === 1

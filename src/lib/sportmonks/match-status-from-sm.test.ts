@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mapMatchStatusFromSmFixture } from "./match-status-from-sm";
+import {
+  mapMatchStatusFromSmFixture,
+  resolveDbStatusAfterLiveTick,
+} from "./match-status-from-sm";
 import type { SmFixture } from "./client";
 
 function base(overrides: Partial<SmFixture>): SmFixture {
@@ -61,5 +64,34 @@ describe("mapMatchStatusFromSmFixture", () => {
         base({ status: "INNS", live: 0, starting_at: "2026-06-01T14:00:00.000000Z" }),
       ),
     ).toBe("upcoming");
+  });
+});
+
+describe("resolveDbStatusAfterLiveTick", () => {
+  it("live + Finished → in_review with finishedAt", () => {
+    const r = resolveDbStatusAfterLiveTick(
+      "live",
+      base({ status: "Finished", live: 0 }),
+    );
+    expect(r.status).toBe("in_review");
+    expect(r.setMatchFinishedAt).toBe(true);
+  });
+
+  it("in_review stays in_review", () => {
+    const r = resolveDbStatusAfterLiveTick(
+      "in_review",
+      base({ status: "Finished", live: 0 }),
+    );
+    expect(r.status).toBe("in_review");
+    expect(r.setMatchFinishedAt).toBe(false);
+  });
+
+  it("upcoming + Finished → completed", () => {
+    const r = resolveDbStatusAfterLiveTick(
+      "upcoming",
+      base({ status: "Finished", live: 0 }),
+    );
+    expect(r.status).toBe("completed");
+    expect(r.setMatchFinishedAt).toBe(false);
   });
 });

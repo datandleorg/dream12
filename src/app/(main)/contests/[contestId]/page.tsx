@@ -60,7 +60,7 @@ export default async function ContestLeaderboardPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,live_snapshot,live_snapshot_at,sm_fixture_status",
+      "id,name,start_time,status,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,live_snapshot,live_snapshot_at,sm_fixture_status,fixture_scoreboard_raw",
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -167,6 +167,7 @@ export default async function ContestLeaderboardPage({
     team_b_logo_url: matchRow?.team_b_logo_url ?? null,
     max_prize_pool: Number(contest.prize_pool ?? 0),
     live_snapshot: matchRow?.live_snapshot,
+    fixture_scoreboard_raw: matchRow?.fixture_scoreboard_raw,
     sm_fixture_status: matchRow?.sm_fixture_status as string | null,
     entry_fee: Number(contest.entry_fee ?? 0),
   };

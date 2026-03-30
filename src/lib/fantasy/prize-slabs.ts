@@ -12,8 +12,18 @@ export type PrizeSlab = {
 export const ALLOWED_WINNER_COUNTS = [1, 2, 3, 4, 5, 7, 10] as const;
 export type WinnerCount = (typeof ALLOWED_WINNER_COUNTS)[number];
 
-/** Gross → net: e.g. ₹15 collected → ₹14 pool (1/15 platform fee). */
-export const DEFAULT_PLATFORM_FEE_PCT = 1 / 15;
+/**
+ * Percentage of gross entry collections kept as platform fee (e.g. `6` = 6%).
+ * Reads `NEXT_PUBLIC_PLATFORM_FEE_PCT` so create-contest UI and server action stay aligned.
+ * Unset or empty → no fee (0).
+ */
+export function platformFeeFractionFromEnv(): number {
+  const raw = process.env.NEXT_PUBLIC_PLATFORM_FEE_PCT?.trim();
+  if (raw == null || raw === "") return 0;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(100, n) / 100;
+}
 
 function assertWinnerCount(n: number): asserts n is WinnerCount {
   if (!ALLOWED_WINNER_COUNTS.includes(n as WinnerCount)) {
@@ -26,12 +36,14 @@ function rankWeight(i: number): number {
   return 1 / Math.pow(i, 1.15);
 }
 
-function roundMoney(n: number): number {
+export function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
 /**
  * Build `winnerCount` slabs (ranks 1..N each a single band) that sum to `netPool`.
+ * Ranks **2..N** use **whole rupees** (`Math.floor` of their weighted share). **1st place** gets the
+ * remainder so the pool is fully allocated (may include paisa if `netPool` has decimals).
  */
 export function buildPrizeSlabs(netPool: number, winnerCount: number): PrizeSlab[] {
   if (netPool <= 0) return [];
@@ -41,24 +53,15 @@ export function buildPrizeSlabs(netPool: number, winnerCount: number): PrizeSlab
   const wsum = weights.reduce((a, b) => a + b, 0);
   const raw = weights.map((w) => (netPool * w) / wsum);
 
-  const floors = raw.map((r) => Math.floor(r * 100) / 100);
-  const assigned = floors.reduce((a, b) => a + b, 0);
-  let remainder = roundMoney(netPool - assigned);
-  const amounts = [...floors];
-
-  // Distribute leftover rupees to top ranks (0.01 steps)
-  let i = 0;
-  while (remainder >= 0.01 && i < amounts.length) {
-    amounts[i] = roundMoney(amounts[i] + 0.01);
-    remainder = roundMoney(remainder - 0.01);
-    i = (i + 1) % amounts.length;
-  }
-
-  // Fix float dust
-  const total = amounts.reduce((a, b) => a + b, 0);
-  const drift = roundMoney(netPool - total);
-  if (Math.abs(drift) >= 0.005) {
-    amounts[0] = roundMoney(amounts[0] + drift);
+  const amounts: number[] = new Array(winnerCount).fill(0);
+  if (winnerCount === 1) {
+    amounts[0] = roundMoney(netPool);
+  } else {
+    for (let i = 1; i < winnerCount; i++) {
+      amounts[i] = Math.floor(raw[i]!);
+    }
+    const others = amounts.slice(1).reduce((a, b) => a + b, 0);
+    amounts[0] = roundMoney(netPool - others);
   }
 
   return amounts.map((amount, idx) => ({
@@ -76,9 +79,13 @@ export function grossFromEntryAndSpots(entry: number, spots: number): number {
   return roundMoney(entry * spots);
 }
 
+/**
+ * Prize pool after platform fee. `feeFraction` is 0–1 (e.g. 0.06 = 6%).
+ * Defaults to {@link platformFeeFractionFromEnv} when omitted.
+ */
 export function netPrizePoolFromGross(
   gross: number,
-  feePct: number = DEFAULT_PLATFORM_FEE_PCT,
+  feeFraction: number = platformFeeFractionFromEnv(),
 ): number {
-  return roundMoney(gross * (1 - feePct));
+  return roundMoney(gross * (1 - feeFraction));
 }

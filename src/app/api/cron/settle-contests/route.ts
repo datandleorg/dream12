@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 
 const ROUTE = "/api/cron/settle-contests";
 
+const SETTLE_PREREQ_NOTE =
+  "Contest settlement runs only when the match is completed and scores are finalized (matches.scoring_finalized_at). Run /api/cron/finalize-scores or your admin flow first.";
+
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,6 +38,8 @@ export async function GET(request: NextRequest) {
   }
 
   const results: unknown[] = [];
+  const skipped: { contestId: string; reason: string }[] = [];
+
   for (const r of rows ?? []) {
     const contestId = r.id as string;
     const { data, error } = await supabase.rpc("settle_contest_prizes", {
@@ -46,14 +51,25 @@ export async function GET(request: NextRequest) {
     }
     const payload = data as Record<string, unknown> | null;
     if (payload?.skipped && payload?.reason === "match_not_ready") {
+      skipped.push({ contestId, reason: "match_not_ready" });
       continue;
     }
     results.push({ contestId, result: payload });
   }
 
   const durationMs = Date.now() - t0;
-  const body = { processed: results.length, results };
-  console.log(`[dream12-api-cron] ${ROUTE} DONE`, { durationMs, processed: body.processed });
+  const body = {
+    processed: results.length,
+    results,
+    skipped,
+    ...(skipped.length > 0 ? { note: SETTLE_PREREQ_NOTE } : {}),
+  };
+  console.log(`[dream12-api-cron] ${ROUTE} DONE`, {
+    durationMs,
+    processed: body.processed,
+    skippedCount: skipped.length,
+    pendingPrizesSettledAt: rows?.length ?? 0,
+  });
   recordCronRun({
     route: ROUTE,
     durationMs,

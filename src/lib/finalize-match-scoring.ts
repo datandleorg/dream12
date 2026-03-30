@@ -6,12 +6,14 @@ import {
   mergeFieldingFromBattingRows,
 } from "@/lib/extract-scoreboard-raw-to-live-map";
 import { pickScoreboardRaw } from "@/lib/pick-scoreboard-raw";
-import { sportmonksToken, type SmFixture } from "@/lib/sportmonks/client";
+import { sportmonksToken } from "@/lib/sportmonks/client";
 import { fetchFixtureScoreboardRaw } from "@/lib/sportmonks/fixture-scoreboard";
-import { mapMatchStatusFromSmFixture } from "@/lib/sportmonks/match-status-from-sm";
 import { buildLiveSnapshotFromFixture } from "@/lib/sportmonks/normalize-live-snapshot";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { updateUserTeamsPointsForMatch } from "@/lib/update-user-teams-for-match";
+
+/** Minimum time after `match_finished_at` before finalizing in_review matches (Dream11-style audit buffer). */
+export const FINALIZE_IN_REVIEW_BUFFER_MS = 60 * 60 * 1000;
 
 /**
  * One completed match: fetch latest SportMonks fixture when possible, persist scoreboard/snapshot/balls on `matches`,
@@ -26,7 +28,10 @@ export async function finalizeScoringForMatch(
   if (!isSportmonksFixtureId(matchId)) {
     await supabase
       .from("matches")
-      .update({ scoring_finalized_at: new Date().toISOString() })
+      .update({
+        scoring_finalized_at: new Date().toISOString(),
+        status: "completed",
+      })
       .eq("id", matchId);
     return { ok: true, updatedTeams: 0 };
   }
@@ -44,6 +49,7 @@ export async function finalizeScoringForMatch(
   const nowIso = new Date().toISOString();
   const persist: Record<string, unknown> = {
     scoring_finalized_at: nowIso,
+    status: "completed",
   };
 
   let liveMap: Record<string, Partial<NormalizedPlayerStats>> = {};
@@ -73,14 +79,6 @@ export async function finalizeScoringForMatch(
     if (typeof st === "string" && st.trim()) {
       persist.sm_fixture_status = st.trim();
     }
-
-    const asF = merged as Partial<SmFixture>;
-    if (asF.starting_at && (asF.id === matchId || asF.id == null)) {
-      persist.status = mapMatchStatusFromSmFixture({
-        ...asF,
-        id: matchId,
-      } as SmFixture);
-    }
   } else {
     const storedRaw = matchRow?.fixture_scoreboard_raw;
     if (storedRaw != null) {
@@ -109,19 +107,59 @@ export async function runFinalizeScoringBatch(
   teamsUpdated: number;
   awaitingData: number;
 }> {
-  const { data: rows } = await supabase
+  const cutoffIso = new Date(Date.now() - FINALIZE_IN_REVIEW_BUFFER_MS).toISOString();
+
+  const { data: inReview } = await supabase
     .from("matches")
     .select("id")
-    .eq("status", "completed")
+    .eq("status", "in_review")
     .is("scoring_finalized_at", null)
-    .order("start_time", { ascending: true })
+    .not("match_finished_at", "is", null)
+    .lte("match_finished_at", cutoffIso)
+    .order("match_finished_at", { ascending: true })
     .limit(limit);
+
+  const remaining = Math.max(0, limit - (inReview?.length ?? 0));
+  let legacyA: { id: number }[] = [];
+  let legacyB: { id: number }[] = [];
+  if (remaining > 0) {
+    const { data: a } = await supabase
+      .from("matches")
+      .select("id")
+      .eq("status", "completed")
+      .is("scoring_finalized_at", null)
+      .is("match_finished_at", null)
+      .order("start_time", { ascending: true })
+      .limit(remaining);
+    legacyA = (a ?? []) as { id: number }[];
+    const rem2 = remaining - legacyA.length;
+    if (rem2 > 0) {
+      const { data: b } = await supabase
+        .from("matches")
+        .select("id")
+        .eq("status", "completed")
+        .is("scoring_finalized_at", null)
+        .lte("match_finished_at", cutoffIso)
+        .order("start_time", { ascending: true })
+        .limit(rem2);
+      legacyB = (b ?? []) as { id: number }[];
+    }
+  }
+
+  const seen = new Set<number>();
+  const rows: { id: number }[] = [];
+  for (const r of [...(inReview ?? []), ...legacyA, ...legacyB]) {
+    const id = Number(r.id);
+    if (!Number.isFinite(id) || seen.has(id)) continue;
+    seen.add(id);
+    rows.push({ id });
+  }
 
   let matchesProcessed = 0;
   let teamsUpdated = 0;
   let awaitingData = 0;
 
-  for (const r of rows ?? []) {
+  for (const r of rows) {
     const matchId = Number(r.id);
     if (!Number.isFinite(matchId)) continue;
     const res = await finalizeScoringForMatch(supabase, matchId);

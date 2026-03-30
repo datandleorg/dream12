@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sheet";
 import { FlowHeader } from "@/components/team-flow/flow-header";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
+import { PlayingXiDot } from "@/components/team-flow/playing-xi-dot";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
@@ -167,8 +168,8 @@ export function SquadPicker({
 
         {rosterLocked ? (
           <p className="text-zinc-600 px-2 pt-1 text-center text-xs dark:text-zinc-400">
-            Team lock is on (1 minute before start). You can review picks, but changes cannot be
-            saved.
+            Team lock is on (1 minute before start). You can review picks, but
+            changes cannot be saved.
           </p>
         ) : null}
 
@@ -256,13 +257,6 @@ export function SquadPicker({
               const avatar = playerAvatarUrl(p.photo_url, p.name);
               const badge = teamBadgeLabel(p.team);
 
-              const xiDot =
-                p.in_playing_xi === true
-                  ? "bg-emerald-500"
-                  : p.in_playing_xi === false
-                    ? "bg-red-500"
-                    : "bg-zinc-300 dark:bg-zinc-600";
-
               return (
                 <li key={p.id}>
                   <button
@@ -291,16 +285,7 @@ export function SquadPicker({
                       blockAdd && !rosterLocked && "opacity-[0.72]",
                     )}
                   >
-                    <div
-                      className="relative size-12 shrink-0 justify-self-start"
-                      title={
-                        p.in_playing_xi === true
-                          ? "In playing XI"
-                          : p.in_playing_xi === false
-                            ? "Not in playing XI"
-                            : "Lineup not synced"
-                      }
-                    >
+                    <div className="relative size-12 shrink-0 justify-self-start">
                       <div className="size-12 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-600">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -311,13 +296,7 @@ export function SquadPicker({
                           className="size-full rounded-full object-cover"
                         />
                       </div>
-                      <span
-                        className={cn(
-                          "absolute -top-0.5 -right-0.5 size-2.5 rounded-full border-2 border-white shadow-sm dark:border-zinc-900",
-                          xiDot,
-                        )}
-                        aria-hidden
-                      />
+                      <PlayingXiDot in_playing_xi={p.in_playing_xi} className="-top-0.5 -right-0.5" />
                       <span className="absolute -bottom-0.5 -left-0.5 min-w-[1.25rem] rounded border border-zinc-200 bg-white px-0.5 text-center text-[9px] font-bold leading-tight text-zinc-800 shadow-sm">
                         {badge}
                       </span>

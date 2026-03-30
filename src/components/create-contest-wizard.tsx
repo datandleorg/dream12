@@ -8,9 +8,9 @@ import { createContestAction } from "@/app/actions/create-contest";
 import {
   ALLOWED_WINNER_COUNTS,
   buildPrizeSlabs,
-  DEFAULT_PLATFORM_FEE_PCT,
   grossFromEntryAndSpots,
   netPrizePoolFromGross,
+  roundMoney,
   type WinnerCount,
 } from "@/lib/fantasy/prize-slabs";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -23,7 +23,14 @@ import { LoadingOverlay } from "@/components/loading-overlay";
 const ENTRY_CHIPS = [25, 50, 75];
 
 function formatInr(n: number): string {
-  return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: n % 1 ? 2 : 0 })}`;
+  const x = roundMoney(n);
+  const isWhole = Math.round(x * 100) % 100 === 0;
+  return `₹${x.toLocaleString(
+    "en-IN",
+    isWhole
+      ? { maximumFractionDigits: 0, minimumFractionDigits: 0 }
+      : { maximumFractionDigits: 2, minimumFractionDigits: 2 },
+  )}`;
 }
 
 export function CreateContestWizard({
@@ -31,11 +38,14 @@ export function CreateContestWizard({
   matchTitle,
   startIso,
   defaultContestName,
+  /** From server so preview matches create-contest server action (client-inlined env can be stale). */
+  platformFeeFraction,
 }: {
   matchId: number;
   matchTitle: string;
   startIso: string;
   defaultContestName: string;
+  platformFeeFraction: number;
 }) {
   const router = useRouter();
   const [name, setName] = useState(defaultContestName);
@@ -49,8 +59,8 @@ export function CreateContestWizard({
 
   const gross = useMemo(() => grossFromEntryAndSpots(entry, spots), [entry, spots]);
   const netPool = useMemo(
-    () => netPrizePoolFromGross(gross, DEFAULT_PLATFORM_FEE_PCT),
-    [gross],
+    () => netPrizePoolFromGross(gross, platformFeeFraction),
+    [gross, platformFeeFraction],
   );
 
   const slabs = useMemo(() => buildPrizeSlabs(netPool, winnerCount), [netPool, winnerCount]);
@@ -66,9 +76,7 @@ export function CreateContestWizard({
       name: name.trim(),
       entryFee: entry,
       maxParticipants: spots,
-      prizePool: netPool,
       winnerCount,
-      prizeBreakup: slabs,
       grossCollected: gross,
       isFlexible: true,
     });
@@ -167,7 +175,14 @@ export function CreateContestWizard({
             <p className="text-muted-foreground text-xs font-medium">Max prize pool</p>
             <p className="text-primary text-lg font-bold tabular-nums">{formatInr(netPool)}</p>
             <p className="text-muted-foreground text-[10px]">
-              Gross {formatInr(gross)} · fee ~{(DEFAULT_PLATFORM_FEE_PCT * 100).toFixed(1)}%
+              {platformFeeFraction > 0 ? (
+                <>
+                  Gross {formatInr(gross)} if full · {(platformFeeFraction * 100).toFixed(1)}% platform fee ·
+                  pool to winners {formatInr(netPool)}
+                </>
+              ) : (
+                <>100% of entry fees go to the prize pool when all spots fill (no platform fee).</>
+              )}
             </p>
           </div>
           <div>
