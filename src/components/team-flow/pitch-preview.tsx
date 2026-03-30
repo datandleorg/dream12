@@ -26,7 +26,7 @@ import { LoadingOverlay } from "@/components/loading-overlay";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
-import { isFantasyTeamMutationLocked } from "@/lib/fantasy/team-lock";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
 
 export function PitchPreview({
@@ -60,7 +60,7 @@ export function PitchPreview({
   const creditsUsed = selected.reduce((s, p) => s + p.credit_value, 0);
   const creditsLeft = MAX_CREDITS - creditsUsed;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
-  const rosterLocked = isFantasyTeamMutationLocked(match.status, match.start_time);
+  const rosterLocked = isTeamEditLocked(match.start_time);
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
@@ -152,7 +152,6 @@ export function PitchPreview({
           count={lineupConflictSelected}
           editHref={`${base}/squad`}
           matchStartIso={match.start_time}
-          matchStatus={match.status}
         />
       ) : null}
 

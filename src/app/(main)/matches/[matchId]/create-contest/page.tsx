@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CreateContestWizard } from "@/components/create-contest-wizard";
-import { isFantasyTeamMutationLocked } from "@/lib/fantasy/team-lock";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 
@@ -36,11 +36,11 @@ export default async function CreateContestPage({
   if (!match) notFound();
 
   const statusKey = String(match.status).toLowerCase();
-  if (statusKey === "completed") {
+  if (statusKey !== "upcoming") {
     redirect(`/matches/${matchId}`);
   }
 
-  if (isFantasyTeamMutationLocked(String(match.status), match.start_time)) {
+  if (isTeamEditLocked(match.start_time)) {
     redirect(`/matches/${matchId}`);
   }
 

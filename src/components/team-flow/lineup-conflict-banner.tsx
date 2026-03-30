@@ -2,17 +2,13 @@
 
 import Link from "next/link";
 import { AlertTriangle, Lock } from "lucide-react";
-import {
-  isFantasyTeamMutationLocked,
-  isTeamEditLocked,
-} from "@/lib/fantasy/team-lock";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { cn } from "@/lib/utils";
 
 export function LineupConflictBanner({
   count,
   editHref,
   matchStartIso,
-  matchStatus,
   className,
 }: {
   count: number;
@@ -20,17 +16,13 @@ export function LineupConflictBanner({
   editHref?: string;
   /** When set, uses same lock rule as save_fantasy_team (1 min before start). */
   matchStartIso?: string;
-  /** When set with matchStartIso, live matches stay editable until completed. */
-  matchStatus?: string;
   className?: string;
 }) {
   if (count <= 0) return null;
 
   const locked =
     matchStartIso != null && matchStartIso !== ""
-      ? matchStatus != null && matchStatus !== ""
-        ? isFantasyTeamMutationLocked(matchStatus, matchStartIso)
-        : isTeamEditLocked(matchStartIso)
+      ? isTeamEditLocked(matchStartIso)
       : false;
 
   const label =

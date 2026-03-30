@@ -18,7 +18,7 @@ import {
 } from "@/lib/contest-visibility";
 import { cn } from "@/lib/utils";
 import { getLineupConflictCountsByContest } from "@/lib/lineup-conflict-queries";
-import { isFantasyTeamMutationLocked } from "@/lib/fantasy/team-lock";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { MatchDetailLiveSection } from "@/components/match-detail-live-section";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
@@ -154,10 +154,7 @@ export default async function MatchDetailPage({
       ? `${match.team_a} vs ${match.team_b}`
       : match.name;
 
-  const fantasyMutationLocked = isFantasyTeamMutationLocked(
-    String(matchRow.status),
-    match.start_time,
-  );
+  const rosterLocked = isTeamEditLocked(match.start_time);
 
   return (
     <div className="space-y-4 py-4">
@@ -179,7 +176,7 @@ export default async function MatchDetailPage({
         {stageLine ? (
           <p className="text-muted-foreground mt-0.5 text-xs">{stageLine}</p>
         ) : null}
-        {isUpcoming && fantasyMutationLocked ? (
+        {isUpcoming && rosterLocked ? (
           <p className="text-muted-foreground mt-2 text-xs">
             Team picks are locked (1 minute before start). You can still open contests if you
             already joined.
@@ -200,8 +197,8 @@ export default async function MatchDetailPage({
             Live score
           </Link>
         </div>
-        {user && !isCompleted ? (
-          fantasyMutationLocked ? (
+        {user && isUpcoming ? (
+          rosterLocked ? (
             <span
               className={cn(
                 buttonVariants({ variant: "secondary" }),
@@ -277,7 +274,7 @@ export default async function MatchDetailPage({
                           },
                           user.id,
                         ) ? (
-                          fantasyMutationLocked ? (
+                          rosterLocked ? (
                             <span
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
@@ -315,7 +312,7 @@ export default async function MatchDetailPage({
                             entryFee={Number(c.entry_fee)}
                             balance={balance}
                             label="Join"
-                            disabled={fantasyMutationLocked}
+                            disabled={rosterLocked}
                             disabledReason="Team lock is on — you cannot join new contests this close to start."
                           />
                         )

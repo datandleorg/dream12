@@ -23,7 +23,6 @@ export type TeamFlowMatchRow = {
   id: number;
   name: string;
   start_time: string;
-  status: string;
   tournament_name: string | null;
   team_a: string | null;
   team_b: string | null;
@@ -99,7 +98,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
   const { data: matchRaw } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id,venue_id,stage_id,match_format",
+      "id,name,start_time,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id,venue_id,stage_id,match_format",
     )
     .eq("id", matchId)
     .single();
@@ -130,7 +129,6 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
         id: Number(matchRaw.id),
         name: matchRaw.name,
         start_time: matchRaw.start_time,
-        status: String(matchRaw.status ?? "upcoming"),
         tournament_name: matchRaw.tournament_name ?? null,
         team_a: matchRaw.team_a ?? null,
         team_b: matchRaw.team_b ?? null,
