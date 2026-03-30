@@ -80,6 +80,20 @@ services:
           sleep 12h
         done
 
+  # One-off first certificate (not started by `up`). Avoids `run certbot sh …` breaking because
+  # the certbot service entrypoint is already /bin/sh (that would run `/bin/sh sh /script` → "can't open sh").
+  certbot-issue:
+    profiles:
+      - tls-first-cert
+    image: certbot/certbot:latest
+    env_file:
+      - .env
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+      - ./docker/production/certbot-certonly.sh:/certonly.sh:ro
+    entrypoint: ["/bin/sh", "/certonly.sh"]
+
 volumes:
   certbot-etc:
   certbot-www:

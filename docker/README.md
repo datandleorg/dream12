@@ -86,11 +86,14 @@ Use [`docker-compose.production.yml`](../docker-compose.production.yml) instead 
    ```
 5. **First certificate** (after DNS has propagated and HTTP reaches the droplet). With **`DOMAINS`** and **`CERTBOT_EMAIL`** in `.env`, from the **repo root** on the server:
    ```bash
-   docker compose -f docker-compose.production.yml run --rm \
-     -v "$(pwd)/docker/production/certbot-certonly.sh:/certonly.sh:ro" \
-     certbot sh /certonly.sh
+   docker compose -f docker-compose.production.yml run --rm certbot-issue
    ```
+   (`certbot-issue` is a one-off service; the long-running `certbot` service uses `entrypoint: /bin/sh`, so do **not** run `… run certbot sh /certonly.sh` — that becomes `/bin/sh sh /certonly.sh` and fails with `can't open 'sh'`.)
+
    The script issues one certificate covering every name in **`DOMAINS`** (same order as nginx; apex first).
+
+   **Alternative** (manual entrypoint override):  
+   `docker compose -f docker-compose.production.yml run --rm --entrypoint /bin/sh -v "$(pwd)/docker/production/certbot-certonly.sh:/certonly.sh:ro" certbot /certonly.sh`
 6. **Enable HTTPS in nginx:** The proxy starts in HTTP-only mode until certs exist. After step 5, reload the config by recreating nginx:
    ```bash
    docker compose -f docker-compose.production.yml up -d --force-recreate nginx
