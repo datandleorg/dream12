@@ -45,14 +45,15 @@ Cron expressions in `vercel.json` follow the usual five-field form and run in **
 
 ## `vercel.json` schedules (five fields: minute hour day-of-month month day-of-week)
 
-All times below are **UTC** unless you set `TZ` on the `cron` service.
+All times below are **UTC** unless you set `TZ` on the `cron` service. The **`cron` container reads schedules from the repo’s `vercel.json`** (see `docker/cron/entrypoint.sh`).
 
 | Schedule | Meaning |
 |----------|---------|
 | `30 20 * * *` | Every day at **20:30 UTC** — full SportMonks sync (`/api/cron/sync`). |
-| `*/1 * * * *` | Every **minute** — **live** matches only: fetch merged fixture, persist `fixture_scoreboard_raw` + `live_snapshot`, recompute `user_teams.total_points` (`/api/cron/live-match-tick`). |
-| `15 * * * *` | At **:15** every hour — finalize scores for completed matches (`/api/cron/finalize-scores`). |
-| `45 * * * *` | At **:45** every hour — settle contests / payouts when ready (`/api/cron/settle-contests`). |
+| `0 * * * *` | At **:00** every hour — today-schedule monitor (`/api/cron/today-schedule`). |
+| `* 8-19 * * *` | Every **minute** during UTC hours **8–19** — `runMatchPipeline` / live-match-tick (IST ≈ **2pm–1:30am**; aligned to **2pm–1am IST**). |
+| `*/15 * * * *` | Every **15 minutes** — finalize scores (`/api/cron/finalize-scores`). |
+| `*/5 * * * *` | Every **5 minutes** — settle contests (`/api/cron/settle-contests`). |
 
 ## Changing jobs
 
