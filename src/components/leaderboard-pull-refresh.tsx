@@ -17,6 +17,7 @@ export function LeaderboardPullRefresh({
   prizeBreakup,
   teamCount,
   pointsUpdatedAt,
+  opponentTeamPreviewLocked = false,
 }: {
   contestId: string;
   initialRows: Row[];
@@ -27,6 +28,7 @@ export function LeaderboardPullRefresh({
   prizeBreakup?: unknown;
   teamCount?: number;
   pointsUpdatedAt?: string | null;
+  opponentTeamPreviewLocked?: boolean;
 }) {
   const router = useRouter();
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -110,6 +112,7 @@ export function LeaderboardPullRefresh({
           prizeBreakup={prizeBreakup}
           teamCount={teamCount}
           pointsUpdatedAt={pointsUpdatedAt}
+          opponentTeamPreviewLocked={opponentTeamPreviewLocked}
         />
       </div>
     </div>

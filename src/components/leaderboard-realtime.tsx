@@ -48,6 +48,7 @@ export function LeaderboardRealtime({
   prizeBreakup,
   teamCount,
   pointsUpdatedAt = null,
+  opponentTeamPreviewLocked = false,
 }: {
   contestId: string;
   initialRows: Row[];
@@ -59,6 +60,8 @@ export function LeaderboardRealtime({
   prizeBreakup?: unknown;
   teamCount?: number;
   pointsUpdatedAt?: string | null;
+  /** When true, only the viewer's own row opens team preview (match still upcoming). */
+  opponentTeamPreviewLocked?: boolean;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [flash, setFlash] = useState<Record<string, "up" | "down">>({});
@@ -154,14 +157,18 @@ export function LeaderboardRealtime({
             !prizesSettled && prizeBreakup != null
               ? prizeAmountForRank(prizeBreakup, rank)
               : 0;
-          const interactive = Boolean(onRowSelect && currentUserId);
+          const rowInteractive =
+            Boolean(onRowSelect && currentUserId) &&
+            (!opponentTeamPreviewLocked ||
+              (currentUserId != null && r.user_id === currentUserId));
           const rowCls = cn(
             "flex w-full items-center gap-3 px-3 py-3 text-left transition-colors",
             flash[r.id] === "up" && "bg-emerald-500/10",
             flash[r.id] === "down" && "bg-red-500/10",
             currentUserId && r.user_id === currentUserId && "bg-primary/8 ring-primary/20 ring-1",
-            interactive && "cursor-pointer hover:bg-muted/50",
-            !interactive && onRowSelect && !currentUserId && "opacity-90",
+            rowInteractive && "cursor-pointer hover:bg-muted/50",
+            !rowInteractive && onRowSelect && currentUserId && "opacity-95",
+            !rowInteractive && onRowSelect && !currentUserId && "opacity-90",
           );
           const inner = (
             <>
@@ -198,7 +205,7 @@ export function LeaderboardRealtime({
               </div>
             </>
           );
-          if (interactive) {
+          if (rowInteractive) {
             return (
               <li key={r.id}>
                 <button

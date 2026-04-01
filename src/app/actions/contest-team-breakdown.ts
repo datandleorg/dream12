@@ -15,6 +15,7 @@ import {
   fetchFixtureScoreboardRaw,
   fetchLivescoresNowByFixtureId,
 } from "@/lib/sportmonks/fixture-scoreboard";
+import { canViewOthersContestTeamPreview } from "@/lib/opponent-team-preview-policy";
 import { mapRowToBuilderPlayer, type BuilderPlayer } from "@/stores/team-builder";
 
 export type ContestTeamPitchPayload = {
@@ -55,6 +56,7 @@ export async function getContestTeamBreakdown(input: {
     .select(
       `
       id,
+      user_id,
       captain_id,
       vice_captain_id,
       match_id,
@@ -104,6 +106,31 @@ export async function getContestTeamBreakdown(input: {
     return { ok: false, message: "Contest not available." };
   }
 
+  const { data: matchMeta, error: matchErr } = await supabase
+    .from("matches")
+    .select("team_a, team_b, name, live_snapshot, fixture_scoreboard_raw, status")
+    .eq("id", team.match_id)
+    .maybeSingle();
+
+  if (matchErr || !matchMeta) {
+    return { ok: false, message: "Match not found." };
+  }
+
+  const teamOwnerId = String(team.user_id);
+  const matchStatus = String(matchMeta.status ?? "");
+  if (
+    !canViewOthersContestTeamPreview({
+      matchStatus,
+      viewerUserId: user.id,
+      teamOwnerUserId: teamOwnerId,
+    })
+  ) {
+    return {
+      ok: false,
+      message: "Opponent teams are visible once the match goes live.",
+    };
+  }
+
   const cap = team.captain_id as string | null;
   const vc = team.vice_captain_id as string | null;
   if (!cap || !vc) {
@@ -146,12 +173,6 @@ export async function getContestTeamBreakdown(input: {
       team_label: pl?.team?.trim() || "—",
     });
   }
-
-  const { data: matchMeta } = await supabase
-    .from("matches")
-    .select("team_a, team_b, name, live_snapshot, fixture_scoreboard_raw")
-    .eq("id", team.match_id)
-    .maybeSingle();
 
   const matchName = matchMeta?.name?.trim() ?? "";
   const parts = matchName.split(/\s+vs\s+/i);

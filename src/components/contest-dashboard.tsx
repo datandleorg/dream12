@@ -95,9 +95,16 @@ export function ContestDashboard({
 
   const liveSt = String(live.status).toLowerCase();
   const matchCompleted = liveSt === "completed" || liveSt === "in_review";
+  const opponentTeamPreviewLocked = liveSt === "upcoming";
 
   const openPreview = (row: Row) => {
     if (!currentUserId) return;
+    if (
+      opponentTeamPreviewLocked &&
+      row.user_id !== currentUserId
+    ) {
+      return;
+    }
     setPreview({ teamId: row.id, username: row.username });
     setSheetOpen(true);
   };
@@ -205,6 +212,12 @@ export function ContestDashboard({
         </TabsContent>
 
         <TabsContent value="leaderboard" className="mt-3">
+          {opponentTeamPreviewLocked && currentUserId ? (
+            <p className="text-muted-foreground mb-2 text-xs">
+              Tap your row to preview your XI. Opponent teams unlock when the match goes
+              live.
+            </p>
+          ) : null}
           {!initialRows.length ? (
             <p className="text-muted-foreground text-sm">No teams yet.</p>
           ) : (
@@ -218,6 +231,7 @@ export function ContestDashboard({
               prizeBreakup={prizeBreakupJson}
               teamCount={initialRows.length}
               pointsUpdatedAt={live.liveSnapshotAt ?? pointsUpdatedAt}
+              opponentTeamPreviewLocked={opponentTeamPreviewLocked}
             />
           )}
         </TabsContent>
