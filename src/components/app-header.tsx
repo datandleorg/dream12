@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BellIcon } from "lucide-react";
+import { BellIcon, Wallet } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { safeInternalPath } from "@/lib/safe-return-to";
 
@@ -46,18 +46,14 @@ export function AppHeader({
             </span>
           ) : null}
         </Link>
-        <div className="flex flex-col items-end gap-0.5 text-right">
-          <Link
-            href={walletHref}
-            className="text-foreground hover:bg-muted/80 max-w-[7rem] truncate rounded-md px-2 py-1 text-sm font-semibold tabular-nums transition-colors sm:max-w-none"
-            title={`Mock balance ₹${bal.toFixed(2)} — open wallet`}
-          >
-            {formatBalanceChip(bal)}
-          </Link>
-          <span className="text-muted-foreground max-w-[9rem] text-[10px] leading-tight sm:max-w-[14rem]">
-            This app uses mock money
-          </span>
-        </div>
+        <Link
+          href={walletHref}
+          className="text-foreground hover:bg-muted/80 inline-flex max-w-[10rem] items-center gap-1.5 truncate rounded-md px-2 py-1 text-sm font-semibold tabular-nums transition-colors sm:max-w-none"
+          title={`Wallet · ₹${bal.toFixed(2)}`}
+        >
+          <Wallet className="size-5 shrink-0" aria-hidden />
+          {formatBalanceChip(bal)}
+        </Link>
       </div>
     </header>
   );

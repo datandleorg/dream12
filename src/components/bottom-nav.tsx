@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Trophy, Wallet, User } from "lucide-react";
+import { Home, Trophy, User } from "lucide-react";
+import { PodiumIcon } from "@/components/icons/podium-icon";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Home", Icon: Home },
   { href: "/contests", label: "Contests", Icon: Trophy },
-  { href: "/wallet", label: "Wallet", Icon: Wallet },
+  { href: "/leaderboard", label: "Leaderboard", Icon: PodiumIcon },
   { href: "/profile", label: "Profile", Icon: User },
 ] as const;
 
