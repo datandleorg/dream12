@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminService, requireAdminSession } from "@/lib/admin-server";
 
+/** GoTrue: ban_duration uses h/m/s suffixes; ~100y for admin deactivate. Unban with `none` (auth-js types). */
+const DEACTIVATE_BAN_DURATION = "876000h";
+
 export async function adminCreateUser(input: {
   email: string;
   password: string;
@@ -85,6 +88,62 @@ export async function adminUpdateEmail(userId: string, email: string) {
     entity_id: userId,
     metadata: { email: em },
   });
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  return { ok: true as const };
+}
+
+export async function adminSetUserActive(userId: string, active: boolean) {
+  const r = await requireAdminService();
+  if (!r.ok) return { ok: false as const, message: r.message };
+  if (userId === r.userId && !active) {
+    return { ok: false as const, message: "You cannot deactivate your own account" };
+  }
+
+  if (active) {
+    const { error: profileErr } = await r.service
+      .from("profiles")
+      .update({ is_active: true })
+      .eq("id", userId);
+    if (profileErr) return { ok: false as const, message: profileErr.message };
+
+    const { error: authErr } = await r.service.auth.admin.updateUserById(userId, {
+      ban_duration: "none",
+    });
+    if (authErr) {
+      await r.service.from("profiles").update({ is_active: false }).eq("id", userId);
+      return { ok: false as const, message: authErr.message };
+    }
+    await r.service.from("admin_audit_log").insert({
+      actor_id: r.userId,
+      action: "user.activated",
+      entity_type: "auth_user",
+      entity_id: userId,
+      metadata: {},
+    });
+  } else {
+    const { error: authErr } = await r.service.auth.admin.updateUserById(userId, {
+      ban_duration: DEACTIVATE_BAN_DURATION,
+    });
+    if (authErr) return { ok: false as const, message: authErr.message };
+
+    const { error: profileErr } = await r.service
+      .from("profiles")
+      .update({ is_active: false })
+      .eq("id", userId);
+    if (profileErr) {
+      await r.service.auth.admin.updateUserById(userId, { ban_duration: "none" });
+      return { ok: false as const, message: profileErr.message };
+    }
+    await r.service.from("admin_audit_log").insert({
+      actor_id: r.userId,
+      action: "user.deactivated",
+      entity_type: "auth_user",
+      entity_id: userId,
+      metadata: {},
+    });
+  }
+
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
   return { ok: true as const };

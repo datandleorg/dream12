@@ -29,7 +29,7 @@ export default async function MyContestsPage() {
         match_id,
         entry_fee,
         prize_pool,
-        matches ( name )
+        matches ( name, status )
       )
     `,
     )
@@ -76,9 +76,13 @@ export default async function MyContestsPage() {
               match_id: number;
               entry_fee: number;
               prize_pool: number;
-              matches: { name: string } | null;
+              matches: { name: string; status?: string | null } | null;
             } | null;
             const matchName = c?.matches?.name ?? "Match";
+            const matchStatus = String(c?.matches?.status ?? "")
+              .toLowerCase()
+              .trim();
+            const canEditTeam = matchStatus === "upcoming";
             const title = c?.name?.trim() || `Contest · ${matchName}`;
             return (
               <li key={t.id}>
@@ -99,15 +103,17 @@ export default async function MyContestsPage() {
                       >
                         Leaderboard
                       </Link>
-                      <Link
-                        href={`/matches/${c?.match_id}/contests/${c?.id}/squad`}
-                        className={cn(
-                          buttonVariants({ variant: "default" }),
-                          "inline-flex min-h-11 flex-1 items-center justify-center",
-                        )}
-                      >
-                        Edit team
-                      </Link>
+                      {canEditTeam ? (
+                        <Link
+                          href={`/matches/${c?.match_id}/contests/${c?.id}/squad`}
+                          className={cn(
+                            buttonVariants({ variant: "default" }),
+                            "inline-flex min-h-11 flex-1 items-center justify-center",
+                          )}
+                        >
+                          Edit team
+                        </Link>
+                      ) : null}
                     </div>
                   </CardHeader>
                 </Card>

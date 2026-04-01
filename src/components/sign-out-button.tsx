@@ -15,8 +15,8 @@ export function SignOutButton() {
     setBusy(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signOut();
-    setBusy(false);
     if (error) {
+      setBusy(false);
       toast.error(error.message);
       return;
     }

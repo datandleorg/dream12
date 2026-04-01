@@ -88,8 +88,8 @@ export function PitchPreview({
       captainId,
       viceCaptainId,
     });
-    setSaving(false);
     if (!res.ok) {
+      setSaving(false);
       toast.error(res.message);
       return;
     }

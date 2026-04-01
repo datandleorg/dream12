@@ -72,7 +72,7 @@ export function ContestMatchInfo({
           })}
         </p>
         {isInReview ? (
-          <p className="text-amber-800 dark:text-amber-200 text-sm font-medium">
+          <p className="text-sm font-medium text-violet-800 dark:text-violet-200">
             Final scores under review
           </p>
         ) : isCompleted ? (

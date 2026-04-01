@@ -65,7 +65,6 @@ export default function AdminLoginPage() {
       return;
     }
 
-    setLoading(false);
     router.replace(next);
     router.refresh();
   }

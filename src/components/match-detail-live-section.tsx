@@ -1,12 +1,14 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
 import { MatchShortScore } from "@/components/match-short-score";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
 import { MatchStatusBadge } from "@/components/match-status-badge";
 import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
-import type { LiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
+import {
+  isSnapshotShortLinePlaceholder,
+  type LiveSnapshot,
+} from "@/lib/sportmonks/normalize-live-snapshot";
 
 export function MatchDetailLiveSection({
   matchId,
@@ -33,7 +35,7 @@ export function MatchDetailLiveSection({
   fixture_scoreboard_raw?: unknown;
   initialParsedSnapshot?: LiveSnapshot | null;
 }) {
-  const { snapshot, status, smFixtureStatus } = useMatchLiveRow({
+  const { snapshot, status } = useMatchLiveRow({
     matchId,
     live_snapshot,
     live_snapshot_at,
@@ -44,7 +46,6 @@ export function MatchDetailLiveSection({
   });
 
   const statusKey = String(status).toLowerCase();
-  const isUpcoming = statusKey === "upcoming";
   const isLive = statusKey === "live";
   const isCompleted = statusKey === "completed" || statusKey === "in_review";
 
@@ -74,19 +75,16 @@ export function MatchDetailLiveSection({
           timeStyle: "short",
         })}
       </p>
-      <FixtureSmStatusLine label={smFixtureStatus} className="mt-1" />
-      <MatchShortScore snapshot={snapshot} className="mt-1" />
+      {!isSnapshotShortLinePlaceholder(snapshot) ? (
+        <MatchShortScore snapshot={snapshot} className="mt-1" />
+      ) : null}
       {statusKey === "in_review" ? (
-        <p className="text-amber-800 dark:text-amber-200 mt-1 text-sm font-medium">
+        <p className="mt-1 text-sm font-medium text-violet-800 dark:text-violet-200">
           Match ended — final scores under review
         </p>
       ) : isCompleted ? (
         <p className="text-muted-foreground mt-1 text-sm font-medium">Match finished</p>
-      ) : isLive ? (
-        <p className="text-emerald-700 dark:text-emerald-400 mt-1 text-sm font-medium">
-          Match in progress
-        </p>
-      ) : (
+      ) : isLive ? null : (
         <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <span>Starts in</span>
           <MatchStartCountdown startIso={startIso} className="font-medium text-foreground" />

@@ -13,9 +13,10 @@ import {
   type MatchListFilter,
 } from "@/lib/match-list-filter";
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
+import { venueStageLabels } from "@/lib/match-venue-stage";
 
 const matchColumns =
-  "id, name, start_time, status, tournament_name, team_a, team_b, team_a_logo_url, team_b_logo_url, live_snapshot, sm_fixture_status";
+  "id, name, start_time, status, tournament_name, team_a, team_b, team_a_logo_url, team_b_logo_url, live_snapshot, sm_fixture_status, venue_id, stage_id, match_format";
 
 type MatchRow = {
   id: number | string;
@@ -29,6 +30,9 @@ type MatchRow = {
   team_b_logo_url: string | null;
   live_snapshot: unknown;
   sm_fixture_status: string | null;
+  venue_id: number | null;
+  stage_id: number | null;
+  match_format: string | null;
 };
 
 const EMPTY_COPY: Record<MatchListFilter, string> = {
@@ -63,6 +67,55 @@ export default async function HomePage({
   }
 
   const rows = (statusRows ?? []) as MatchRow[];
+
+  const venueIds = [
+    ...new Set(
+      rows
+        .map((m) => (m.venue_id != null ? Number(m.venue_id) : NaN))
+        .filter((id) => Number.isFinite(id)),
+    ),
+  ];
+  const stageIds = [
+    ...new Set(
+      rows
+        .map((m) => (m.stage_id != null ? Number(m.stage_id) : NaN))
+        .filter((id) => Number.isFinite(id)),
+    ),
+  ];
+
+  const venueById = new Map<
+    number,
+    { name: string | null; city: string | null }
+  >();
+  const stageById = new Map<
+    number,
+    { name: string | null; code: string | null }
+  >();
+
+  if (venueIds.length > 0) {
+    const { data: venueRows } = await supabase
+      .from("sm_venues")
+      .select("id,name,city")
+      .in("id", venueIds);
+    for (const v of venueRows ?? []) {
+      venueById.set(Number(v.id), {
+        name: v.name as string | null,
+        city: v.city as string | null,
+      });
+    }
+  }
+  if (stageIds.length > 0) {
+    const { data: stageRows } = await supabase
+      .from("sm_stages")
+      .select("id,name,code")
+      .in("id", stageIds);
+    for (const s of stageRows ?? []) {
+      stageById.set(Number(s.id), {
+        name: s.name as string | null,
+        code: s.code as string | null,
+      });
+    }
+  }
 
   const matchIds = rows.map((m) => Number(m.id));
   const contestsByMatchId = new Map<
@@ -110,6 +163,11 @@ export default async function HomePage({
     );
     const pools = visible.map((c) => Number(c.prize_pool ?? 0));
     const max_prize_pool = pools.length ? Math.max(...pools) : 0;
+    const vid = m.venue_id != null ? Number(m.venue_id) : null;
+    const sid = m.stage_id != null ? Number(m.stage_id) : null;
+    const venueRow = vid != null && Number.isFinite(vid) ? venueById.get(vid) : null;
+    const stageRow = sid != null && Number.isFinite(sid) ? stageById.get(sid) : null;
+    const { venueLine, stageLine } = venueStageLabels(venueRow, stageRow);
     return {
       id: Number(m.id),
       name: m.name,
@@ -123,6 +181,9 @@ export default async function HomePage({
       max_prize_pool,
       live_snapshot: m.live_snapshot,
       sm_fixture_status: m.sm_fixture_status,
+      venue_line: venueLine,
+      stage_line: stageLine,
+      match_format: m.match_format?.trim() || null,
     };
   });
 
@@ -149,7 +210,7 @@ export default async function HomePage({
         </Link>
       </div>
 
-      <MatchListSection>
+      <MatchListSection activeFilter={filter}>
         {!matches.length ? (
           <Card>
             <CardHeader>

@@ -22,21 +22,7 @@ import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { MatchDetailLiveSection } from "@/components/match-detail-live-section";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
-
-function venueStageLabels(
-  venue: { name?: string | null; city?: string | null } | null,
-  stage: { name?: string | null; code?: string | null } | null,
-): { venueLine: string | null; stageLine: string | null } {
-  const vname = venue?.name?.trim();
-  const vcity = venue?.city?.trim();
-  const venueLine =
-    vname && vcity ? `${vname}, ${vcity}` : vname ?? vcity ?? null;
-  const sname = stage?.name?.trim();
-  const scode = stage?.code?.trim();
-  const stageLine =
-    sname && scode ? `${sname} · ${scode}` : sname ?? scode ?? null;
-  return { venueLine, stageLine };
-}
+import { venueStageLabels } from "@/lib/match-venue-stage";
 
 export default async function MatchDetailPage({
   params,
@@ -68,6 +54,7 @@ export default async function MatchDetailPage({
 
   const statusKey = String(matchRow.status).toLowerCase();
   const isUpcoming = statusKey === "upcoming";
+  const isLive = statusKey === "live";
   const isCompleted = statusKey === "completed" || statusKey === "in_review";
 
   let venueRow: { name: string | null; city: string | null } | null = null;
@@ -297,15 +284,17 @@ export default async function MatchDetailPage({
                             </Link>
                           )
                         ) : joinedContestIds.has(c.id) ? (
-                          <Link
-                            href={`/matches/${matchId}/contests/${c.id}/squad`}
-                            className={cn(
-                              buttonVariants({ variant: "secondary" }),
-                              "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
-                            )}
-                          >
-                            My team
-                          </Link>
+                          !isLive ? (
+                            <Link
+                              href={`/matches/${matchId}/contests/${c.id}/squad`}
+                              className={cn(
+                                buttonVariants({ variant: "secondary" }),
+                                "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
+                              )}
+                            >
+                              My team
+                            </Link>
+                          ) : null
                         ) : (
                           <JoinContestButton
                             matchId={matchId}

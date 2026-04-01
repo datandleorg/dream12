@@ -96,6 +96,7 @@ export function ContestDashboard({
   const liveSt = String(live.status).toLowerCase();
   const matchCompleted = liveSt === "completed" || liveSt === "in_review";
   const opponentTeamPreviewLocked = liveSt === "upcoming";
+  const showSquadLink = userHasTeamInContest && liveSt !== "live";
 
   const openPreview = (row: Row) => {
     if (!currentUserId) return;
@@ -113,7 +114,7 @@ export function ContestDashboard({
     <div className="space-y-4 py-2">
       <div className="flex items-start justify-between gap-2">
         <h1 className="text-lg font-semibold leading-tight sm:text-xl">{contestTitle}</h1>
-        {userHasTeamInContest ? (
+        {showSquadLink ? (
           <Link
             href={squadHref}
             className={cn(

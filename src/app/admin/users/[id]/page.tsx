@@ -39,7 +39,7 @@ export default async function AdminUserDetailPage({
 
   const { data: profile } = await service
     .from("profiles")
-    .select("username,wallet_balance,is_admin")
+    .select("username,wallet_balance,is_admin,is_active")
     .eq("id", id)
     .single();
 
@@ -66,6 +66,7 @@ export default async function AdminUserDetailPage({
         username={profile?.username ?? ""}
         walletBalance={Number(profile?.wallet_balance ?? 0)}
         isAdmin={profile?.is_admin ?? false}
+        isActive={profile?.is_active !== false}
       />
 
       <section className="space-y-2">

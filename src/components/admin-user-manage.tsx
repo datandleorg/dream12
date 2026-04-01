@@ -10,6 +10,7 @@ import {
   adminUpdateEmail,
   adminUpdateUsername,
 } from "@/app/actions/admin-users";
+import { AdminUserActiveToggle } from "@/components/admin-user-active-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ export function AdminUserManage({
   username,
   walletBalance,
   isAdmin,
+  isActive,
 }: {
   userId: string;
   currentAdminId: string;
@@ -32,6 +34,7 @@ export function AdminUserManage({
   username: string;
   walletBalance: number;
   isAdmin: boolean;
+  isActive: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -98,13 +101,14 @@ export function AdminUserManage({
     if (!confirm("Delete this user permanently?")) return;
     setLoading(true);
     const r = await adminDeleteUser(userId);
-    setLoading(false);
-    if (!r.ok) toast.error(r.message);
-    else {
-      toast.success("User deleted");
-      router.replace("/admin/users");
-      router.refresh();
+    if (!r.ok) {
+      setLoading(false);
+      toast.error(r.message);
+      return;
     }
+    toast.success("User deleted");
+    router.replace("/admin/users");
+    router.refresh();
   }
 
   return (
@@ -154,7 +158,13 @@ export function AdminUserManage({
         </Button>
       </form>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <AdminUserActiveToggle
+          userId={userId}
+          isActive={isActive}
+          currentAdminId={currentAdminId}
+          layout="detail"
+        />
         <Button type="button" variant="secondary" className="min-h-11" onClick={() => void toggleAdmin()}>
           {isAdmin ? "Remove admin" : "Make admin"}
         </Button>

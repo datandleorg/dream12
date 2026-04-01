@@ -10,7 +10,7 @@ const LABEL: Record<string, string> = {
 
 /**
  * Distinct styles for `public.matches.status`: upcoming | live | in_review | completed.
- * Live uses a green pulsing dot.
+ * Live uses a green pulsing dot. In review uses violet (vs upcoming amber).
  */
 export function MatchStatusBadge({
   status,
@@ -48,8 +48,8 @@ export function MatchStatusBadge({
       <Badge
         variant="outline"
         className={cn(
-          "border-amber-500/60 bg-amber-500/15 font-semibold text-amber-950",
-          "dark:border-amber-400/50 dark:bg-amber-500/20 dark:text-amber-100",
+          "border-violet-500/55 bg-violet-500/12 font-semibold text-violet-950",
+          "dark:border-violet-400/50 dark:bg-violet-500/22 dark:text-violet-100",
           className,
         )}
       >

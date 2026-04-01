@@ -19,9 +19,14 @@ export default async function MainLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("wallet_balance")
+    .select("wallet_balance, is_active")
     .eq("id", user.id)
     .single();
+
+  if (profile?.is_active === false) {
+    await supabase.auth.signOut();
+    redirect("/login?reason=inactive");
+  }
 
   const initialBalance = Number(profile?.wallet_balance ?? 0);
 

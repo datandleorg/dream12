@@ -27,9 +27,14 @@ export default async function AdminLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin")
+    .select("is_admin, is_active")
     .eq("id", user.id)
     .single();
+
+  if (profile?.is_active === false) {
+    await supabase.auth.signOut();
+    redirect("/login?reason=inactive");
+  }
 
   if (!profile?.is_admin) redirect("/");
 

@@ -80,8 +80,8 @@ export function CreateContestWizard({
       grossCollected: gross,
       isFlexible: true,
     });
-    setSubmitting(false);
     if (!res.ok) {
+      setSubmitting(false);
       toast.error(res.message);
       return;
     }

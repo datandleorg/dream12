@@ -11,6 +11,7 @@ import {
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { AdminCreateUserForm } from "@/components/admin-create-user-form";
+import { AdminUserActiveToggle } from "@/components/admin-user-active-toggle";
 import {
   Table,
   TableBody,
@@ -26,6 +27,7 @@ type ProfileCols = {
   username: string;
   wallet_balance: number;
   is_admin: boolean;
+  is_active: boolean | null;
   created_at: string;
 };
 
@@ -35,6 +37,7 @@ type TableRowModel = {
   email: string | null;
   wallet_balance: number;
   is_admin: boolean;
+  is_active: boolean;
 };
 
 export default async function AdminUsersPage() {
@@ -108,7 +111,7 @@ export default async function AdminUsersPage() {
       ids.length > 0
         ? await service
             .from("profiles")
-            .select("id,username,wallet_balance,is_admin,created_at")
+            .select("id,username,wallet_balance,is_admin,is_active,created_at")
             .in("id", ids)
         : { data: [] as ProfileCols[] };
 
@@ -121,6 +124,7 @@ export default async function AdminUsersPage() {
         email: u.email,
         wallet_balance: Number(p?.wallet_balance ?? 0),
         is_admin: Boolean(p?.is_admin),
+        is_active: p?.is_active !== false,
       };
     });
 
@@ -138,7 +142,7 @@ export default async function AdminUsersPage() {
   } else {
     const { data: profiles, error: profErr } = await service
       .from("profiles")
-      .select("id,username,wallet_balance,is_admin,created_at")
+      .select("id,username,wallet_balance,is_admin,is_active,created_at")
       .order("created_at", { ascending: false })
       .limit(500);
 
@@ -164,6 +168,7 @@ export default async function AdminUsersPage() {
       email: null,
       wallet_balance: Number(p.wallet_balance ?? 0),
       is_admin: Boolean(p.is_admin),
+      is_active: p.is_active !== false,
     }));
 
     const combinedMsg = [
@@ -256,6 +261,7 @@ export default async function AdminUsersPage() {
               <TableHead>Email</TableHead>
               <TableHead>Wallet</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead className="text-right">Status</TableHead>
               <TableHead className="text-right">Open</TableHead>
             </TableRow>
           </TableHeader>
@@ -273,6 +279,14 @@ export default async function AdminUsersPage() {
                   ) : (
                     <Badge variant="secondary">User</Badge>
                   )}
+                </TableCell>
+                <TableCell className="text-right align-top">
+                  <AdminUserActiveToggle
+                    userId={r.id}
+                    isActive={r.is_active}
+                    currentAdminId={user.id}
+                    layout="table"
+                  />
                 </TableCell>
                 <TableCell className="text-right">
                   <Link
