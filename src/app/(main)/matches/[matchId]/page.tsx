@@ -229,7 +229,7 @@ export default async function MatchDetailPage({
                       {lineupConflict > 0 ? (
                         <Badge
                           variant="outline"
-                          className="border-amber-500/60 bg-amber-500/10 font-semibold text-amber-950 dark:text-amber-100"
+                          className="border-amber-700/50 bg-amber-100 font-semibold text-amber-950 shadow-sm dark:border-amber-400/80 dark:bg-amber-500 dark:text-neutral-950"
                         >
                           {lineupConflict === 1
                             ? "1 not in XI"

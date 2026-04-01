@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -330,7 +331,7 @@ export function SquadPicker({
               type="button"
               variant="outline"
               className="min-h-12 flex-1 border-zinc-300 bg-white font-semibold text-zinc-800 shadow-sm"
-              disabled={!canContinue}
+              disabled={selected.length === 0}
               onClick={() => setPreviewOpen(true)}
             >
               Team preview
@@ -366,6 +367,14 @@ export function SquadPicker({
               Continue
             </Button>
           </div>
+          {selected.length > 0 ? (
+            <Link
+              href={`${base}/preview`}
+              className="mt-2 block text-center text-sm font-medium text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400"
+            >
+              Open full-screen preview
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>

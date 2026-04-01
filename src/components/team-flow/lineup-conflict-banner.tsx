@@ -36,7 +36,7 @@ export function LineupConflictBanner({
         "flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm",
         locked
           ? "border-zinc-400/60 bg-zinc-500/10 text-zinc-900 dark:border-zinc-500/40 dark:bg-zinc-500/15 dark:text-zinc-100"
-          : "border-amber-500/40 bg-amber-500/10 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-100",
+          : "border-amber-600/50 bg-amber-100 text-amber-950 dark:border-amber-400/70 dark:bg-amber-950 dark:text-amber-50",
         editHref && !locked && "pr-2",
         className,
       )}
@@ -48,7 +48,7 @@ export function LineupConflictBanner({
         />
       ) : (
         <AlertTriangle
-          className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+          className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300"
           aria-hidden
         />
       )}
@@ -61,7 +61,7 @@ export function LineupConflictBanner({
             "mt-0.5 text-xs",
             locked
               ? "text-zinc-800/95 dark:text-zinc-50/90"
-              : "text-amber-900/90 dark:text-amber-50/90",
+              : "text-amber-900 dark:text-amber-100",
           )}
         >
           {label}{" "}

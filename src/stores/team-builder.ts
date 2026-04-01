@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { SQUAD_SIZE, type RoleKey } from "@/lib/fantasy/rules";
 import { canAddPlayerToSquad } from "@/lib/fantasy/validate-squad";
+import type { TeamFlowPlayerRow } from "@/lib/team-flow-data";
 
 export type BuilderPlayer = {
   id: string;
@@ -25,10 +26,13 @@ type State = {
   captainId: string | null;
   viceCaptainId: string | null;
   roleTab: RoleKey;
+  /** Last contest the flow was hydrated for; used to avoid carrying one contest’s XI into another. */
+  teamFlowContestId: string | null;
   togglePlayer: (p: BuilderPlayer) => TogglePlayerResult;
   setCaptain: (id: string | null) => void;
   setViceCaptain: (id: string | null) => void;
   setRoleTab: (r: RoleKey) => void;
+  setTeamFlowContestId: (id: string | null) => void;
   reset: (preselected?: BuilderPlayer[]) => void;
 };
 
@@ -66,11 +70,23 @@ export function mapRowToBuilderPlayer(row: {
   };
 }
 
+/** Refresh builder rows from the server player pool (order preserved). */
+export function mergeBuilderPlayersWithPool(
+  selected: BuilderPlayer[],
+  players: TeamFlowPlayerRow[],
+): BuilderPlayer[] {
+  return selected.map((p) => {
+    const row = players.find((x) => x.id === p.id);
+    return row ? mapRowToBuilderPlayer(row) : p;
+  });
+}
+
 export const useTeamBuilderStore = create<State>((set) => ({
   selected: [],
   captainId: null,
   viceCaptainId: null,
   roleTab: "WK",
+  teamFlowContestId: null,
   togglePlayer: (p) => {
     let rejection: string | undefined;
     set((s) => {
@@ -109,6 +125,7 @@ export const useTeamBuilderStore = create<State>((set) => ({
   setCaptain: (id) => set({ captainId: id }),
   setViceCaptain: (id) => set({ viceCaptainId: id }),
   setRoleTab: (roleTab) => set({ roleTab }),
+  setTeamFlowContestId: (teamFlowContestId) => set({ teamFlowContestId }),
   reset: (preselected) =>
     set({
       selected: preselected ?? [],

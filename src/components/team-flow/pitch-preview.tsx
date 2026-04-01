@@ -61,22 +61,24 @@ export function PitchPreview({
   const creditsLeft = MAX_CREDITS - creditsUsed;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
   const rosterLocked = isTeamEditLocked(match.start_time);
+  const picksRemaining = SQUAD_SIZE - selected.length;
+  const capVcReady =
+    Boolean(captainId && viceCaptainId && captainId !== viceCaptainId);
+  const canSaveTeam =
+    selected.length === SQUAD_SIZE && capVcReady && !rosterLocked;
 
   useEffect(() => {
-    if (selected.length !== SQUAD_SIZE) {
+    if (selected.length === 0) {
       router.replace(`${base}/squad`);
       return;
     }
-    if (!captainId || !viceCaptainId || captainId === viceCaptainId) {
+    if (
+      selected.length === SQUAD_SIZE &&
+      (!captainId || !viceCaptainId || captainId === viceCaptainId)
+    ) {
       router.replace(`${base}/captain`);
     }
-  }, [
-    selected.length,
-    captainId,
-    viceCaptainId,
-    router,
-    base,
-  ]);
+  }, [selected.length, captainId, viceCaptainId, router, base]);
 
   async function onSave() {
     if (selected.length !== SQUAD_SIZE || !captainId || !viceCaptainId) return;
@@ -155,6 +157,17 @@ export function PitchPreview({
         />
       ) : null}
 
+      {picksRemaining > 0 ? (
+        <p className="text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-center text-sm">
+          Preview only — pick {picksRemaining} more {picksRemaining === 1 ? "player" : "players"} on the squad
+          step, then set captain and vice-captain to save.
+        </p>
+      ) : !capVcReady ? (
+        <p className="text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-center text-sm">
+          Preview only — choose captain and vice-captain to save your team.
+        </p>
+      ) : null}
+
       <TeamFieldPreview
         teamA={teamA}
         teamB={teamB}
@@ -168,7 +181,9 @@ export function PitchPreview({
       <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">
         <div className="flex gap-2">
           <Link
-            href={`${base}/captain`}
+            href={
+              picksRemaining > 0 || !capVcReady ? `${base}/squad` : `${base}/captain`
+            }
             className={cn(
               buttonVariants({ variant: "secondary" }),
               "inline-flex min-h-11 flex-1 items-center justify-center",
@@ -179,7 +194,7 @@ export function PitchPreview({
           <Button
             type="button"
             className="min-h-11 flex-[2]"
-            disabled={saving || rosterLocked}
+            disabled={saving || !canSaveTeam}
             onClick={() => setConfirmOpen(true)}
           >
             Save team
