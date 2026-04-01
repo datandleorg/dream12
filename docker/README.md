@@ -73,60 +73,75 @@ If a **SportMonks `api_token`** was ever committed or shared, **rotate it** in t
 - **Wallet pay-in:** Set `NEXT_PUBLIC_COMPANY_UPI_VPA` (and optionally `NEXT_PUBLIC_COMPANY_UPI_PAYEE_NAME`) in `.env` so players get a correct `upi://pay` intent on the wallet page.
 - **Service role:** Creating users from **Admin → Users** uses `SUPABASE_SERVICE_ROLE_KEY` on the server; keep it secret.
 
-## Production on a VPS (DigitalOcean, etc.): nginx + Let’s Encrypt
+## Docker + Compose on the server (check your setup)
 
-Use [`docker-compose.production.yml`](../docker-compose.production.yml) instead of the default compose file. It runs **web**, **cron**, **nginx** (TLS termination and reverse proxy to Next.js), and a **certbot** sidecar that runs `certbot renew` on a 12h loop. **Port 3000 is not published**; only **80** and **443** are exposed.
+**Docker Engine**
 
-1. **DNS:** Create an **A** record for **each** hostname in **`DOMAINS`** (e.g. `dream12.botnetworks.in` and `www.dream12.botnetworks.in`) pointing at the droplet’s public IP.
-2. **Env:** In `.env`, set **`DOMAINS`** to a comma-separated list with **no spaces** (or trim-only around commas), **apex first**, e.g. `dream12.botnetworks.in,www.dream12.botnetworks.in`. The first name is where Let’s Encrypt stores certs (`live/<first>/`). Set **`CERTBOT_EMAIL`** for the first certificate step. Keep all other web/cron/Supabase variables; rebuild the web image if you change `NEXT_PUBLIC_*` bake-time vars.
-3. **Supabase:** Under **Authentication → URL configuration**, add **both** site URL variants you use (`https://dream12.botnetworks.in` and `https://www.dream12.botnetworks.in`) plus redirect URLs / `/auth/callback` as needed so OAuth and email links match how users open the app.
-4. **Start stack:**
-   ```bash
-   docker compose -f docker-compose.production.yml up -d --build
-   ```
-5. **Confirm port 80 before certbot** (Let’s Encrypt uses **HTTP** to `/.well-known/acme-challenge/`). If you see **`connection refused`** to `:80`, the CA cannot reach nginx — fix this before step 6.
+```bash
+docker version
+```
 
-   - **`docker compose -f docker-compose.production.yml ps -a`** — **nginx** must be **Up**. If it is *Exited*, run `docker compose … logs nginx`. **cron** still waits for **web** to be **healthy**; **nginx** starts once the **web** **container** has started (so port **80** can open even while Next.js is still warming up — required for Let’s Encrypt).
-   - **On the droplet:** `curl -sS -I http://127.0.0.1/` — you should get an HTTP response from nginx (e.g. **200**, **404**, **301**), not *Connection refused*.
-   - **Listening socket:** `sudo ss -tlnp | grep ':80 '` — you should see **docker-proxy** (or similar) on `0.0.0.0:80` or `[::]:80`.
-   - **DigitalOcean:** Cloud **firewall** attached to the droplet must allow inbound **TCP 80** and **443** (in addition to **22** for SSH).
-   - **ufw** on the VM: if enabled, `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp` then `sudo ufw reload`.
+You should see **Server** (daemon) and **Client**. If the client works but the server errors, the daemon is not running (`sudo systemctl start docker`).
 
-6. **First certificate** (after DNS has propagated and step 5 passes). With **`DOMAINS`** and **`CERTBOT_EMAIL`** in `.env`, from the **repo root** on the server:
-   ```bash
-   docker compose -f docker-compose.production.yml run --rm certbot-issue
-   ```
-   (`certbot-issue` is a one-off service; the long-running `certbot` service uses `entrypoint: /bin/sh`, so do **not** run `… run certbot sh /certonly.sh` — that becomes `/bin/sh sh /certonly.sh` and fails with `can't open 'sh'`.)
+**Compose — two different commands**
 
-   The script issues one certificate covering every name in **`DOMAINS`** (same order as nginx; apex first).
+| Command | What it is |
+|--------|------------|
+| **`docker compose`** (space) | Compose **v2** plugin — subcommand of `docker`. Recommended. |
+| **`docker-compose`** (hyphen) | Older **v1** Python binary. Still usable, but can break on newer Docker (`KeyError: 'ContainerConfig'`). |
 
-   **Alternative** (manual entrypoint override):  
-   `docker compose -f docker-compose.production.yml run --rm --entrypoint /bin/sh -v "$(pwd)/docker/production/certbot-certonly.sh:/certonly.sh:ro" certbot /certonly.sh`
-7. **Enable HTTPS in nginx:** The proxy writes its config **at container start**. After the first cert exists, nginx must be **recreated** (not just `reload`) so the entrypoint picks the HTTPS template.
+Check what you have:
 
-   ```bash
-   docker compose -f docker-compose.production.yml up -d --no-deps --force-recreate nginx
-   ```
+```bash
+docker compose version    # v2 — OK if it prints a version
+docker-compose --version  # v1 — OK if v2 is missing; use hyphen for all compose commands
+```
 
-   Use **`docker compose`** (v2 plugin, space — not hyphen). Old **`docker-compose` 1.29.x** with a recent Docker Engine can fail with **`KeyError: 'ContainerConfig'`** when it tries to recreate **`web`**. If you only have v1, recreate **nginx** without touching **`web`**:
+If you get **`docker: unknown command: docker compose`**, v2 is **not** installed as a CLI plugin.
 
-   ```bash
-   docker-compose -f docker-compose.production.yml stop nginx
-   docker-compose -f docker-compose.production.yml rm -f nginx
-   docker-compose -f docker-compose.production.yml up -d --no-deps nginx
-   ```
+- **Docker from Docker’s official apt repo:** install the plugin package:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y docker-compose-plugin
+  docker compose version
+  ```
 
-   Or install the v2 plugin: `sudo apt install docker-compose-plugin` (package name may vary), then use `docker compose …` as above.
+- **Docker from Ubuntu (`docker.io`, typical on DigitalOcean images):** the plugin package is usually named **`docker-compose-v2`** (Universe). Enable Universe if needed, then:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install -y docker-compose-v2
+  docker compose version
+  ```
 
-   If **both** `curl` to **127.0.0.1:80** and **:443** fail after this, **nginx** is probably **Exited** — check `docker compose … ps -a` and `docker compose … logs nginx`. A common cause was IPv6 `listen [::]:…` failing on the droplet; templates in this repo use **IPv4-only** `listen` lines — `git pull`, **rebuild** nginx (`docker compose … build nginx` or `up -d --build`), then recreate nginx again.
+  If `docker compose` still fails, you still get a modern **`docker-compose`** binary — use the **hyphen** for all commands (`docker-compose -f … up`).
 
-8. **Renewals:** The **certbot** service renews certificates when they are near expiry. After a successful renewal, reload nginx so it picks up new files:
-   ```bash
-   docker compose -f docker-compose.production.yml exec nginx nginx -s reload
-   ```
-   You can add a host **cron** that runs that reload daily if you prefer.
+- **Manual plugin (any Docker):** install the official binary into Docker’s CLI plugins dir ([releases](https://github.com/docker/compose/releases)):
+  ```bash
+  sudo mkdir -p /usr/local/lib/docker/cli-plugins
+  sudo curl -SL "https://github.com/docker/compose/releases/download/v2.37.1/docker-compose-linux-x86_64" \
+    -o /usr/local/lib/docker/cli-plugins/docker-compose
+  sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  docker compose version
+  ```
+  (Pick the latest **v2** version from the releases page; use `aarch64` on ARM droplets.)
 
-Config and images live under [`docker/nginx/`](nginx/) (templates and entrypoint pick HTTP-only vs HTTPS based on whether `/etc/letsencrypt/live/<first-hostname-in-DOMAINS>/` exists). Helper: [`docker/production/certbot-certonly.sh`](../docker/production/certbot-certonly.sh).
+Until **`docker compose`** works, use **`docker-compose`** (hyphen) everywhere this doc shows **`docker compose`**.
+
+## Production on a VPS (DigitalOcean, etc.)
+
+Use [`docker-compose.production.yml`](../docker-compose.production.yml): **web**, **cron**, **nginx** (TLS + reverse proxy), **certbot** (renew loop), and **certbot-issue** (first cert only). Port **3000** is not published; **80** and **443** are.
+
+**Full step-by-step (DNS, `.env`, TLS, verification, troubleshooting, cheat sheet):** **[`docs/digitalocean-deployment.md`](../docs/digitalocean-deployment.md)**.
+
+Quick start on the server:
+
+```bash
+docker compose -f docker-compose.production.yml up -d --build
+docker compose -f docker-compose.production.yml run --rm certbot-issue   # after DNS + HTTP :80 work
+docker compose -f docker-compose.production.yml up -d --no-deps --force-recreate nginx
+```
+
+Images and templates: [`docker/nginx/`](nginx/), helper: [`docker/production/certbot-certonly.sh`](../docker/production/certbot-certonly.sh).
 
 ## Running without ngrok
 

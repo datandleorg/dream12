@@ -64,17 +64,17 @@ services:
             - .env
             - .env.*
 
-  ngrok:
-    image: ngrok/ngrok:latest
-    command:
-      - http
-      - --log=stdout
-      - --domain=joesph-nonalliterative-nelida.ngrok-free.dev
-      - web:3000
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in .env}
-    ports:
-      - "${NGROK_INSPECT_PORT:-14040}:4040"
-    depends_on:
-      web:
-        condition: service_healthy
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   command:
+  #     - http
+  #     - --log=stdout
+  #     - --domain=joesph-nonalliterative-nelida.ngrok-free.dev
+  #     - web:3000
+  #   environment:
+  #     NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in .env}
+  #   ports:
+  #     - "${NGROK_INSPECT_PORT:-14040}:4040"
+  #   depends_on:
+  #     web:
+  #       condition: service_healthy
