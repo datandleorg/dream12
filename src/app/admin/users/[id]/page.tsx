@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { formatStatusLabel } from "@/lib/format-status-ui";
 import { cn } from "@/lib/utils";
 
 export default async function AdminUserDetailPage({
@@ -96,7 +97,9 @@ export default async function AdminUserDetailPage({
                     </TableCell>
                     <TableCell className="font-mono text-xs">{r.utr_ref as string}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{r.status as string}</Badge>
+                      <Badge variant="secondary" className="tracking-wide">
+                        {formatStatusLabel(r.status as string)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
                       {new Date(r.created_at as string).toLocaleString()}
@@ -140,7 +143,9 @@ export default async function AdminUserDetailPage({
                       {(r.payout_utr_ref as string | null) ?? "—"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{r.status as string}</Badge>
+                      <Badge variant="secondary" className="tracking-wide">
+                        {formatStatusLabel(r.status as string)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
                       {new Date(r.created_at as string).toLocaleString()}

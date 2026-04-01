@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/loading-overlay";
+import { formatStatusLabel } from "@/lib/format-status-ui";
 
 type Row = {
   id: string;
@@ -76,7 +77,9 @@ export function AdminTransactionTable({ rows }: { rows: Row[] }) {
               </TableCell>
               <TableCell className="tabular-nums">₹{r.amount.toFixed(2)}</TableCell>
               <TableCell>
-                <Badge variant="secondary">{r.status}</Badge>
+                <Badge variant="secondary" className="tracking-wide">
+                  {formatStatusLabel(r.status)}
+                </Badge>
               </TableCell>
               <TableCell className="text-right">
                 {r.status === "pending" ? (

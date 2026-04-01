@@ -1,3 +1,4 @@
+import { formatStatusLabel } from "@/lib/format-status-ui";
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,7 +15,8 @@ export function FixtureSmStatusLine({
   if (!t) return null;
   return (
     <p className={cn("text-muted-foreground text-xs leading-snug", className)}>
-      <span className="text-foreground/85 font-medium">Fixture status:</span> {t}
+      <span className="text-foreground/85 font-medium">Fixture status:</span>{" "}
+      {formatStatusLabel(t)}
     </p>
   );
 }

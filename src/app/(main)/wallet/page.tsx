@@ -1,14 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { WalletPayInSection } from "@/components/wallet-pay-in";
-import { WalletPayOutSection } from "@/components/wallet-pay-out";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { WalletRequestsTabs } from "@/components/wallet-requests-tabs";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { safeInternalPath } from "@/lib/safe-return-to";
@@ -74,63 +67,26 @@ export default async function WalletPage({
         </CardHeader>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add money (UPI)</CardTitle>
-          <CardDescription>
-            Pay the company UPI ID, then submit your reference for admin approval.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!company ? (
-            <p className="text-muted-foreground text-sm">
-              Wallet top-up is not configured yet. Set{" "}
-              <code className="text-xs">NEXT_PUBLIC_COMPANY_UPI_VPA</code> in the environment.
-            </p>
-          ) : (
-            <WalletPayInSection
-              userId={user.id}
-              companyVpa={company.vpa}
-              companyPayeeName={company.payeeName}
-              initialRows={
-                (payIns ?? []).map((r) => ({
-                  id: r.id as string,
-                  amount_inr: Number(r.amount_inr),
-                  utr_ref: r.utr_ref as string,
-                  status: r.status as string,
-                  created_at: r.created_at as string,
-                }))
-              }
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Withdraw (UPI payout)</CardTitle>
-          <CardDescription>
-            Request a payout to your UPI ID. An admin will approve and send funds from the company
-            account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <WalletPayOutSection
-            userId={user.id}
-            walletBalance={balance}
-            initialRows={
-              (payOuts ?? []).map((r) => ({
-                id: r.id as string,
-                amount_inr: Number(r.amount_inr),
-                payee_upi: r.payee_upi as string,
-                status: r.status as string,
-                created_at: r.created_at as string,
-                payout_utr_ref: (r.payout_utr_ref as string | null) ?? null,
-              }))
-            }
-          />
-        </CardContent>
-      </Card>
+      <WalletRequestsTabs
+        userId={user.id}
+        walletBalance={balance}
+        company={company ? { vpa: company.vpa, payeeName: company.payeeName } : null}
+        payInRows={(payIns ?? []).map((r) => ({
+          id: r.id as string,
+          amount_inr: Number(r.amount_inr),
+          utr_ref: r.utr_ref as string,
+          status: r.status as string,
+          created_at: r.created_at as string,
+        }))}
+        payOutRows={(payOuts ?? []).map((r) => ({
+          id: r.id as string,
+          amount_inr: Number(r.amount_inr),
+          payee_upi: r.payee_upi as string,
+          status: r.status as string,
+          created_at: r.created_at as string,
+          payout_utr_ref: (r.payout_utr_ref as string | null) ?? null,
+        }))}
+      />
     </div>
   );
 }

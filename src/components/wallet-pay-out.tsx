@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UpiAppPickerButton } from "@/components/upi-app-picker-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { LoadingOverlay } from "@/components/loading-overlay";
+import { formatStatusLabel } from "@/lib/format-status-ui";
 
 type Row = {
   id: string;
@@ -20,6 +21,13 @@ type Row = {
 };
 
 const upiLike = /^[^\s@]+@[^\s@]+$/;
+
+function statusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+  const s = status.toLowerCase();
+  if (s === "approved" || s === "completed") return "default";
+  if (s === "rejected" || s === "failed") return "destructive";
+  return "secondary";
+}
 
 export function WalletPayOutSection({
   userId,
@@ -35,18 +43,6 @@ export function WalletPayOutSection({
   const [payeeUpi, setPayeeUpi] = useState("");
   const [userNote, setUserNote] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const previewPayParams = useMemo(() => {
-    const amt = amount.trim() ? Number(amount) : NaN;
-    const vpa = payeeUpi.trim();
-    if (!Number.isFinite(amt) || amt <= 0 || !upiLike.test(vpa)) return null;
-    return {
-      payeeVpa: vpa,
-      payeeName: "User",
-      amountInr: amt,
-      transactionNote: "Dream12 payout",
-    };
-  }, [amount, payeeUpi]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,10 +84,6 @@ export function WalletPayOutSection({
   return (
     <div className="space-y-4">
       <LoadingOverlay show={loading} label="Submitting…" />
-      <p className="text-muted-foreground text-sm">
-        After approval, we will use your UPI ID below. You can open the intent link to confirm the
-        destination in your UPI app.
-      </p>
       <form onSubmit={onSubmit} className="grid gap-4">
         <div className="grid gap-2">
           <Label htmlFor="payout-amount">Amount (₹)</Label>
@@ -127,14 +119,6 @@ export function WalletPayOutSection({
             onChange={(e) => setUserNote(e.target.value)}
           />
         </div>
-        <UpiAppPickerButton
-          payParams={previewPayParams}
-          className="w-full"
-          title="Preview payment"
-          description="Choose an app to see the UPI screen for your VPA and amount (same flow as when an admin pays you)."
-        >
-          Choose app to preview
-        </UpiAppPickerButton>
         <Button type="submit" className="min-h-11 w-full" disabled={loading}>
           Submit payout request
         </Button>
@@ -142,24 +126,36 @@ export function WalletPayOutSection({
 
       <div className="space-y-2">
         <p className="text-sm font-medium">Your payout requests</p>
-        <ul className="text-muted-foreground space-y-2 text-sm">
+        <ul className="space-y-2 text-sm">
           {initialRows.length === 0 ? (
-            <li>None yet.</li>
+            <li className="text-muted-foreground">None yet.</li>
           ) : (
             initialRows.map((r) => (
               <li
                 key={r.id}
-                className="border-border flex flex-wrap items-baseline justify-between gap-2 border-b py-2"
+                className="border-border flex flex-col gap-1 border-b py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
               >
-                <span>
-                  ₹{r.amount_inr.toFixed(2)} → {r.payee_upi}
+                <div className="min-w-0 space-y-0.5">
+                  <p className="font-medium tabular-nums">₹{r.amount_inr.toFixed(2)}</p>
+                  <p className="text-muted-foreground font-mono text-xs break-all">{r.payee_upi}</p>
                   {r.status === "approved" && r.payout_utr_ref ? (
-                    <span className="text-muted-foreground block font-mono text-xs">
+                    <p className="text-muted-foreground font-mono text-xs">
                       Ref: {r.payout_utr_ref}
-                    </span>
+                    </p>
                   ) : null}
-                </span>
-                <span className="capitalize">{r.status}</span>
+                  <p className="text-muted-foreground text-xs">
+                    {new Date(r.created_at).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </p>
+                </div>
+                <Badge
+                  variant={statusBadgeVariant(r.status)}
+                  className="w-fit shrink-0 tracking-wide"
+                >
+                  {formatStatusLabel(r.status)}
+                </Badge>
               </li>
             ))
           )}

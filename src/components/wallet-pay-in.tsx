@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UpiAppPickerButton } from "@/components/upi-app-picker-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { LoadingOverlay } from "@/components/loading-overlay";
+import { formatStatusLabel } from "@/lib/format-status-ui";
 import {
   isPlausibleUpiTransactionRef,
   upiTransactionRefHint,
@@ -21,6 +22,13 @@ type Row = {
   status: string;
   created_at: string;
 };
+
+function statusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+  const s = status.toLowerCase();
+  if (s === "approved" || s === "completed") return "default";
+  if (s === "rejected" || s === "failed") return "destructive";
+  return "secondary";
+}
 
 export function WalletPayInSection({
   userId,
@@ -38,17 +46,6 @@ export function WalletPayInSection({
   const [utr, setUtr] = useState("");
   const [userNote, setUserNote] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const payParams = useMemo(() => {
-    const amt = amount.trim() ? Number(amount) : NaN;
-    if (!Number.isFinite(amt) || amt <= 0) return null;
-    return {
-      payeeVpa: companyVpa,
-      payeeName: companyPayeeName,
-      amountInr: amt,
-      transactionNote: "Dream12 wallet",
-    };
-  }, [amount, companyVpa, companyPayeeName]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,17 +83,16 @@ export function WalletPayInSection({
   return (
     <div className="space-y-4">
       <LoadingOverlay show={loading} label="Submitting…" />
-      <div className="flex flex-col gap-2">
-        <UpiAppPickerButton payParams={payParams} className="w-full sm:w-auto">
-          Choose app to pay
-        </UpiAppPickerButton>
-        {!payParams ? (
-          <p className="text-muted-foreground text-sm">
-            Enter an amount first, then choose Google Pay, PhonePe, Paytm, or another UPI app. Pay{" "}
-            <span className="text-foreground font-medium">{companyVpa}</span>.
-          </p>
+      <div className="bg-muted/50 space-y-2 rounded-lg border px-3 py-3 text-sm">
+        <p className="text-muted-foreground">
+          Send money to this UPI ID (copy and pay in Google Pay, PhonePe, Paytm, or your bank app):
+        </p>
+        <p className="font-mono text-base font-medium tracking-tight text-foreground">{companyVpa}</p>
+        {companyPayeeName.trim() ? (
+          <p className="text-muted-foreground text-xs">Payee name: {companyPayeeName}</p>
         ) : null}
       </div>
+
       <form onSubmit={onSubmit} className="grid gap-4">
         <div className="grid gap-2">
           <Label htmlFor="payin-amount">Amount (₹)</Label>
@@ -139,20 +135,34 @@ export function WalletPayInSection({
 
       <div className="space-y-2">
         <p className="text-sm font-medium">Your pay-in requests</p>
-        <ul className="text-muted-foreground space-y-2 text-sm">
+        <ul className="space-y-2 text-sm">
           {initialRows.length === 0 ? (
-            <li>None yet.</li>
+            <li className="text-muted-foreground">None yet.</li>
           ) : (
             initialRows.map((r) => (
               <li
                 key={r.id}
-                className="border-border flex flex-wrap items-baseline justify-between gap-2 border-b py-2"
+                className="border-border flex flex-col gap-1 border-b py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
               >
-                <span>
-                  ₹{r.amount_inr.toFixed(2)} · {r.utr_ref.slice(0, 24)}
-                  {r.utr_ref.length > 24 ? "…" : ""}
-                </span>
-                <span className="capitalize">{r.status}</span>
+                <div className="min-w-0 space-y-0.5">
+                  <p className="font-medium tabular-nums">₹{r.amount_inr.toFixed(2)}</p>
+                  <p className="text-muted-foreground font-mono text-xs break-all">
+                    {r.utr_ref.slice(0, 32)}
+                    {r.utr_ref.length > 32 ? "…" : ""}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {new Date(r.created_at).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </p>
+                </div>
+                <Badge
+                  variant={statusBadgeVariant(r.status)}
+                  className="w-fit shrink-0 tracking-wide"
+                >
+                  {formatStatusLabel(r.status)}
+                </Badge>
               </li>
             ))
           )}

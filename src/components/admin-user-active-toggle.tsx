@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { LoadingOverlay } from "@/components/loading-overlay";
+import { formatStatusLabel } from "@/lib/format-status-ui";
 
 export function AdminUserActiveToggle({
   userId,
@@ -41,7 +42,9 @@ export function AdminUserActiveToggle({
   if (self) {
     return (
       <div className={layout === "table" ? "flex flex-col items-end gap-1" : "flex flex-wrap items-center gap-3"}>
-        <Badge variant="secondary">Active</Badge>
+        <Badge variant="secondary" className="tracking-wide">
+          {formatStatusLabel("active")}
+        </Badge>
         <span className="text-muted-foreground text-xs">Cannot change own status</span>
       </div>
     );
@@ -52,7 +55,9 @@ export function AdminUserActiveToggle({
       <LoadingOverlay show={loading} label="Updating…" />
       {layout === "table" ? (
         <>
-          <Badge variant={isActive ? "default" : "destructive"}>{isActive ? "Active" : "Inactive"}</Badge>
+          <Badge variant={isActive ? "default" : "destructive"} className="tracking-wide">
+            {formatStatusLabel(isActive ? "active" : "inactive")}
+          </Badge>
           <Button
             type="button"
             variant={isActive ? "outline" : "secondary"}
@@ -66,7 +71,9 @@ export function AdminUserActiveToggle({
         </>
       ) : (
         <>
-          <Badge variant={isActive ? "default" : "destructive"}>{isActive ? "Active" : "Inactive"}</Badge>
+          <Badge variant={isActive ? "default" : "destructive"} className="tracking-wide">
+            {formatStatusLabel(isActive ? "active" : "inactive")}
+          </Badge>
           <Button
             type="button"
             variant={isActive ? "outline" : "secondary"}
