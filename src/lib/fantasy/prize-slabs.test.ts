@@ -31,11 +31,47 @@ describe("buildPrizeSlabs", () => {
   });
 
   it("throws for invalid winner count", () => {
-    expect(() => buildPrizeSlabs(100, 6)).toThrow();
+    expect(() => buildPrizeSlabs(100, 0)).toThrow();
+    expect(() => buildPrizeSlabs(100, -1)).toThrow();
+  });
+
+  it("allows effective winner counts not in create-contest allowlist (settlement parity)", () => {
+    const slabs = buildPrizeSlabs(100, 6);
+    expect(slabs).toHaveLength(6);
+    expect(sumSlabAmounts(slabs)).toBe(100);
   });
 
   it("returns empty for non-positive pool", () => {
     expect(buildPrizeSlabs(0, 1)).toEqual([]);
+  });
+
+  /** Mirrors `public.build_prize_slabs_numeric` in 20260402120000_settle_contest_unfilled_spots.sql */
+  it("golden vectors for SQL slab parity", () => {
+    expect(buildPrizeSlabs(100, 3)).toEqual([
+      { rank_from: 1, rank_to: 1, amount: 59 },
+      { rank_from: 2, rank_to: 2, amount: 25 },
+      { rank_from: 3, rank_to: 3, amount: 16 },
+    ]);
+    expect(buildPrizeSlabs(100, 6)).toEqual([
+      { rank_from: 1, rank_to: 1, amount: 47 },
+      { rank_from: 2, rank_to: 2, amount: 20 },
+      { rank_from: 3, rank_to: 3, amount: 12 },
+      { rank_from: 4, rank_to: 4, amount: 9 },
+      { rank_from: 5, rank_to: 5, amount: 7 },
+      { rank_from: 6, rank_to: 6, amount: 5 },
+    ]);
+    expect(buildPrizeSlabs(14250.5, 10)).toEqual([
+      { rank_from: 1, rank_to: 1, amount: 5549.5 },
+      { rank_from: 2, rank_to: 2, amount: 2498 },
+      { rank_from: 3, rank_to: 3, amount: 1567 },
+      { rank_from: 4, rank_to: 4, amount: 1126 },
+      { rank_from: 5, rank_to: 5, amount: 871 },
+      { rank_from: 6, rank_to: 6, amount: 706 },
+      { rank_from: 7, rank_to: 7, amount: 591 },
+      { rank_from: 8, rank_to: 8, amount: 507 },
+      { rank_from: 9, rank_to: 9, amount: 443 },
+      { rank_from: 10, rank_to: 10, amount: 392 },
+    ]);
   });
 });
 

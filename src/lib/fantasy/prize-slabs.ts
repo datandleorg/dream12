@@ -25,12 +25,6 @@ export function platformFeeFractionFromEnv(): number {
   return Math.min(100, n) / 100;
 }
 
-function assertWinnerCount(n: number): asserts n is WinnerCount {
-  if (!ALLOWED_WINNER_COUNTS.includes(n as WinnerCount)) {
-    throw new Error(`winner count must be one of ${ALLOWED_WINNER_COUNTS.join(", ")}`);
-  }
-}
-
 /** Weight for rank i (1-based): stronger skew to top. */
 function rankWeight(i: number): number {
   return 1 / Math.pow(i, 1.15);
@@ -47,7 +41,9 @@ export function roundMoney(n: number): number {
  */
 export function buildPrizeSlabs(netPool: number, winnerCount: number): PrizeSlab[] {
   if (netPool <= 0) return [];
-  assertWinnerCount(winnerCount);
+  if (!Number.isInteger(winnerCount) || winnerCount < 1) {
+    throw new Error("winner count must be a positive integer");
+  }
 
   const weights = Array.from({ length: winnerCount }, (_, j) => rankWeight(j + 1));
   const wsum = weights.reduce((a, b) => a + b, 0);

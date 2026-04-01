@@ -157,6 +157,12 @@ export function ContestDashboard({
               Pool ₹{prizePool.toFixed(0)} · Entry ₹{entryFee.toFixed(0)} · {maxParticipants} spots · Top{" "}
               {winnerCount} paid
             </p>
+            {!prizesSettled ? (
+              <p className="text-muted-foreground text-xs">
+                If the contest does not fill, the pool scales to actual entries at settlement (minimum two teams;
+                otherwise entry fees are refunded).
+              </p>
+            ) : null}
             {prizeSlabs.length ? (
               <ul className="text-muted-foreground space-y-1 text-xs">
                 {prizeSlabs.map((s, i) => (

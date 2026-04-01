@@ -172,16 +172,20 @@ export function CreateContestWizard({
 
         <div className="grid grid-cols-2 gap-3 border-t pt-4">
           <div>
-            <p className="text-muted-foreground text-xs font-medium">Max prize pool</p>
+            <p className="text-muted-foreground text-xs font-medium">Prize pool if full</p>
             <p className="text-primary text-lg font-bold tabular-nums">{formatInr(netPool)}</p>
             <p className="text-muted-foreground text-[10px]">
               {platformFeeFraction > 0 ? (
                 <>
-                  Gross {formatInr(gross)} if full · {(platformFeeFraction * 100).toFixed(1)}% platform fee ·
-                  pool to winners {formatInr(netPool)}
+                  Gross {formatInr(gross)} if every spot fills · {(platformFeeFraction * 100).toFixed(1)}% platform
+                  fee · pool to winners {formatInr(netPool)}. Actual pool scales to entries at settlement (min. two
+                  teams, else void + refund).
                 </>
               ) : (
-                <>100% of entry fees go to the prize pool when all spots fill (no platform fee).</>
+                <>
+                  100% of collected entry fees go to the prize pool after platform fee (none here). Pool scales
+                  to how many spots actually fill; at least two teams must join or entry fees are refunded.
+                </>
               )}
             </p>
           </div>
@@ -233,8 +237,9 @@ export function CreateContestWizard({
       </div>
 
       <div className="bg-primary/10 border-primary/25 text-primary-foreground/90 rounded-lg border px-3 py-2 text-center text-xs">
-        This is a <strong className="text-foreground">Flexible Contest</strong> — it can run even if not all
-        spots fill; prizes scale with participation.
+        This is a <strong className="text-foreground">Flexible Contest</strong> — it can run without every spot
+        filled. The prize pool and breakup are recalculated from actual entries when the match settles (min. two
+        teams; otherwise the contest is void and fees refunded).
       </div>
 
       <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">

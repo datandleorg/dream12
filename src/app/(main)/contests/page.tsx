@@ -37,7 +37,18 @@ export default async function MyContestsPage() {
 
   return (
     <div className="space-y-4 py-4">
-      <h1 className="text-2xl font-semibold tracking-tight">My contests</h1>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight">My contests</h1>
+        <Link
+          href="/leaderboard"
+          className={cn(
+            buttonVariants({ variant: "outline", size: "sm" }),
+            "tap-app min-h-9 shrink-0",
+          )}
+        >
+          Season leaderboard
+        </Link>
+      </div>
       {!teams?.length ? (
         <Card>
           <CardHeader>
