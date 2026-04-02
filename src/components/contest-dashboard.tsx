@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { LeaderboardPullRefresh } from "@/components/leaderboard-pull-refresh";
-import type { Row } from "@/components/leaderboard-realtime";
+import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { ContestTeamPreviewSheet } from "@/components/contest-team-preview-sheet";
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -78,6 +78,7 @@ export function ContestDashboard({
     avatar_url: string | null;
   } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [pageRefreshNonce, setPageRefreshNonce] = useState(0);
 
   const live = useMatchLiveRow({
     matchId: matchCard.id,
@@ -121,31 +122,36 @@ export function ContestDashboard({
   };
 
   return (
-    <div className="space-y-4 py-2">
-      <div className="flex items-start justify-between gap-2">
-        <h1 className="text-lg font-semibold leading-tight sm:text-xl">{contestTitle}</h1>
-        {showSquadLink ? (
-          <Link
-            href={squadHref}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "inline-flex min-h-10 shrink-0 items-center justify-center",
-            )}
-          >
-            My team
-          </Link>
-        ) : null}
-      </div>
+    <>
+      <PullToRefresh
+        scrollContainerClassName="max-h-[min(calc(100dvh-7.5rem),900px)]"
+        onAfterRefresh={() => setPageRefreshNonce((n) => n + 1)}
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="text-lg font-semibold leading-tight sm:text-xl">{contestTitle}</h1>
+            {showSquadLink ? (
+              <Link
+                href={squadHref}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "inline-flex min-h-10 shrink-0 items-center justify-center",
+                )}
+              >
+                My team
+              </Link>
+            ) : null}
+          </div>
 
-      <HomeUpcomingCard match={matchCardLive} linkHref={false} variant="contest" />
+          <HomeUpcomingCard match={matchCardLive} linkHref={false} variant="contest" />
 
-      {myStandings ? (
-        <p className="border-primary/30 bg-primary/5 rounded-xl border px-3 py-2 text-sm font-medium tabular-nums">
-          Your rank #{myStandings.rank} · {myStandings.points.toFixed(1)} pts
-        </p>
-      ) : null}
+          {myStandings ? (
+            <p className="border-primary/30 bg-primary/5 rounded-xl border px-3 py-2 text-sm font-medium tabular-nums">
+              Your rank #{myStandings.rank} · {myStandings.points.toFixed(1)} pts
+            </p>
+          ) : null}
 
-      <Tabs defaultValue="leaderboard" className="w-full">
+          <Tabs defaultValue="leaderboard" className="w-full">
         <div className="-mx-1 overflow-x-auto pb-1">
           <TabsList
             variant="line"
@@ -239,9 +245,10 @@ export function ContestDashboard({
           {!initialRows.length ? (
             <p className="text-muted-foreground text-sm">No teams yet.</p>
           ) : (
-            <LeaderboardPullRefresh
+            <LeaderboardRealtime
               contestId={contestId}
               initialRows={initialRows}
+              refreshNonce={pageRefreshNonce}
               currentUserId={currentUserId}
               onRowSelect={openPreview}
               payoutByTeamId={payoutByTeamId}
@@ -275,6 +282,8 @@ export function ContestDashboard({
           </div>
         </TabsContent>
       </Tabs>
+        </div>
+      </PullToRefresh>
 
       <ContestTeamPreviewSheet
         key={preview?.teamId ?? "closed"}
@@ -288,6 +297,6 @@ export function ContestDashboard({
         username={preview?.username ?? null}
         avatarUrl={preview?.avatar_url ?? null}
       />
-    </div>
+    </>
   );
 }

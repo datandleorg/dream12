@@ -1,15 +1,12 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button-variants";
-import { cn } from "@/lib/utils";
 import {
   HomeUpcomingCard,
   type HomeMatchCardModel,
 } from "@/components/home-upcoming-card";
 import { MatchListSection } from "@/components/match-list-filter";
 import {
-  parseMatchListFilter,
+  resolveHomeMatchListFilter,
   type MatchListFilter,
 } from "@/lib/match-list-filter";
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
@@ -47,12 +44,18 @@ export default async function HomePage({
   searchParams: Promise<{ filter?: string }>;
 }) {
   const { filter: raw } = await searchParams;
-  const filter = parseMatchListFilter(raw);
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const { count: liveCount } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "live");
+
+  const filter = resolveHomeMatchListFilter(raw, (liveCount ?? 0) > 0);
 
   let query = supabase.from("matches").select(matchColumns);
   query =
@@ -199,15 +202,6 @@ export default async function HomePage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Matches</h1>
         <p className="text-muted-foreground text-sm">{subtitle}</p>
-        <Link
-          href="/leaderboard"
-          className={cn(
-            buttonVariants({ variant: "link", size: "sm" }),
-            "tap-app mt-1 inline-flex min-h-9 px-0",
-          )}
-        >
-          Season leaderboard
-        </Link>
       </div>
 
       <MatchListSection activeFilter={filter}>

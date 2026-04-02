@@ -3,35 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
+import { cn } from "@/lib/utils";
 
 const PULL_THRESHOLD_PX = 56;
 
-export function LeaderboardPullRefresh({
-  contestId,
-  initialRows,
-  currentUserId = null,
-  onRowSelect,
-  payoutByTeamId,
-  prizesSettled,
-  prizeBreakup,
-  teamCount,
-  pointsUpdatedAt,
-  opponentTeamPreviewLocked = false,
+export function PullToRefresh({
+  children,
+  scrollContainerClassName,
+  onAfterRefresh,
 }: {
-  contestId: string;
-  initialRows: Row[];
-  currentUserId?: string | null;
-  onRowSelect?: (row: Row) => void;
-  payoutByTeamId?: Record<string, number>;
-  prizesSettled?: boolean;
-  prizeBreakup?: unknown;
-  teamCount?: number;
-  pointsUpdatedAt?: string | null;
-  opponentTeamPreviewLocked?: boolean;
+  children: React.ReactNode;
+  scrollContainerClassName?: string;
+  onAfterRefresh?: () => void;
 }) {
   const router = useRouter();
-  const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [pull, setPull] = useState(0);
   const startY = useRef<number | null>(null);
@@ -42,12 +27,12 @@ export function LeaderboardPullRefresh({
     try {
       router.refresh();
       await new Promise((r) => setTimeout(r, 750));
-      setRefreshNonce((n) => n + 1);
+      onAfterRefresh?.();
     } finally {
       setRefreshing(false);
       setPull(0);
     }
-  }, [router]);
+  }, [router, onAfterRefresh]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     const el = scrollRef.current;
@@ -75,6 +60,7 @@ export function LeaderboardPullRefresh({
   };
 
   const indicator = Math.max(0, pull);
+  const releaseThreshold = PULL_THRESHOLD_PX * 0.45;
 
   return (
     <div className="relative">
@@ -88,32 +74,23 @@ export function LeaderboardPullRefresh({
             <Loader2 className="size-5 animate-spin" />
           ) : (
             <span className="text-xs font-medium">
-              {indicator >= PULL_THRESHOLD_PX * 0.45 ? "Release to refresh" : "↓ Pull to refresh"}
+              {indicator >= releaseThreshold ? "Release to refresh" : "↓ Pull to refresh"}
             </span>
           )}
         </div>
       </div>
       <div
         ref={scrollRef}
-        className="relative max-h-[min(70vh,560px)] overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+        className={cn(
+          "relative overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]",
+          scrollContainerClassName,
+        )}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         style={{ transform: indicator > 0 ? `translateY(${Math.min(indicator, 48)}px)` : undefined }}
       >
-        <LeaderboardRealtime
-          contestId={contestId}
-          initialRows={initialRows}
-          refreshNonce={refreshNonce}
-          currentUserId={currentUserId}
-          onRowSelect={onRowSelect}
-          payoutByTeamId={payoutByTeamId}
-          prizesSettled={prizesSettled}
-          prizeBreakup={prizeBreakup}
-          teamCount={teamCount}
-          pointsUpdatedAt={pointsUpdatedAt}
-          opponentTeamPreviewLocked={opponentTeamPreviewLocked}
-        />
+        {children}
       </div>
     </div>
   );

@@ -7,7 +7,73 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button-variants";
+import {
+  MyContestsClient,
+  type MyContestListRow,
+} from "@/components/my-contests-client";
 import { cn } from "@/lib/utils";
+
+const START_LABEL = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: "UTC",
+});
+
+function formatStartUtc(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "—";
+  return `${START_LABEL.format(new Date(t))} UTC`;
+}
+
+type ContestNested = {
+  id: string;
+  name: string | null;
+  match_id: number;
+  entry_fee: number;
+  prize_pool: number;
+  prizes_settled_at: string | null;
+  matches: {
+    name: string;
+    status?: string | null;
+    start_time?: string | null;
+    tournament_name?: string | null;
+    team_a?: string | null;
+    team_b?: string | null;
+  } | null;
+} | null;
+
+function buildRankByContestId(
+  allTeams: { contest_id: string; user_id: string; total_points: number }[],
+  viewerId: string,
+): Map<string, number> {
+  const byContest = new Map<string, { user_id: string; total_points: number }[]>();
+  for (const r of allTeams) {
+    const cid = r.contest_id;
+    const arr = byContest.get(cid) ?? [];
+    arr.push({
+      user_id: r.user_id,
+      total_points: Number(r.total_points),
+    });
+    byContest.set(cid, arr);
+  }
+  const rankByContest = new Map<string, number>();
+  for (const [cid, arr] of byContest) {
+    arr.sort((a, b) => {
+      const dp = b.total_points - a.total_points;
+      if (dp !== 0) return dp;
+      return a.user_id.localeCompare(b.user_id);
+    });
+    const idx = arr.findIndex((x) => x.user_id === viewerId);
+    if (idx >= 0) rankByContest.set(cid, idx + 1);
+  }
+  return rankByContest;
+}
 
 export default async function MyContestsPage() {
   const supabase = await createClient();
@@ -29,11 +95,91 @@ export default async function MyContestsPage() {
         match_id,
         entry_fee,
         prize_pool,
-        matches ( name, status )
+        prizes_settled_at,
+        matches (
+          name,
+          status,
+          start_time,
+          tournament_name,
+          team_a,
+          team_b
+        )
       )
     `,
     )
     .eq("user_id", user.id);
+
+  const contestIds = [
+    ...new Set(
+      (teams ?? [])
+        .map((t) => t.contest_id as string)
+        .filter(Boolean),
+    ),
+  ];
+
+  let rankByContest = new Map<string, number>();
+  const payoutByUserTeam = new Map<string, number>();
+
+  if (contestIds.length > 0) {
+    const { data: allInContests } = await supabase
+      .from("user_teams")
+      .select("contest_id, user_id, total_points")
+      .in("contest_id", contestIds);
+
+    rankByContest = buildRankByContestId(allInContests ?? [], user.id);
+
+    const { data: payouts } = await supabase
+      .from("contest_payouts")
+      .select("user_team_id, amount_inr")
+      .eq("user_id", user.id)
+      .in("contest_id", contestIds);
+
+    for (const p of payouts ?? []) {
+      const tid = p.user_team_id as string;
+      payoutByUserTeam.set(tid, Number(p.amount_inr));
+    }
+  }
+
+  const rows: MyContestListRow[] = (teams ?? [])
+    .map((t) => {
+      const c = t.contests as unknown as ContestNested;
+      if (!c?.id) return null;
+      const m = c.matches;
+      const matchName = m?.name ?? "Match";
+      const teamA = m?.team_a ?? null;
+      const teamB = m?.team_b ?? null;
+      const matchVersus =
+        teamA && teamB ? `${teamA} vs ${teamB}` : matchName;
+      const matchStatus = String(m?.status ?? "").trim() || "upcoming";
+      const matchStatusKey = matchStatus.toLowerCase();
+      const canEditTeam = matchStatusKey === "upcoming";
+      const prizesSettled = c.prizes_settled_at != null && c.prizes_settled_at !== "";
+      const userTeamId = t.id as string;
+      const rank = rankByContest.get(c.id) ?? 0;
+      const amountWonInr = prizesSettled
+        ? (payoutByUserTeam.get(userTeamId) ?? 0)
+        : null;
+
+      const row: MyContestListRow = {
+        userTeamId,
+        contestId: c.id,
+        contestTitle: c.name?.trim() || `Contest · ${matchName}`,
+        matchId: Number(c.match_id),
+        matchVersus,
+        startTimeLabel: formatStartUtc(m?.start_time ?? undefined),
+        matchStatus,
+        tournamentName: m?.tournament_name ?? null,
+        totalPoints: Number(t.total_points),
+        prizePool: Number(c.prize_pool ?? 0),
+        entryFee: Number(c.entry_fee ?? 0),
+        prizesSettled,
+        rank,
+        amountWonInr,
+        canEditTeam,
+      };
+      return row;
+    })
+    .filter((x): x is MyContestListRow => x != null);
 
   return (
     <div className="space-y-4 py-4">
@@ -68,59 +214,7 @@ export default async function MyContestsPage() {
           </CardHeader>
         </Card>
       ) : (
-        <ul className="space-y-3">
-          {teams.map((t) => {
-            const c = t.contests as unknown as {
-              id: string;
-              name: string | null;
-              match_id: number;
-              entry_fee: number;
-              prize_pool: number;
-              matches: { name: string; status?: string | null } | null;
-            } | null;
-            const matchName = c?.matches?.name ?? "Match";
-            const matchStatus = String(c?.matches?.status ?? "")
-              .toLowerCase()
-              .trim();
-            const canEditTeam = matchStatus === "upcoming";
-            const title = c?.name?.trim() || `Contest · ${matchName}`;
-            return (
-              <li key={t.id}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{title}</CardTitle>
-                    <CardDescription>
-                      Points: {Number(t.total_points).toFixed(1)} · Pool ₹
-                      {Number(c?.prize_pool ?? 0)}
-                    </CardDescription>
-                    <div className="flex gap-2 pt-2">
-                      <Link
-                        href={`/contests/${c?.id}`}
-                        className={cn(
-                          buttonVariants({ variant: "secondary" }),
-                          "inline-flex min-h-11 flex-1 items-center justify-center",
-                        )}
-                      >
-                        Leaderboard
-                      </Link>
-                      {canEditTeam ? (
-                        <Link
-                          href={`/matches/${c?.match_id}/contests/${c?.id}/squad`}
-                          className={cn(
-                            buttonVariants({ variant: "default" }),
-                            "inline-flex min-h-11 flex-1 items-center justify-center",
-                          )}
-                        >
-                          Edit team
-                        </Link>
-                      ) : null}
-                    </div>
-                  </CardHeader>
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
+        <MyContestsClient rows={rows} />
       )}
     </div>
   );

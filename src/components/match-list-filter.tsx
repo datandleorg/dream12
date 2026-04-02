@@ -6,7 +6,7 @@ import { dispatchNavigationStart } from "@/lib/navigation-events";
 import { cn } from "@/lib/utils";
 
 const TABS: { value: MatchListFilter; label: string; href: string }[] = [
-  { value: "live", label: "LIVE", href: "/" },
+  { value: "live", label: "LIVE", href: "/?filter=live" },
   { value: "upcoming", label: "UPCOMING", href: "/?filter=upcoming" },
   { value: "completed", label: "COMPLETED", href: "/?filter=completed" },
 ];

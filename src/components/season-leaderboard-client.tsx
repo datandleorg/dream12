@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { UserAvatar } from "@/components/user-avatar";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import type { SeasonLeaderboardRow } from "@/lib/season-leaderboard-rows";
 
 type SortKey = "username" | "contests_played" | "total_points" | "simple_avg";
@@ -109,113 +110,115 @@ export function SeasonLeaderboardClient({
     sortKey === key ? (sortDir === "desc" ? " ↓" : " ↑") : "";
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="season-leaderboard-season">Season</Label>
-        <select
-          id="season-leaderboard-season"
-          className={cn(
-            "border-input bg-background ring-offset-background focus-visible:ring-ring flex h-11 w-full rounded-md border px-3 py-2 text-sm",
-            "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
-          )}
-          value={String(initialSeasonId)}
-          onChange={(e) => onSeasonChange(e.target.value)}
-        >
-          {seasons.map((s) => (
-            <option key={s.id} value={String(s.id)}>
-              {formatSeasonLabel(s)}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <p className="text-muted-foreground text-xs leading-relaxed">
-        Rankings use contests from matches that are{" "}
-        <span className="text-foreground font-medium">completed</span> with{" "}
-        <span className="text-foreground font-medium">finalized scoring</span>.
-        Total fantasy points and average points per contest (
-        {contestsInWindow > 0
-          ? `${contestsInWindow} contest${contestsInWindow === 1 ? "" : "s"} in this season window`
-          : "no contests in this season window yet"}
-        ).
-      </p>
-
-      {contestsInWindow === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          No finalized contests this season yet. Check back after matches finish
-          scoring.
-        </p>
-      ) : rows.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          No fantasy entries in this season window yet.
-        </p>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">#</TableHead>
-              <TableHead
-                className={headerCls("username")}
-                onClick={() => onHeaderClick("username")}
-              >
-                User{sortHint("username")}
-              </TableHead>
-              <TableHead
-                className={cn(headerCls("contests_played"), "text-right")}
-                onClick={() => onHeaderClick("contests_played")}
-              >
-                Contests{sortHint("contests_played")}
-              </TableHead>
-              <TableHead
-                className={cn(headerCls("total_points"), "text-right")}
-                onClick={() => onHeaderClick("total_points")}
-              >
-                Total{sortHint("total_points")}
-              </TableHead>
-              <TableHead
-                className={cn(headerCls("simple_avg"), "text-right")}
-                onClick={() => onHeaderClick("simple_avg")}
-              >
-                Avg{sortHint("simple_avg")}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sorted.map((r, i) => (
-              <TableRow
-                key={r.user_id}
-                className={cn(
-                  r.user_id === currentUserId && "bg-primary/8 ring-primary/20 ring-1",
-                )}
-              >
-                <TableCell className="text-muted-foreground font-medium">
-                  {i + 1}
-                </TableCell>
-                <TableCell className="max-w-[10rem] font-medium">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <UserAvatar
-                      avatarUrl={r.avatar_url}
-                      username={r.username}
-                      userIdFallback={r.user_id}
-                      size="sm"
-                    />
-                    <span className="truncate">{r.username || "—"}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {r.contests_played}/{r.contests_in_window}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fmtScore(r.total_points)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fmtScore(r.simple_avg)}
-                </TableCell>
-              </TableRow>
+    <PullToRefresh scrollContainerClassName="max-h-[min(85dvh,720px)]">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="season-leaderboard-season">Season</Label>
+          <select
+            id="season-leaderboard-season"
+            className={cn(
+              "border-input bg-background ring-offset-background focus-visible:ring-ring flex h-11 w-full rounded-md border px-3 py-2 text-sm",
+              "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+            )}
+            value={String(initialSeasonId)}
+            onChange={(e) => onSeasonChange(e.target.value)}
+          >
+            {seasons.map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                {formatSeasonLabel(s)}
+              </option>
             ))}
-          </TableBody>
-        </Table>
-      )}
-    </div>
+          </select>
+        </div>
+
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          Rankings use contests from matches that are{" "}
+          <span className="text-foreground font-medium">completed</span> with{" "}
+          <span className="text-foreground font-medium">finalized scoring</span>.
+          Total fantasy points and average points per contest (
+          {contestsInWindow > 0
+            ? `${contestsInWindow} contest${contestsInWindow === 1 ? "" : "s"} in this season window`
+            : "no contests in this season window yet"}
+          ).
+        </p>
+
+        {contestsInWindow === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No finalized contests this season yet. Check back after matches finish
+            scoring.
+          </p>
+        ) : rows.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No fantasy entries in this season window yet.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">#</TableHead>
+                <TableHead
+                  className={headerCls("username")}
+                  onClick={() => onHeaderClick("username")}
+                >
+                  User{sortHint("username")}
+                </TableHead>
+                <TableHead
+                  className={cn(headerCls("contests_played"), "text-right")}
+                  onClick={() => onHeaderClick("contests_played")}
+                >
+                  Contests{sortHint("contests_played")}
+                </TableHead>
+                <TableHead
+                  className={cn(headerCls("total_points"), "text-right")}
+                  onClick={() => onHeaderClick("total_points")}
+                >
+                  Total{sortHint("total_points")}
+                </TableHead>
+                <TableHead
+                  className={cn(headerCls("simple_avg"), "text-right")}
+                  onClick={() => onHeaderClick("simple_avg")}
+                >
+                  Avg{sortHint("simple_avg")}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((r, i) => (
+                <TableRow
+                  key={r.user_id}
+                  className={cn(
+                    r.user_id === currentUserId && "bg-primary/8 ring-primary/20 ring-1",
+                  )}
+                >
+                  <TableCell className="text-muted-foreground font-medium">
+                    {i + 1}
+                  </TableCell>
+                  <TableCell className="max-w-[10rem] font-medium">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <UserAvatar
+                        avatarUrl={r.avatar_url}
+                        username={r.username}
+                        userIdFallback={r.user_id}
+                        size="sm"
+                      />
+                      <span className="truncate">{r.username || "—"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {r.contests_played}/{r.contests_in_window}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fmtScore(r.total_points)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {fmtScore(r.simple_avg)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </PullToRefresh>
   );
 }
