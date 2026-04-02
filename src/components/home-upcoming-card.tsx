@@ -94,6 +94,10 @@ function PoolPrizeBlock({
   entryFee?: number;
   className?: string;
 }) {
+  if (!isContestVariant && maxPrizePool <= 0) {
+    return null;
+  }
+
   return (
     <div className={cn("flex flex-col gap-0.5 tabular-nums", className)}>
       {isContestVariant ? (
@@ -128,14 +132,6 @@ function PoolPrizeBlock({
 function playedAtLabel(startIso: string) {
   return new Date(startIso).toLocaleString(undefined, {
     dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-/** Full calendar date + start time (upcoming list, aligned with match detail header). */
-function scheduledAtLabel(startIso: string) {
-  return new Date(startIso).toLocaleString(undefined, {
-    dateStyle: "full",
     timeStyle: "short",
   });
 }
@@ -326,6 +322,79 @@ function CompletedScoreBand({
   }
 
   return null;
+}
+
+/** Upcoming: same 3-column grid as live/completed band — orbs + center countdown + pool. */
+function UpcomingScoreBand({
+  teamA,
+  teamB,
+  teamALogo,
+  teamBLogo,
+  countdownLine,
+  isContestVariant,
+  maxPrizePool,
+  entryFee,
+  tapHint,
+  venueLine,
+  stageLine,
+  matchFormat,
+}: {
+  teamA: string;
+  teamB: string;
+  teamALogo: string | null;
+  teamBLogo: string | null;
+  countdownLine: string;
+  isContestVariant: boolean;
+  maxPrizePool: number;
+  entryFee?: number;
+  tapHint: string | null;
+  venueLine?: string | null;
+  stageLine?: string | null;
+  matchFormat?: string | null;
+}) {
+  return (
+    <div className="px-6 pb-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(6.5rem,10rem)_minmax(0,1fr)] items-start gap-x-2">
+        <div className="flex justify-center pt-1">
+          <TeamOrb label={teamA} logoUrl={teamALogo} showCaption={false} />
+        </div>
+        <div className="flex min-w-0 flex-col items-center gap-1.5 px-0.5 text-center">
+          <span className="text-muted-foreground text-xs font-medium tabular-nums leading-snug">
+            {countdownLine}
+          </span>
+          {venueLine ? (
+            <span className="text-muted-foreground max-w-full text-[11px] leading-snug">
+              {venueLine}
+            </span>
+          ) : null}
+          {stageLine ? (
+            <span className="text-muted-foreground/90 max-w-full text-[11px] leading-snug">
+              {stageLine}
+            </span>
+          ) : null}
+          {matchFormat ? (
+            <span className="text-muted-foreground font-mono text-[10px] font-medium uppercase tracking-wide">
+              {matchFormat}
+            </span>
+          ) : null}
+          <PoolPrizeBlock
+            isContestVariant={isContestVariant}
+            maxPrizePool={maxPrizePool}
+            entryFee={entryFee}
+            className="items-center"
+          />
+          {tapHint ? (
+            <span className="text-muted-foreground max-w-full text-center text-[10px] font-medium leading-tight">
+              {tapHint}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex justify-center pt-1">
+          <TeamOrb label={teamB} logoUrl={teamBLogo} showCaption={false} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Live match: orbs + center short score + pool/prize. */
@@ -537,46 +606,28 @@ export function HomeUpcomingCard({
           </>
         ) : (
           <>
-            <CardDescription className="flex flex-col gap-1.5 pt-1">
+            <CardDescription className="block w-full pt-1 pb-0 text-center">
               <span
-                className="text-muted-foreground text-xs leading-snug"
+                className="text-muted-foreground tabular-nums text-xs"
                 suppressHydrationWarning
               >
-                {scheduledAtLabel(match.start_time)}
+                Starts {playedAtLabel(match.start_time)}
               </span>
-              {match.venue_line ? (
-                <span className="text-muted-foreground text-xs leading-snug">
-                  {match.venue_line}
-                </span>
-              ) : null}
-              {match.stage_line ? (
-                <span className="text-muted-foreground/90 text-[11px] leading-snug">
-                  {match.stage_line}
-                </span>
-              ) : null}
-              {match.match_format ? (
-                <span className="text-muted-foreground font-mono text-[10px] font-medium uppercase tracking-wide">
-                  {match.match_format}
-                </span>
-              ) : null}
-              <span className="tabular-nums text-sm font-medium">
-                Starts in {countdown}
-              </span>
-              <PoolPrizeBlock
-                isContestVariant={isContestVariant}
-                maxPrizePool={match.max_prize_pool}
-                entryFee={match.entry_fee}
-              />
             </CardDescription>
-            <div className="flex items-center justify-between px-6 pb-4">
-              <TeamOrb label={teamA} logoUrl={match.team_a_logo_url} />
-              <span className="text-muted-foreground max-w-[7rem] text-center text-xs font-medium leading-tight">
-                {isContestVariant
-                  ? "Contest match"
-                  : "Tap to create or join"}
-              </span>
-              <TeamOrb label={teamB} logoUrl={match.team_b_logo_url} />
-            </div>
+            <UpcomingScoreBand
+              teamA={teamA}
+              teamB={teamB}
+              teamALogo={match.team_a_logo_url}
+              teamBLogo={match.team_b_logo_url}
+              countdownLine={`Starts in ${countdown}`}
+              isContestVariant={isContestVariant}
+              maxPrizePool={match.max_prize_pool}
+              entryFee={match.entry_fee}
+              tapHint={tapHintCenter}
+              venueLine={match.venue_line ?? null}
+              stageLine={match.stage_line ?? null}
+              matchFormat={match.match_format ?? null}
+            />
           </>
         )}
       </CardHeader>

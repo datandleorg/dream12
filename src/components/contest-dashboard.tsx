@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { UserPlus } from "lucide-react";
 import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { ContestTeamPreviewSheet } from "@/components/contest-team-preview-sheet";
@@ -10,11 +11,18 @@ import {
   HomeUpcomingCard,
   type HomeMatchCardModel,
 } from "@/components/home-upcoming-card";
+import { JoinContestButton } from "@/components/join-contest-button";
 import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
+import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
 import type { LiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
+import {
+  buildContestWhatsAppInviteMessage,
+  buildWhatsAppShareUrl,
+  matchLabelFromMatchCard,
+} from "@/lib/share/contest-whatsapp-invite";
 import { cn } from "@/lib/utils";
 
 export type ContestPayoutDisplayRow = {
@@ -34,6 +42,11 @@ export type ContestPrizeSlab = {
 export function ContestDashboard({
   contestId,
   contestTitle,
+  invitePublic,
+  matchJoinBlocked,
+  rosterLocked,
+  walletBalance,
+  isCreatorDraft,
   entryFee,
   prizePool,
   maxParticipants,
@@ -54,6 +67,13 @@ export function ContestDashboard({
 }: {
   contestId: string;
   contestTitle: string;
+  /** When false, contest URL is not yet visible to guests (creator draft). */
+  invitePublic: boolean;
+  /** Match completed or in_review — no join / continue setup. */
+  matchJoinBlocked: boolean;
+  rosterLocked: boolean;
+  walletBalance: number;
+  isCreatorDraft: boolean;
   entryFee: number;
   prizePool: number;
   maxParticipants: number;
@@ -79,6 +99,7 @@ export function ContestDashboard({
   } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pageRefreshNonce, setPageRefreshNonce] = useState(0);
+  const [whatsappShareHref, setWhatsappShareHref] = useState<string | null>(null);
 
   const live = useMatchLiveRow({
     matchId: matchCard.id,
@@ -99,6 +120,29 @@ export function ContestDashboard({
     }),
     [matchCard, live.status, live.snapshot, live.smFixtureStatus],
   );
+
+  useEffect(() => {
+    if (!invitePublic) {
+      setWhatsappShareHref(null);
+      return;
+    }
+    const contestUrl = `${window.location.origin}/contests/${contestId}`;
+    const msg = buildContestWhatsAppInviteMessage({
+      contestTitle,
+      matchLabel: matchLabelFromMatchCard(matchCardLive),
+      entryFee,
+      prizePool,
+      contestUrl,
+    });
+    setWhatsappShareHref(buildWhatsAppShareUrl(msg));
+  }, [
+    invitePublic,
+    contestId,
+    contestTitle,
+    entryFee,
+    prizePool,
+    matchCardLive,
+  ]);
 
   const liveSt = String(live.status).toLowerCase();
   const matchCompleted = liveSt === "completed" || liveSt === "in_review";
@@ -123,24 +167,111 @@ export function ContestDashboard({
 
   return (
     <>
-      <PullToRefresh
-        scrollContainerClassName="max-h-[min(calc(100dvh-7.5rem),900px)]"
-        onAfterRefresh={() => setPageRefreshNonce((n) => n + 1)}
-      >
         <div className="space-y-4 py-2">
           <div className="flex items-start justify-between gap-2">
-            <h1 className="text-lg font-semibold leading-tight sm:text-xl">{contestTitle}</h1>
-            {showSquadLink ? (
-              <Link
-                href={squadHref}
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "inline-flex min-h-10 shrink-0 items-center justify-center",
+            <h1 className="text-lg font-semibold leading-tight sm:text-xl">
+              {contestTitle}
+            </h1>
+            <div className="flex max-w-[min(100%,14rem)] shrink-0 flex-col items-end gap-1.5 sm:max-w-none">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {invitePublic && whatsappShareHref ? (
+                  <a
+                    href={whatsappShareHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "border-emerald-600/35 text-emerald-900 dark:border-emerald-400/40 dark:text-emerald-300",
+                      "inline-flex min-h-10 items-center justify-center gap-1.5",
+                    )}
+                    title="Opens WhatsApp with a pre-filled invite message"
+                    aria-label="Share contest invite on WhatsApp"
+                  >
+                    <UserPlus className="size-4 shrink-0" aria-hidden />
+                    Invite
+                  </a>
+                ) : invitePublic ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="pointer-events-none min-h-10 opacity-60"
+                    disabled
+                    aria-label="Preparing WhatsApp invite link"
+                  >
+                    <UserPlus className="size-4 shrink-0" aria-hidden />
+                    Invite
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-10"
+                    disabled
+                    title="Finish joining your squad so friends can open the contest link."
+                    aria-label="Invite on WhatsApp — finish joining your squad first"
+                  >
+                    <UserPlus className="size-4 shrink-0" aria-hidden />
+                    Invite
+                  </Button>
                 )}
-              >
-                My team
-              </Link>
-            ) : null}
+                {!matchJoinBlocked && currentUserId ? (
+                  isCreatorDraft ? (
+                    rosterLocked ? (
+                      <span
+                        className={cn(
+                          buttonVariants({ variant: "secondary", size: "sm" }),
+                          "inline-flex min-h-10 cursor-not-allowed items-center justify-center opacity-60",
+                        )}
+                        title="Team lock is on — you cannot finish contest setup now."
+                      >
+                        Continue setup (locked)
+                      </span>
+                    ) : (
+                      <Link
+                        href={squadHref}
+                        className={cn(
+                          buttonVariants({ variant: "secondary", size: "sm" }),
+                          "inline-flex min-h-10 shrink-0 items-center justify-center",
+                        )}
+                      >
+                        Continue setup
+                      </Link>
+                    )
+                  ) : !userHasTeamInContest ? (
+                    <div className="[&_button]:min-h-10 [&_button]:w-auto [&_button]:px-3">
+                      <JoinContestButton
+                        matchId={matchCard.id}
+                        contestId={contestId}
+                        entryFee={entryFee}
+                        balance={walletBalance}
+                        label="Join"
+                        disabled={rosterLocked}
+                        disabledReason="Team lock is on — you cannot join new contests this close to start."
+                      />
+                    </div>
+                  ) : null
+                ) : null}
+                {showSquadLink ? (
+                  <Link
+                    href={squadHref}
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "inline-flex min-h-10 shrink-0 items-center justify-center",
+                    )}
+                  >
+                    My team
+                  </Link>
+                ) : null}
+              </div>
+              {!invitePublic ? (
+                <p className="text-muted-foreground text-end text-[11px] leading-snug">
+                  Finish joining your squad before inviting friends — the link only works once
+                  you&apos;ve joined.
+                </p>
+              ) : null}
+            </div>
           </div>
 
           <HomeUpcomingCard match={matchCardLive} linkHref={false} variant="contest" />
@@ -283,7 +414,6 @@ export function ContestDashboard({
         </TabsContent>
       </Tabs>
         </div>
-      </PullToRefresh>
 
       <ContestTeamPreviewSheet
         key={preview?.teamId ?? "closed"}

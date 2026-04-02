@@ -66,5 +66,16 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  return supabaseResponse;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(
+    "x-return-to",
+    request.nextUrl.pathname + request.nextUrl.search,
+  );
+  const withReturnTo = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  supabaseResponse.cookies.getAll().forEach((cookie) => {
+    withReturnTo.cookies.set(cookie.name, cookie.value, cookie);
+  });
+  return withReturnTo;
 }

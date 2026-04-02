@@ -11,7 +11,11 @@ import {
   buildLiveSnapshotFromFixture,
   parseLiveSnapshot,
 } from "@/lib/sportmonks/normalize-live-snapshot";
-import { isContestVisibleToUser } from "@/lib/contest-visibility";
+import {
+  isContestVisibleToUser,
+  isCreatorDraftContest,
+} from "@/lib/contest-visibility";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -33,17 +37,14 @@ export default async function ContestLeaderboardPage({
     .single();
 
   if (!contest) notFound();
-  if (
-    !isContestVisibleToUser(
-      {
-        created_by: contest.created_by as string | null,
-        creator_joined_at: contest.creator_joined_at as string | null,
-      },
-      user?.id,
-    )
-  ) {
+  const contestVisibility = {
+    created_by: contest.created_by as string | null,
+    creator_joined_at: contest.creator_joined_at as string | null,
+  };
+  if (!isContestVisibleToUser(contestVisibility, user?.id)) {
     notFound();
   }
+  const invitePublic = isContestVisibleToUser(contestVisibility, null);
 
   let userHasTeamInContest = false;
   if (user) {
@@ -68,6 +69,23 @@ export default async function ContestLeaderboardPage({
   const liveSnapshot =
     parseLiveSnapshot(matchRow?.live_snapshot) ?? buildLiveSnapshotFromFixture(null);
   const pointsUpdatedAt = matchRow?.live_snapshot_at ?? null;
+
+  const matchStartIso = String(matchRow?.start_time ?? new Date(0).toISOString());
+  const statusKey = String(matchRow?.status ?? "upcoming").toLowerCase();
+  const matchJoinBlocked =
+    statusKey === "completed" || statusKey === "in_review";
+  const rosterLocked = isTeamEditLocked(matchStartIso);
+  const isCreatorDraft = isCreatorDraftContest(contestVisibility, user?.id);
+
+  let walletBalance = 0;
+  if (user) {
+    const { data: walletProfile } = await supabase
+      .from("profiles")
+      .select("wallet_balance")
+      .eq("id", user.id)
+      .single();
+    walletBalance = Number(walletProfile?.wallet_balance ?? 0);
+  }
 
   const { data: teams } = await supabase
     .from("user_teams")
@@ -196,6 +214,11 @@ export default async function ContestLeaderboardPage({
     <ContestDashboard
       contestId={contestId}
       contestTitle={contestTitle}
+      invitePublic={invitePublic}
+      matchJoinBlocked={matchJoinBlocked}
+      rosterLocked={rosterLocked}
+      walletBalance={walletBalance}
+      isCreatorDraft={isCreatorDraft}
       entryFee={Number(contest.entry_fee ?? 0)}
       prizePool={Number(contest.prize_pool ?? 0)}
       maxParticipants={Number(contest.max_participants ?? 0)}

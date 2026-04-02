@@ -157,6 +157,9 @@ function creditHeuristic(): number {
 /**
  * Apply `fixture.lineup` to `players` for this match (upsert + `in_playing_xi` flags).
  * Used after an HTTP fetch or when merging a live fixture payload that already includes `lineup`.
+ *
+ * `skipNotify`: use only for bulk backfills. Cron/live paths should omit it so `notifyLineupPublishedOnce`
+ * runs; it is idempotent per match (`matches.lineup_notified_at`).
  */
 export async function applyLineupFromFixturePayload(
   supabase: SupabaseClient,

@@ -169,7 +169,6 @@ export async function runLiveMatchTickForMatch(
         supabase,
         matchId,
         merged as unknown as SmFixture & { lineup?: unknown },
-        { skipNotify: true },
       );
       if (lr.inserted > 0) {
         payload.last_lineup_sync_at = nowIso;
@@ -331,7 +330,6 @@ export async function runMatchPipeline(
           supabase,
           id,
           raw as unknown as SmFixture & { lineup?: unknown },
-          { skipNotify: true },
         );
         const up: Record<string, unknown> = {
           last_lineup_sync_at: new Date().toISOString(),

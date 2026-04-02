@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { safeInternalPath } from "@/lib/safe-return-to";
 import { createClient } from "@/lib/supabase/server";
 import { BrandLogo } from "@/components/brand-logo";
 import { AppHeader } from "@/components/app-header";
@@ -15,7 +17,15 @@ export default async function MainLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    const returnTo = safeInternalPath(
+      (await headers()).get("x-return-to") ?? undefined,
+    );
+    if (returnTo) {
+      redirect(`/login?next=${encodeURIComponent(returnTo)}`);
+    }
+    redirect("/login");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

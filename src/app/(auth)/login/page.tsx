@@ -16,13 +16,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { safeInternalPath } from "@/lib/safe-return-to";
 import { toast } from "sonner";
 import { LoadingOverlay } from "@/components/loading-overlay";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
+  const next = safeInternalPath(searchParams.get("next")) ?? "/";
   const inactiveToastShown = useRef(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
