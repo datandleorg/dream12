@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 export default async function AuthLayout({
   children,
@@ -23,6 +24,7 @@ export default async function AuthLayout({
         aria-hidden
       />
       <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+        <PwaInstallPrompt bottomClassName="bottom-[max(1rem,env(safe-area-inset-bottom))]" />
         {children}
       </div>
     </div>

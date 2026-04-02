@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BrandLogo } from "@/components/brand-logo";
 import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default async function MainLayout({
@@ -61,6 +62,7 @@ export default async function MainLayout({
         />
       </Suspense>
       <main className="flex-1 px-4 pb-24">{children}</main>
+      <PwaInstallPrompt bottomClassName="bottom-[calc(4.75rem+env(safe-area-inset-bottom))]" />
       <BottomNav />
     </div>
   );

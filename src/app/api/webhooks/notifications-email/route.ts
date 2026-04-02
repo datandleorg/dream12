@@ -3,6 +3,7 @@ import { errorNotificationEmail, logNotificationEmail, warnNotificationEmail } f
 import { parseNotificationWebhookPayload } from "@/lib/email/notification-record";
 import { sendNotificationEmail } from "@/lib/email/send-notification-email";
 import { verifyNotificationsWebhookRequest } from "@/lib/email/webhook-auth";
+import { sendWebPushForUser } from "@/lib/push/send-web-push";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,30 @@ export async function POST(request: NextRequest) {
     notificationId: record.id,
     skippedReason: result.skippedReason ?? null,
   });
+
+  try {
+    const push = await sendWebPushForUser(record.user_id, record.title, record.body, {
+      url: "/notifications",
+      notificationId: record.id,
+      type: record.type,
+    });
+    if (push.skipped) {
+      logNotificationEmail("web push skipped (VAPID not configured)", { notificationId: record.id });
+    } else if (push.failed > 0 || push.errors.length > 0) {
+      warnNotificationEmail("web push partial failure", {
+        notificationId: record.id,
+        sent: push.sent,
+        failed: push.failed,
+        removedStale: push.removedStale,
+        errors: push.errors,
+      });
+    }
+  } catch (e) {
+    warnNotificationEmail("web push threw (ignored for webhook status)", {
+      notificationId: record.id,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   return NextResponse.json({ ok: true, skippedReason: result.skippedReason ?? null });
 }
