@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { withNextApiLogging } from "@/lib/api-with-logging";
 import { verifyCronRequest } from "@/lib/cron-auth";
 import { requireAdminService } from "@/lib/admin-server";
 import { runBackfillMatchesBatch } from "@/lib/backfill-matches";
@@ -36,7 +37,7 @@ function parseBody(raw: unknown): Parameters<typeof runBackfillMatchesBatch>[1] 
 /**
  * Admin session or `Authorization: Bearer CRON_SECRET`. Batched match hydration (recovery after flush).
  */
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   const cronOk = verifyCronRequest(request);
   let supabase = createServiceClient();
 
@@ -59,3 +60,5 @@ export async function POST(request: NextRequest) {
   const result = await runBackfillMatchesBatch(supabase, opts);
   return NextResponse.json(result);
 }
+
+export const POST = withNextApiLogging(handlePost);

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { withNextApiLogging } from "@/lib/api-with-logging";
 import { verifyCronRequest } from "@/lib/cron-auth";
 import { recordCronRun } from "@/lib/cron-run-log";
+import { logCron } from "@/lib/server-log";
 import { createServiceClient } from "@/lib/supabase/service";
 import { runFinalizeScoringBatch } from "@/lib/finalize-match-scoring";
 
@@ -8,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const ROUTE = "/api/cron/finalize-scores";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -28,6 +30,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       summary: result,
     });
+    logCron({ route: ROUTE, ok: true, durationMs, summary: result as Record<string, unknown> });
     return NextResponse.json(result);
   } catch (e) {
     const durationMs = Date.now() - t0;
@@ -40,6 +43,9 @@ export async function GET(request: NextRequest) {
       status: 500,
       summary: { error: msg },
     });
+    logCron({ route: ROUTE, ok: false, durationMs, error: msg });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const GET = withNextApiLogging(handleGet);

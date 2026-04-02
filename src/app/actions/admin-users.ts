@@ -3,7 +3,9 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import type { ProfileAvatarUploadResult } from "@/app/actions/profile-avatar";
+import { getActionLogContext } from "@/lib/action-log-context";
 import { requireAdminService, requireAdminSession } from "@/lib/admin-server";
+import { logActivity } from "@/lib/server-log";
 import { MAX_PROFILE_AVATAR_BYTES } from "@/lib/profile-avatar-limits";
 import {
   extensionForContentType,
@@ -20,6 +22,7 @@ export async function adminCreateUser(input: {
   password: string;
   username: string;
 }) {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false as const, message: r.message };
   const email = input.email.trim().toLowerCase();
@@ -44,10 +47,18 @@ export async function adminCreateUser(input: {
     metadata: { email, username },
   });
   revalidatePath("/admin/users");
+  logActivity({
+    action: "admin.user.create",
+    userId: r.userId,
+    ...ctx,
+    ok: true,
+    metadata: { newUserId: data.user?.id ?? "", email },
+  });
   return { ok: true as const };
 }
 
 export async function adminDeleteUser(userId: string) {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false as const, message: r.message };
   if (userId === r.userId) {
@@ -63,10 +74,12 @@ export async function adminDeleteUser(userId: string) {
     metadata: {},
   });
   revalidatePath("/admin/users");
+  logActivity({ action: "admin.user.delete", userId: r.userId, ...ctx, ok: true, metadata: { targetUserId: userId } });
   return { ok: true as const };
 }
 
 export async function adminUpdateUsername(userId: string, username: string) {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false as const, message: r.message };
   const u = username.trim();
@@ -82,6 +95,13 @@ export async function adminUpdateUsername(userId: string, username: string) {
   });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
+  logActivity({
+    action: "admin.profile.username",
+    userId: r.userId,
+    ...ctx,
+    ok: true,
+    metadata: { targetUserId: userId, username: u },
+  });
   return { ok: true as const };
 }
 
@@ -95,6 +115,7 @@ function validateEmailForAdminUpdate(em: string): string | null {
 }
 
 export async function adminUpdateEmail(userId: string, email: string) {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false as const, message: r.message };
   const em = email.trim().toLowerCase();
@@ -115,10 +136,18 @@ export async function adminUpdateEmail(userId: string, email: string) {
   });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
+  logActivity({
+    action: "admin.user.email",
+    userId: r.userId,
+    ...ctx,
+    ok: true,
+    metadata: { targetUserId: userId },
+  });
   return { ok: true as const };
 }
 
 export async function adminUpdateUserPassword(userId: string, newPassword: string) {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false as const, message: r.message };
   const strengthErr = validateNewPasswordStrength(newPassword);
@@ -136,6 +165,13 @@ export async function adminUpdateUserPassword(userId: string, newPassword: strin
   });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
+  logActivity({
+    action: "admin.user.password",
+    userId: r.userId,
+    ...ctx,
+    ok: true,
+    metadata: { targetUserId: userId },
+  });
   return { ok: true as const };
 }
 
@@ -143,6 +179,7 @@ export async function adminRequestProfileAvatarUpload(
   targetUserId: string,
   contentType: string,
 ): Promise<ProfileAvatarUploadResult> {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false, message: r.message };
   const ext = extensionForContentType(contentType);
@@ -153,6 +190,13 @@ export async function adminRequestProfileAvatarUpload(
       contentType: contentType.trim(),
       objectKey,
     });
+    logActivity({
+      action: "admin.avatar.presign",
+      userId: r.userId,
+      ...ctx,
+      ok: true,
+      metadata: { targetUserId },
+    });
     return {
       ok: true,
       uploadUrl,
@@ -162,6 +206,14 @@ export async function adminRequestProfileAvatarUpload(
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Upload not available.";
+    logActivity({
+      action: "admin.avatar.presign",
+      userId: r.userId,
+      ...ctx,
+      ok: false,
+      message: msg,
+      metadata: { targetUserId },
+    });
     return { ok: false, message: msg };
   }
 }
@@ -170,6 +222,7 @@ export async function adminSetProfileAvatarUrl(
   targetUserId: string,
   publicUrl: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false, message: r.message };
   const trimmed = publicUrl.trim();
@@ -194,12 +247,20 @@ export async function adminSetProfileAvatarUrl(
   });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${targetUserId}`);
+  logActivity({
+    action: "admin.avatar.set",
+    userId: r.userId,
+    ...ctx,
+    ok: true,
+    metadata: { targetUserId },
+  });
   return { ok: true };
 }
 
 export async function adminClearProfileAvatar(
   targetUserId: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false, message: r.message };
 
@@ -215,10 +276,18 @@ export async function adminClearProfileAvatar(
   });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${targetUserId}`);
+  logActivity({
+    action: "admin.avatar.clear",
+    userId: r.userId,
+    ...ctx,
+    ok: true,
+    metadata: { targetUserId },
+  });
   return { ok: true };
 }
 
 export async function adminSetUserActive(userId: string, active: boolean) {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false as const, message: r.message };
   if (userId === r.userId && !active) {
@@ -271,10 +340,18 @@ export async function adminSetUserActive(userId: string, active: boolean) {
 
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
+  logActivity({
+    action: active ? "admin.user.activate" : "admin.user.deactivate",
+    userId: r.userId,
+    ...ctx,
+    ok: true,
+    metadata: { targetUserId: userId },
+  });
   return { ok: true as const };
 }
 
 export async function adminSetIsAdmin(userId: string, isAdmin: boolean) {
+  const ctx = await getActionLogContext();
   const r = await requireAdminService();
   if (!r.ok) return { ok: false as const, message: r.message };
   if (userId === r.userId && !isAdmin) {
@@ -291,6 +368,13 @@ export async function adminSetIsAdmin(userId: string, isAdmin: boolean) {
   });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
+  logActivity({
+    action: "admin.user.is_admin",
+    userId: r.userId,
+    ...ctx,
+    ok: true,
+    metadata: { targetUserId: userId, isAdmin },
+  });
   return { ok: true as const };
 }
 
@@ -299,6 +383,7 @@ export async function adminAdjustWallet(
   deltaInr: number,
   reason: string,
 ) {
+  const ctx = await getActionLogContext();
   const gate = await requireAdminSession();
   if (!gate.ok) return { ok: false as const, message: gate.message };
   const why = reason.trim();
@@ -308,9 +393,26 @@ export async function adminAdjustWallet(
     p_delta_inr: deltaInr,
     p_reason: why,
   });
-  if (error) return { ok: false as const, message: error.message };
+  if (error) {
+    logActivity({
+      action: "admin.wallet.adjust",
+      userId: gate.userId,
+      ...ctx,
+      ok: false,
+      message: error.message,
+      metadata: { targetUserId: userId, deltaInr },
+    });
+    return { ok: false as const, message: error.message };
+  }
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
   revalidatePath("/wallet");
+  logActivity({
+    action: "admin.wallet.adjust",
+    userId: gate.userId,
+    ...ctx,
+    ok: true,
+    metadata: { targetUserId: userId, deltaInr },
+  });
   return { ok: true as const };
 }

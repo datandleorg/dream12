@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withApiLogging } from "@/lib/api-with-logging";
 import { requireAdminService } from "@/lib/admin-server";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { syncPlayersForMatch } from "@/lib/sportmonks/sync-lineup";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
  *
  * POST JSON: `{ "matchId": 12345 }` (SportMonks fixture id = `matches.id`).
  */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const gate = await requireAdminService();
   if (!gate.ok) {
     return NextResponse.json({ error: gate.message }, { status: 403 });
@@ -62,3 +63,5 @@ export async function POST(request: Request) {
     ...result,
   });
 }
+
+export const POST = withApiLogging(handlePost);

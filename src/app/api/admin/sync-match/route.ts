@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withApiLogging } from "@/lib/api-with-logging";
 import { requireAdminService } from "@/lib/admin-server";
 import {
   MAX_MATCHES_PER_RUN,
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
  * Admin-only: same pipeline as cron live tick (single match or batch of live matches).
  * POST JSON body `{ "matchId": 12345 }` for one fixture; omit body to process up to MAX_MATCHES_PER_RUN live matches.
  */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const gate = await requireAdminService();
   if (!gate.ok) {
     return NextResponse.json({ error: gate.message }, { status: 403 });
@@ -60,3 +61,5 @@ export async function POST(request: Request) {
   const batch = await runMatchPipeline(service);
   return NextResponse.json({ ...batch, maxMatchesPerRun: MAX_MATCHES_PER_RUN });
 }
+
+export const POST = withApiLogging(handlePost);

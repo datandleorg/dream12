@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { withNextApiLogging } from "@/lib/api-with-logging";
 import { verifyCronRequest } from "@/lib/cron-auth";
 import { recordCronRun } from "@/lib/cron-run-log";
+import { logCron } from "@/lib/server-log";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +12,7 @@ const ROUTE = "/api/cron/settle-contests";
 const SETTLE_PREREQ_NOTE =
   "Contest settlement runs only when the match is completed and scores are finalized (matches.scoring_finalized_at). Run /api/cron/finalize-scores or your admin flow first.";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -34,6 +36,7 @@ export async function GET(request: NextRequest) {
       status: 500,
       summary: { error: qErr.message },
     });
+    logCron({ route: ROUTE, ok: false, durationMs, error: qErr.message });
     return NextResponse.json({ error: qErr.message }, { status: 500 });
   }
 
@@ -77,6 +80,9 @@ export async function GET(request: NextRequest) {
     status: 200,
     summary: body,
   });
+  logCron({ route: ROUTE, ok: true, durationMs, summary: body as Record<string, unknown> });
 
   return NextResponse.json(body);
 }
+
+export const GET = withNextApiLogging(handleGet);

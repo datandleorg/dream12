@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getActionLogContext } from "@/lib/action-log-context";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/server-log";
 import { validateSquad, type PickPlayer } from "@/lib/fantasy/validate-squad";
 
 export type SaveTeamResult =
@@ -32,11 +34,15 @@ export async function saveTeamAction(input: {
   captainId: string;
   viceCaptainId: string;
 }): Promise<SaveTeamResult> {
+  const ctx = await getActionLogContext();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Not signed in." };
+  if (!user) {
+    logActivity({ action: "team.save", ...ctx, ok: false, message: "not_signed_in" });
+    return { ok: false, message: "Not signed in." };
+  }
 
   const { data: rows } = await supabase
     .from("players")
@@ -45,6 +51,14 @@ export async function saveTeamAction(input: {
     .in("id", input.playerIds);
 
   if (!rows || rows.length !== input.playerIds.length) {
+    logActivity({
+      action: "team.save",
+      userId: user.id,
+      ...ctx,
+      ok: false,
+      message: "invalid_players",
+      metadata: { matchId: input.matchId, contestId: input.contestId },
+    });
     return { ok: false, message: "One or more players are invalid for this match." };
   }
 
@@ -56,7 +70,17 @@ export async function saveTeamAction(input: {
   }));
 
   const v = validateSquad(selected, input.captainId, input.viceCaptainId);
-  if (!v.ok) return { ok: false, message: v.message };
+  if (!v.ok) {
+    logActivity({
+      action: "team.save",
+      userId: user.id,
+      ...ctx,
+      ok: false,
+      message: v.message,
+      metadata: { contestId: input.contestId },
+    });
+    return { ok: false, message: v.message };
+  }
 
   const { data: teamId, error } = await supabase.rpc("save_fantasy_team", {
     p_match_id: input.matchId,
@@ -67,9 +91,26 @@ export async function saveTeamAction(input: {
   });
 
   if (error) {
-    return { ok: false, message: mapRpcError(error.message) };
+    const msg = mapRpcError(error.message);
+    logActivity({
+      action: "team.save",
+      userId: user.id,
+      ...ctx,
+      ok: false,
+      message: msg,
+      metadata: { contestId: input.contestId, matchId: input.matchId },
+    });
+    return { ok: false, message: msg };
   }
   if (!teamId) {
+    logActivity({
+      action: "team.save",
+      userId: user.id,
+      ...ctx,
+      ok: false,
+      message: "no_team_id",
+      metadata: { contestId: input.contestId },
+    });
     return { ok: false, message: "Could not save team." };
   }
 
@@ -82,5 +123,12 @@ export async function saveTeamAction(input: {
   revalidatePath("/contests");
   revalidatePath("/wallet");
   revalidatePath("/");
+  logActivity({
+    action: "team.save",
+    userId: user.id,
+    ...ctx,
+    ok: true,
+    metadata: { contestId: input.contestId, matchId: input.matchId, teamId },
+  });
   return { ok: true };
 }

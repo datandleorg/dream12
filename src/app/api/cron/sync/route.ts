@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { withNextApiLogging } from "@/lib/api-with-logging";
 import { verifyCronRequest } from "@/lib/cron-auth";
 import { recordCronRun } from "@/lib/cron-run-log";
+import { logCron } from "@/lib/server-log";
 import { runFullSportmonksSync } from "@/lib/sportmonks/sync";
 import { SyncLogger } from "@/lib/sportmonks/sync-logger";
 
@@ -8,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const ROUTE = "/api/cron/sync";
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -52,6 +54,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       summary,
     });
+    logCron({ route: ROUTE, ok: true, durationMs, summary });
 
     return NextResponse.json(body);
   } catch (e) {
@@ -65,6 +68,9 @@ export async function GET(request: NextRequest) {
       status: 500,
       summary: { error: msg },
     });
+    logCron({ route: ROUTE, ok: false, durationMs, error: msg });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const GET = withNextApiLogging(handleGet);

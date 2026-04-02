@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withNextApiLogging } from "@/lib/api-with-logging";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * Server-only username check using the service role (bypasses RLS).
  * Avoids PostgREST RPC/view 404s when migrations are missing or schema cache is stale.
  */
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const username = request.nextUrl.searchParams.get("username")?.trim().toLowerCase();
 
   if (!username || username.length < 3) {
@@ -52,3 +53,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withNextApiLogging(handleGet);

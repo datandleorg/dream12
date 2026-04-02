@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { withNextApiLogging } from "@/lib/api-with-logging";
 import { verifyCronRequest } from "@/lib/cron-auth";
 import { cronRunLogPath, readCronRunHistory } from "@/lib/cron-run-log";
 
 export const dynamic = "force-dynamic";
 
 /** Last N cron executions (JSONL-backed). Same auth as other cron routes. */
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -21,3 +22,5 @@ export async function GET(request: NextRequest) {
     runs,
   });
 }
+
+export const GET = withNextApiLogging(handleGet);

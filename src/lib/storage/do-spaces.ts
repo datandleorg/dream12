@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { MAX_PROFILE_AVATAR_BYTES } from "@/lib/profile-avatar-limits";
 
@@ -77,27 +77,15 @@ export function spacesPublicBaseUrl(): string {
   );
 }
 
-function requireSpacesEnv(): {
-  client: S3Client;
-  bucket: string;
-  publicBase: string;
-} {
+/** S3 client for server-side Spaces ops; null if env incomplete (e.g. local dev without DO). */
+export function trySpacesS3Client(): { client: S3Client; bucket: string } | null {
   const rawEndpoint = process.env.DO_SPACES_ENDPOINT?.trim();
   const bucket = process.env.DO_SPACES_BUCKET?.trim();
   const key = process.env.DO_SPACES_KEY?.trim();
   const secret = process.env.DO_SPACES_SECRET?.trim();
-  if (!rawEndpoint || !bucket || !key || !secret) {
-    throw new Error(
-      "Missing DO Spaces env: DO_SPACES_ENDPOINT, DO_SPACES_BUCKET, DO_SPACES_KEY, DO_SPACES_SECRET",
-    );
-  }
+  if (!rawEndpoint || !bucket || !key || !secret) return null;
   const endpoint = normalizeSpacesEndpoint(rawEndpoint);
-  if (!endpoint) {
-    throw new Error(
-      `DO_SPACES_ENDPOINT is not a valid URL or hostname (got ${JSON.stringify(rawEndpoint)}). ` +
-        "Use e.g. https://blr1.digitaloceanspaces.com",
-    );
-  }
+  if (!endpoint) return null;
   const region = spacesRegionFromEndpoint(endpoint);
   const client = new S3Client({
     region,
@@ -108,7 +96,60 @@ function requireSpacesEnv(): {
     },
     forcePathStyle: false,
   });
-  return { client, bucket, publicBase: spacesPublicBaseUrl() };
+  return { client, bucket };
+}
+
+function requireSpacesEnv(): {
+  client: S3Client;
+  bucket: string;
+  publicBase: string;
+} {
+  const t = trySpacesS3Client();
+  if (!t) {
+    throw new Error(
+      "Missing DO Spaces env: DO_SPACES_ENDPOINT, DO_SPACES_BUCKET, DO_SPACES_KEY, DO_SPACES_SECRET",
+    );
+  }
+  return { client: t.client, bucket: t.bucket, publicBase: spacesPublicBaseUrl() };
+}
+
+export function serverLogsSpacesPrefix(): string {
+  const base = process.env.DO_SPACES_SERVER_LOG_PREFIX?.trim() || "server-logs";
+  const inst =
+    process.env.SERVER_LOG_INSTANCE_ID?.trim() ||
+    process.env.HOSTNAME?.trim() ||
+    "default";
+  return `${base.replace(/\/$/, "")}/${inst.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+}
+
+export async function listServerLogArchives(input: {
+  continuationToken?: string;
+  maxKeys?: number;
+}): Promise<{
+  keys: { key: string; lastModified?: string; size?: number }[];
+  nextContinuationToken?: string;
+}> {
+  const t = trySpacesS3Client();
+  if (!t) return { keys: [] };
+  const prefix = `${serverLogsSpacesPrefix()}/`;
+  const out = await t.client.send(
+    new ListObjectsV2Command({
+      Bucket: t.bucket,
+      Prefix: prefix,
+      ContinuationToken: input.continuationToken,
+      MaxKeys: Math.min(500, Math.max(1, input.maxKeys ?? 100)),
+    }),
+  );
+  const keys =
+    out.Contents?.map((c) => ({
+      key: c.Key ?? "",
+      lastModified: c.LastModified?.toISOString(),
+      size: c.Size,
+    })).filter((k) => k.key && k.key.endsWith(".ndjson.gz")) ?? [];
+  return {
+    keys,
+    nextContinuationToken: out.IsTruncated ? out.NextContinuationToken : undefined,
+  };
 }
 
 export { ALLOWED_TYPES };

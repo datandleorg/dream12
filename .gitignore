@@ -22,6 +22,9 @@
 
 # misc
 .DS_Store
+
+# local structured server logs (see SERVER_LOG_DIR)
+/.data/
 *.pem
 
 # debug

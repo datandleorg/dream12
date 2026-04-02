@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { withNextApiLogging } from "@/lib/api-with-logging";
 import { errorNotificationEmail, logNotificationEmail, warnNotificationEmail } from "@/lib/email/debug-log";
 import { parseNotificationWebhookPayload } from "@/lib/email/notification-record";
 import { sendNotificationEmail } from "@/lib/email/send-notification-email";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
  * lines when notifications fire, your webhook URL is probably not reachable (e.g. localhost from cloud).
  * Call: `curl -s http://localhost:3000/api/webhooks/notifications-email` and watch `docker compose logs -f web`.
  */
-export async function GET() {
+async function handleGet(_: NextRequest) {
   logNotificationEmail("GET health check (no email sent — use this to verify logs reach Docker)");
   // Some Docker / log setups attach stderr more reliably than console.log routing.
   if (typeof process.stderr?.write === "function") {
@@ -27,7 +28,9 @@ export async function GET() {
   });
 }
 
-export async function POST(request: NextRequest) {
+export const GET = withNextApiLogging(handleGet);
+
+async function handlePost(request: NextRequest) {
   logNotificationEmail("webhook POST received");
 
   if (!verifyNotificationsWebhookRequest(request)) {
@@ -85,3 +88,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ ok: true, skippedReason: result.skippedReason ?? null });
 }
+
+export const POST = withNextApiLogging(handlePost);

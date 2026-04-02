@@ -11,6 +11,7 @@ const nav = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/transactions", label: "Legacy UTR" },
   { href: "/admin/audit", label: "Audit" },
+  { href: "/admin/server-logs", label: "Server logs" },
 ] as const;
 
 function isNavActive(pathname: string, href: string) {

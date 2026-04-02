@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getActionLogContext } from "@/lib/action-log-context";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/server-log";
 import {
   ALLOWED_WINNER_COUNTS,
   buildPrizeSlabs,
@@ -36,24 +38,32 @@ export async function createContestAction(input: {
   grossCollected: number;
   isFlexible: boolean;
 }): Promise<CreateContestResult> {
+  const ctx = await getActionLogContext();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "Not signed in." };
+  if (!user) {
+    logActivity({ action: "contest.create", ...ctx, ok: false, message: "not_signed_in" });
+    return { ok: false, message: "Not signed in." };
+  }
 
   if (!ALLOWED_WINNER_COUNTS.includes(input.winnerCount as (typeof ALLOWED_WINNER_COUNTS)[number])) {
+    logActivity({ action: "contest.create", userId: user.id, ...ctx, ok: false, message: "bad_winner_count" });
     return { ok: false, message: "Invalid winner count." };
   }
   if (input.maxParticipants < 2 || input.maxParticipants > 10000) {
+    logActivity({ action: "contest.create", userId: user.id, ...ctx, ok: false, message: "bad_spots" });
     return { ok: false, message: "Spots must be between 2 and 10000." };
   }
   if (input.entryFee < 0) {
+    logActivity({ action: "contest.create", userId: user.id, ...ctx, ok: false, message: "bad_fee" });
     return { ok: false, message: "Invalid amounts." };
   }
 
   const gross = grossFromEntryAndSpots(input.entryFee, input.maxParticipants);
   if (Math.abs(gross - roundMoney(input.grossCollected)) > 0.05) {
+    logActivity({ action: "contest.create", userId: user.id, ...ctx, ok: false, message: "gross_mismatch" });
     return { ok: false, message: "Contest totals do not match. Refresh and try again." };
   }
 
@@ -61,6 +71,7 @@ export async function createContestAction(input: {
   const prizePool = netPrizePoolFromGross(gross, feeFraction);
   const prizeBreakup = buildPrizeSlabs(prizePool, input.winnerCount);
   if (Math.abs(sumSlabAmounts(prizeBreakup) - prizePool) > 0.05) {
+    logActivity({ action: "contest.create", userId: user.id, ...ctx, ok: false, message: "slab_build" });
     return { ok: false, message: "Could not build prize breakdown. Try again." };
   }
 
@@ -77,14 +88,31 @@ export async function createContestAction(input: {
   });
 
   if (error) {
-    return { ok: false, message: mapRpcError(error.message) };
+    const msg = mapRpcError(error.message);
+    logActivity({
+      action: "contest.create",
+      userId: user.id,
+      ...ctx,
+      ok: false,
+      message: msg,
+      metadata: { matchId: input.matchId },
+    });
+    return { ok: false, message: msg };
   }
   if (!contestId) {
+    logActivity({ action: "contest.create", userId: user.id, ...ctx, ok: false, message: "no_id" });
     return { ok: false, message: "Could not create contest." };
   }
 
   const id = contestId as string;
   revalidatePath(`/matches/${input.matchId}`);
   revalidatePath("/");
+  logActivity({
+    action: "contest.create",
+    userId: user.id,
+    ...ctx,
+    ok: true,
+    metadata: { contestId: id, matchId: input.matchId },
+  });
   return { ok: true, contestId: id };
 }
