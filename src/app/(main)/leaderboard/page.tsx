@@ -171,7 +171,7 @@ export default async function LeaderboardPage({
           Season leaderboard
         </h1>
         <p className="text-muted-foreground text-sm">
-          Totals and efficiency scores across contests in the selected season.
+          Total points and average per contest across the selected season.
         </p>
       </div>
 

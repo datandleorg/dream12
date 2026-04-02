@@ -11,7 +11,7 @@ import {
   adminUpdateUsername,
 } from "@/app/actions/admin-users";
 import { AdminUserActiveToggle } from "@/components/admin-user-active-toggle";
-import { UserAvatar } from "@/components/user-avatar";
+import { AdminUserAvatarEditor } from "@/components/admin-user-avatar-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -128,27 +128,18 @@ export function AdminUserManage({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-        <UserAvatar
-          avatarUrl={avatarUrl}
-          username={username || undefined}
-          userIdFallback={userId}
-          size="xl"
-          className="text-base"
-        />
-        <div className="grid min-w-0 flex-1 gap-2">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {username?.trim() || "User"}
-            </h1>
-            {email ? (
-              <span className="text-muted-foreground max-w-full truncate text-sm">{email}</span>
-            ) : null}
-          </div>
-          <p className="text-muted-foreground text-sm">User id</p>
-          <code className="text-xs break-all">{userId}</code>
-          <p className="text-lg font-semibold tabular-nums">Wallet: ₹{walletBalance.toFixed(2)}</p>
+      <AdminUserAvatarEditor userId={userId} username={username} avatarUrl={avatarUrl ?? null} />
+
+      <div className="grid min-w-0 gap-2">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <h1 className="text-xl font-semibold tracking-tight">{username?.trim() || "User"}</h1>
+          {email ? (
+            <span className="text-muted-foreground max-w-full truncate text-sm">{email}</span>
+          ) : null}
         </div>
+        <p className="text-muted-foreground text-sm">User id</p>
+        <code className="text-xs break-all">{userId}</code>
+        <p className="text-lg font-semibold tabular-nums">Wallet: ₹{walletBalance.toFixed(2)}</p>
       </div>
 
       <form onSubmit={saveUsername} className="grid max-w-md gap-3">
@@ -173,6 +164,10 @@ export function AdminUserManage({
           value={uEmail}
           onChange={(e) => setUEmail(e.target.value)}
         />
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          Updates Supabase Auth (login identifier). Notification and password-reset emails use this address
+          after you save.
+        </p>
         <Button type="submit" className="min-h-11 w-fit">
           Save email
         </Button>

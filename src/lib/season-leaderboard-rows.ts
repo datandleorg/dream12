@@ -6,9 +6,6 @@ export type SeasonLeaderboardRow = {
   contests_in_window: number;
   total_points: number;
   simple_avg: number;
-  bayesian_score: number;
-  buffer_score: number;
-  reliability_score: number;
 };
 
 function num(v: unknown): number {
@@ -32,8 +29,5 @@ export function normalizeLeaderboardRows(
     contests_in_window: Math.trunc(num(r.contests_in_window)),
     total_points: num(r.total_points),
     simple_avg: num(r.simple_avg),
-    bayesian_score: num(r.bayesian_score),
-    buffer_score: num(r.buffer_score),
-    reliability_score: num(r.reliability_score),
   }));
 }

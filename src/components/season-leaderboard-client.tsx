@@ -17,14 +17,7 @@ import {
 import { UserAvatar } from "@/components/user-avatar";
 import type { SeasonLeaderboardRow } from "@/lib/season-leaderboard-rows";
 
-type SortKey =
-  | "username"
-  | "contests_played"
-  | "total_points"
-  | "simple_avg"
-  | "bayesian_score"
-  | "buffer_score"
-  | "reliability_score";
+type SortKey = "username" | "contests_played" | "total_points" | "simple_avg";
 
 type SortDir = "asc" | "desc";
 
@@ -140,8 +133,7 @@ export function SeasonLeaderboardClient({
         Rankings use contests from matches that are{" "}
         <span className="text-foreground font-medium">completed</span> with{" "}
         <span className="text-foreground font-medium">finalized scoring</span>.
-        Bayesian and buffer scores temper low participation; reliability scales your
-        average by how much of the season you played (
+        Total fantasy points and average points per contest (
         {contestsInWindow > 0
           ? `${contestsInWindow} contest${contestsInWindow === 1 ? "" : "s"} in this season window`
           : "no contests in this season window yet"}
@@ -186,24 +178,6 @@ export function SeasonLeaderboardClient({
               >
                 Avg{sortHint("simple_avg")}
               </TableHead>
-              <TableHead
-                className={cn(headerCls("bayesian_score"), "text-right")}
-                onClick={() => onHeaderClick("bayesian_score")}
-              >
-                Bayes{sortHint("bayesian_score")}
-              </TableHead>
-              <TableHead
-                className={cn(headerCls("buffer_score"), "text-right")}
-                onClick={() => onHeaderClick("buffer_score")}
-              >
-                Buffer{sortHint("buffer_score")}
-              </TableHead>
-              <TableHead
-                className={cn(headerCls("reliability_score"), "text-right")}
-                onClick={() => onHeaderClick("reliability_score")}
-              >
-                Rel.{sortHint("reliability_score")}
-              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -236,15 +210,6 @@ export function SeasonLeaderboardClient({
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {fmtScore(r.simple_avg)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fmtScore(r.bayesian_score)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fmtScore(r.buffer_score)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {fmtScore(r.reliability_score)}
                 </TableCell>
               </TableRow>
             ))}

@@ -1,7 +1,15 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
+import type { ProfileAvatarUploadResult } from "@/app/actions/profile-avatar";
 import { requireAdminService, requireAdminSession } from "@/lib/admin-server";
+import { MAX_PROFILE_AVATAR_BYTES } from "@/lib/profile-avatar-limits";
+import {
+  extensionForContentType,
+  isAvatarUrlAllowedForUser,
+  presignAvatarPut,
+} from "@/lib/storage/do-spaces";
 
 /** GoTrue: ban_duration uses h/m/s suffixes; ~100y for admin deactivate. Unban with `none` (auth-js types). */
 const DEACTIVATE_BAN_DURATION = "876000h";
@@ -74,12 +82,26 @@ export async function adminUpdateUsername(userId: string, username: string) {
   return { ok: true as const };
 }
 
+const MAX_EMAIL_LEN = 254;
+
+function validateEmailForAdminUpdate(em: string): string | null {
+  if (em.length > MAX_EMAIL_LEN) return "Email must be at most 254 characters";
+  const at = em.indexOf("@");
+  if (at <= 0 || at >= em.length - 1) return "Enter a valid email address";
+  return null;
+}
+
 export async function adminUpdateEmail(userId: string, email: string) {
   const r = await requireAdminService();
   if (!r.ok) return { ok: false as const, message: r.message };
   const em = email.trim().toLowerCase();
   if (!em) return { ok: false as const, message: "Email required" };
-  const { error } = await r.service.auth.admin.updateUserById(userId, { email: em });
+  const invalid = validateEmailForAdminUpdate(em);
+  if (invalid) return { ok: false as const, message: invalid };
+  const { error } = await r.service.auth.admin.updateUserById(userId, {
+    email: em,
+    email_confirm: true,
+  });
   if (error) return { ok: false as const, message: error.message };
   await r.service.from("admin_audit_log").insert({
     actor_id: r.userId,
@@ -91,6 +113,85 @@ export async function adminUpdateEmail(userId: string, email: string) {
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
   return { ok: true as const };
+}
+
+export async function adminRequestProfileAvatarUpload(
+  targetUserId: string,
+  contentType: string,
+): Promise<ProfileAvatarUploadResult> {
+  const r = await requireAdminService();
+  if (!r.ok) return { ok: false, message: r.message };
+  const ext = extensionForContentType(contentType);
+  if (!ext) return { ok: false, message: "Use JPEG, PNG, or WebP." };
+  const objectKey = `avatars/${targetUserId}/${randomUUID()}.${ext}`;
+  try {
+    const { uploadUrl, publicUrl } = await presignAvatarPut({
+      contentType: contentType.trim(),
+      objectKey,
+    });
+    return {
+      ok: true,
+      uploadUrl,
+      publicUrl,
+      headers: { "Content-Type": contentType.trim() },
+      maxBytes: MAX_PROFILE_AVATAR_BYTES,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Upload not available.";
+    return { ok: false, message: msg };
+  }
+}
+
+export async function adminSetProfileAvatarUrl(
+  targetUserId: string,
+  publicUrl: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const r = await requireAdminService();
+  if (!r.ok) return { ok: false, message: r.message };
+  const trimmed = publicUrl.trim();
+  if (!trimmed) return { ok: false, message: "Missing image URL." };
+  let allowed = false;
+  try {
+    allowed = isAvatarUrlAllowedForUser(trimmed, targetUserId);
+  } catch {
+    allowed = false;
+  }
+  if (!allowed) return { ok: false, message: "Invalid image URL." };
+
+  const { error } = await r.service.from("profiles").update({ avatar_url: trimmed }).eq("id", targetUserId);
+  if (error) return { ok: false, message: error.message };
+
+  await r.service.from("admin_audit_log").insert({
+    actor_id: r.userId,
+    action: "profile.avatar_updated",
+    entity_type: "profile",
+    entity_id: targetUserId,
+    metadata: { avatar_url: trimmed },
+  });
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${targetUserId}`);
+  return { ok: true };
+}
+
+export async function adminClearProfileAvatar(
+  targetUserId: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const r = await requireAdminService();
+  if (!r.ok) return { ok: false, message: r.message };
+
+  const { error } = await r.service.from("profiles").update({ avatar_url: null }).eq("id", targetUserId);
+  if (error) return { ok: false, message: error.message };
+
+  await r.service.from("admin_audit_log").insert({
+    actor_id: r.userId,
+    action: "profile.avatar_cleared",
+    entity_type: "profile",
+    entity_id: targetUserId,
+    metadata: {},
+  });
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${targetUserId}`);
+  return { ok: true };
 }
 
 export async function adminSetUserActive(userId: string, active: boolean) {

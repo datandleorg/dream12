@@ -284,8 +284,16 @@ export default async function AdminUsersPage() {
                     <span className="truncate font-medium">{r.username}</span>
                   </div>
                 </TableCell>
-                <TableCell className="max-w-[200px] truncate text-sm">
-                  {r.email ?? "—"}
+                <TableCell className="max-w-[220px] text-sm">
+                  {r.email ? (
+                    <span className="block truncate" title={r.email}>
+                      {r.email}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-xs leading-snug">
+                      — Open user to view/edit in Auth
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell className="tabular-nums">₹{r.wallet_balance.toFixed(2)}</TableCell>
                 <TableCell>

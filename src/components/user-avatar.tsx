@@ -7,6 +7,38 @@ import { cn } from "@/lib/utils";
 
 const sizePx = { sm: 32, md: 40, lg: 44, xl: 80 } as const;
 
+/** Isolated so `key={src}` remount resets `broken` when the image URL changes. */
+function UserAvatarFace({
+  src,
+  px,
+  initials,
+}: {
+  src: string;
+  px: number;
+  initials: string;
+}) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <>
+      {!broken ? (
+        <Image
+          src={src}
+          alt=""
+          width={px}
+          height={px}
+          className="size-full object-cover"
+          unoptimized
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <span className="tabular-nums" aria-hidden>
+          {initials}
+        </span>
+      )}
+    </>
+  );
+}
+
 export function UserAvatar({
   avatarUrl,
   username,
@@ -23,7 +55,6 @@ export function UserAvatar({
 }) {
   const label = username?.trim() || userIdFallback?.slice(0, 8) || null;
   const src = userProfileAvatarUrl(avatarUrl, label ?? username);
-  const [broken, setBroken] = useState(false);
   const px = sizePx[size];
   const initials = initialsFromUsername(label);
 
@@ -35,21 +66,7 @@ export function UserAvatar({
       )}
       style={{ width: px, height: px }}
     >
-      {!broken ? (
-        <Image
-          src={src}
-          alt=""
-          width={px}
-          height={px}
-          className="size-full object-cover"
-          unoptimized
-          onError={() => setBroken(true)}
-        />
-      ) : (
-        <span className="tabular-nums" aria-hidden>
-          {initials}
-        </span>
-      )}
+      <UserAvatarFace key={src} src={src} px={px} initials={initials} />
     </div>
   );
 }
