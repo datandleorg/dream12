@@ -32,6 +32,7 @@ export async function readServerLogArchivePage(
   startByte: number,
   limit: number,
   kindFilter?: string | null,
+  dateUtc?: string | null,
 ): Promise<{ rows: Record<string, unknown>[]; nextByte: number; fileSize: number; hasMore: boolean }> {
   assertAllowedServerLogKey(key);
   const t = trySpacesS3Client();
@@ -57,7 +58,7 @@ export async function readServerLogArchivePage(
     if (st.size > MAX_UNCOMPRESSED_BYTES) {
       throw new Error("Decompressed archive exceeds size limit");
     }
-    const page = await readNdjsonPageFromPath(tmp, startByte, limit, kindFilter);
+    const page = await readNdjsonPageFromPath(tmp, startByte, limit, kindFilter, dateUtc);
     return page;
   } finally {
     await safeUnlink(tmp);

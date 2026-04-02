@@ -72,7 +72,9 @@ export function AdminServerLogsClient() {
   const [archiveToken, setArchiveToken] = useState<string | undefined>(undefined);
   const [selectedKey, setSelectedKey] = useState<string>("");
   const [walletTotal, setWalletTotal] = useState<number | null>(null);
+  const [filterDate, setFilterDate] = useState<string>("");
   const prevSource = useRef<Source | null>(null);
+  const prevFilterDate = useRef<string>("");
 
   const loadLocal = useCallback(async (nextCursor: string, append: boolean) => {
     setLoading(true);
@@ -83,6 +85,7 @@ export function AdminServerLogsClient() {
         cursor: nextCursor,
       });
       if (kind) sp.set("kind", kind);
+      if (filterDate) sp.set("date", filterDate);
       const res = await fetch(`/api/admin/server-logs/local?${sp}`, { credentials: "include" });
       const data = (await res.json()) as {
         rows?: FileRow[];
@@ -101,7 +104,7 @@ export function AdminServerLogsClient() {
     } finally {
       setLoading(false);
     }
-  }, [kind]);
+  }, [kind, filterDate]);
 
   const loadArchivePage = useCallback(
     async (key: string, nextCursor: string, append: boolean) => {
@@ -115,6 +118,7 @@ export function AdminServerLogsClient() {
           cursor: nextCursor,
         });
         if (kind) sp.set("kind", kind);
+        if (filterDate) sp.set("date", filterDate);
         const res = await fetch(`/api/admin/server-logs/archive-body?${sp}`, {
           credentials: "include",
         });
@@ -136,7 +140,7 @@ export function AdminServerLogsClient() {
         setLoading(false);
       }
     },
-    [kind],
+    [kind, filterDate],
   );
 
   const loadWallet = useCallback(async (nextCursor: string, append: boolean) => {
@@ -144,6 +148,7 @@ export function AdminServerLogsClient() {
     setError(null);
     try {
       const sp = new URLSearchParams({ limit: "50", cursor: nextCursor });
+      if (filterDate) sp.set("date", filterDate);
       const res = await fetch(`/api/admin/server-logs/wallet?${sp}`, { credentials: "include" });
       const data = (await res.json()) as {
         rows?: WalletRow[];
@@ -162,7 +167,7 @@ export function AdminServerLogsClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterDate]);
 
   const loadArchivesList = useCallback(async (token?: string, append?: boolean) => {
     setLoading(true);
@@ -170,6 +175,7 @@ export function AdminServerLogsClient() {
     try {
       const sp = new URLSearchParams({ maxKeys: "100" });
       if (token) sp.set("continuationToken", token);
+      if (filterDate) sp.set("date", filterDate);
       const res = await fetch(`/api/admin/server-logs/archives?${sp}`, { credentials: "include" });
       const data = (await res.json()) as {
         keys?: ArchiveKey[];
@@ -184,7 +190,7 @@ export function AdminServerLogsClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterDate]);
 
   useEffect(() => {
     setExpanded(null);
@@ -194,13 +200,14 @@ export function AdminServerLogsClient() {
       setRows([]);
       setWalletRows([]);
       const enteredArchive = prevSource.current !== "archive";
-      if (enteredArchive) {
+      const dateChanged = prevFilterDate.current !== filterDate;
+      prevFilterDate.current = filterDate;
+      prevSource.current = "archive";
+      if (enteredArchive || dateChanged) {
         setSelectedKey("");
-        prevSource.current = "archive";
         void loadArchivesList(undefined, false);
         return;
       }
-      prevSource.current = "archive";
       if (!selectedKey) {
         void loadArchivesList(undefined, false);
         return;
@@ -229,6 +236,7 @@ export function AdminServerLogsClient() {
     loadArchivePage,
     loadArchivesList,
     loadWallet,
+    filterDate,
   ]);
 
   const requestIdOf = (row: FileRow) =>
@@ -262,6 +270,32 @@ export function AdminServerLogsClient() {
         >
           Wallet (DB)
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-muted-foreground text-sm" htmlFor="log-date-utc">
+          Day (UTC)
+        </label>
+        <input
+          id="log-date-utc"
+          type="date"
+          className="border-input bg-background rounded-md border px-2 py-1 text-sm"
+          value={filterDate}
+          onChange={(e) => setFilterDate(e.target.value)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!filterDate}
+          onClick={() => setFilterDate("")}
+        >
+          Clear date
+        </Button>
+        <span className="text-muted-foreground max-w-md text-xs">
+          Optional. File and archive rows match pino <code className="text-xs">time</code> (UTC day). Wallet
+          uses <code className="text-xs">changed_at</code> UTC.
+        </span>
       </div>
 
       {source !== "wallet" ? (

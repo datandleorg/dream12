@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(200, Math.max(1, Number(sp.get("limit")) || 50));
   const cursor = Math.max(0, Math.floor(Number(sp.get("cursor")) || 0));
   const kind = sp.get("kind")?.trim() || null;
+  const date = sp.get("date")?.trim() || null;
 
   const path = getServerLogFilePath();
   try {
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const page = await readNdjsonPageFromPath(path, cursor, limit, kind);
+  const page = await readNdjsonPageFromPath(path, cursor, limit, kind, date);
   return NextResponse.json({
     rows: page.rows,
     nextCursor: String(page.nextByte),

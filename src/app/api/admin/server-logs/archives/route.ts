@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
   const continuationToken = sp.get("continuationToken") ?? undefined;
   const maxKeys = Math.min(500, Math.max(1, Number(sp.get("maxKeys")) || 100));
+  const date = sp.get("date")?.trim() || null;
 
-  const out = await listServerLogArchives({ continuationToken, maxKeys });
+  const out = await listServerLogArchives({ continuationToken, maxKeys, date });
   return NextResponse.json(out);
 }

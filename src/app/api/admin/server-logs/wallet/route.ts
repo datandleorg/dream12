@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminSession } from "@/lib/admin-server";
+import { utcDayBoundsFromYmd } from "@/lib/server-log-read";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,21 @@ export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
   const limit = Math.min(100, Math.max(1, Number(sp.get("limit")) || 50));
   const offset = Math.max(0, Math.floor(Number(sp.get("cursor")) || 0));
+  const date = sp.get("date")?.trim() || null;
+  const dayBounds = utcDayBoundsFromYmd(date);
 
-  const { data, error, count } = await gate.supabase
+  let q = gate.supabase
     .from("wallet_balance_audit")
     .select("id,user_id,previous_balance,new_balance,changed_at", { count: "exact" })
-    .order("changed_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order("changed_at", { ascending: false });
+
+  if (dayBounds) {
+    q = q
+      .gte("changed_at", new Date(dayBounds.startMs).toISOString())
+      .lt("changed_at", new Date(dayBounds.endMs).toISOString());
+  }
+
+  const { data, error, count } = await q.range(offset, offset + limit - 1);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -7,6 +7,33 @@ import { randomUUID } from "crypto";
 const DEFAULT_CHUNK = 256 * 1024;
 const MAX_SCAN_PER_REQUEST = 4 * 1024 * 1024;
 
+const YMD_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** UTC midnight bounds for a calendar day `YYYY-MM-DD`; null if invalid or empty. */
+export function utcDayBoundsFromYmd(dateUtc: string | null | undefined): { startMs: number; endMs: number } | null {
+  if (!dateUtc?.trim()) return null;
+  const m = YMD_RE.exec(dateUtc.trim());
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const day = Number(m[3]);
+  if (mo < 1 || mo > 12 || day < 1 || day > 31) return null;
+  const startMs = Date.UTC(y, mo - 1, day);
+  const endMs = Date.UTC(y, mo - 1, day + 1);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  return { startMs, endMs };
+}
+
+function rowMatchesPinoUtcDay(
+  obj: Record<string, unknown>,
+  dayBounds: { startMs: number; endMs: number } | null,
+): boolean {
+  if (!dayBounds) return true;
+  const t = obj.time;
+  if (typeof t !== "number" || !Number.isFinite(t)) return false;
+  return t >= dayBounds.startMs && t < dayBounds.endMs;
+}
+
 async function readChunk(filePath: string, start: number, length: number): Promise<Buffer> {
   const stream = createReadStream(filePath, { start, end: start + length - 1 });
   const chunks: Buffer[] = [];
@@ -39,8 +66,10 @@ export async function readNdjsonPageFromPath(
   startByte: number,
   limit: number,
   kindFilter?: string | null,
+  dateUtc?: string | null,
 ): Promise<{ rows: Record<string, unknown>[]; nextByte: number; fileSize: number; hasMore: boolean }> {
   const cap = Math.min(200, Math.max(1, limit));
+  const dayBounds = utcDayBoundsFromYmd(dateUtc ?? null);
   const st = await stat(filePath);
   const fileSize = st.size;
   if (fileSize === 0) {
@@ -88,6 +117,9 @@ export async function readNdjsonPageFromPath(
       try {
         const obj = JSON.parse(line) as Record<string, unknown>;
         if (kindFilter && obj.kind !== kindFilter) {
+          continue;
+        }
+        if (!rowMatchesPinoUtcDay(obj, dayBounds)) {
           continue;
         }
         rows.push(obj);

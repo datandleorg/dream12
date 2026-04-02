@@ -125,13 +125,21 @@ export function serverLogsSpacesPrefix(): string {
 export async function listServerLogArchives(input: {
   continuationToken?: string;
   maxKeys?: number;
+  /** If `YYYY-MM-DD`, list only objects under `…/{instance}/{date}/` (matches nightly upload layout). */
+  date?: string | null;
 }): Promise<{
   keys: { key: string; lastModified?: string; size?: number }[];
   nextContinuationToken?: string;
 }> {
   const t = trySpacesS3Client();
   if (!t) return { keys: [] };
-  const prefix = `${serverLogsSpacesPrefix()}/`;
+  const base = `${serverLogsSpacesPrefix()}/`;
+  const d = input.date?.trim();
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d ?? "");
+  const prefix =
+    ymd && Number(ymd[2]) >= 1 && Number(ymd[2]) <= 12 && Number(ymd[3]) >= 1 && Number(ymd[3]) <= 31
+      ? `${base}${d}/`
+      : base;
   const out = await t.client.send(
     new ListObjectsV2Command({
       Bucket: t.bucket,
