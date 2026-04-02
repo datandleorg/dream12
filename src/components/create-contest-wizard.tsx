@@ -123,7 +123,7 @@ export function CreateContestWizard({
         <Input
           id="cc-name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onValueChange={(v) => setName(v)}
           className="min-h-11 border-0 bg-transparent shadow-none focus-visible:ring-0"
           placeholder="Contest name"
         />
@@ -139,7 +139,7 @@ export function CreateContestWizard({
             id="cc-entry"
             inputMode="decimal"
             value={entryStr}
-            onChange={(e) => setEntryStr(e.target.value.replace(/[^\d.]/g, ""))}
+            onValueChange={(v) => setEntryStr(v.replace(/[^\d.]/g, ""))}
             className="min-h-12 text-lg font-semibold tabular-nums"
             placeholder="₹"
           />
@@ -165,7 +165,7 @@ export function CreateContestWizard({
             id="cc-spots"
             inputMode="numeric"
             value={spotsStr}
-            onChange={(e) => setSpotsStr(e.target.value.replace(/\D/g, ""))}
+            onValueChange={(v) => setSpotsStr(v.replace(/\D/g, ""))}
             className="min-h-12 text-lg font-semibold tabular-nums"
           />
         </div>

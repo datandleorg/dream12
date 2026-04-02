@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "verify-sync": "node scripts/verify-sync.mjs",
     "sb:query": "node scripts/run-supabase-query.mjs",
     "mock:apply-points": "tsx --tsconfig tsconfig.json scripts/apply-mock-contest-points.ts"
@@ -36,12 +37,16 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@serwist/turbopack": "^9.5.7",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.27.5",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
+    "serwist": "^9.5.7",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "tsx": "^4.19.4",
     "typescript": "^5",

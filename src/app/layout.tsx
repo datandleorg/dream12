@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { Bebas_Neue, Source_Sans_3 } from "next/font/google";
 import { NavigationProgress } from "@/components/navigation-progress";
+import { SerwistProvider } from "@/components/serwist-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -27,18 +28,35 @@ export const viewport: Viewport = {
   themeColor: THEME_COLOR,
 };
 
+const APP_NAME = "Dream12";
+
 export const metadata: Metadata = {
+  applicationName: APP_NAME,
   title: "Dream12 — Fantasy Cricket League",
   description: "Mobile-first fantasy cricket with live leaderboards",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Dream12",
+    title: APP_NAME,
     statusBarStyle: "black-translucent",
   },
   icons: {
-    icon: [{ url: "/brand-logo.png", type: "image/png", sizes: "1024x558" }],
-    apple: [{ url: "/brand-logo.png", sizes: "1024x558" }],
+    icon: [
+      {
+        url: "/icons/icon-192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+      {
+        url: "/icons/icon-512.png",
+        type: "image/png",
+        sizes: "512x512",
+      },
+    ],
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192" },
+      { url: "/icons/icon-512.png", sizes: "512x512" },
+    ],
   },
 };
 
@@ -55,11 +73,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-dvh flex flex-col font-sans">
-        <Suspense fallback={null}>
-          <NavigationProgress />
-        </Suspense>
-        {children}
-        <Toaster richColors position="top-center" />
+        <SerwistProvider>
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
+          {children}
+          <Toaster richColors position="top-center" />
+        </SerwistProvider>
       </body>
     </html>
   );

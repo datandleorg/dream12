@@ -98,7 +98,7 @@ export default function AdminLoginPage() {
                 required
                 className="min-h-11"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onValueChange={(v) => setEmail(v)}
               />
             </div>
             <div className="grid gap-2">
@@ -110,7 +110,7 @@ export default function AdminLoginPage() {
                 required
                 className="min-h-11"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onValueChange={(v) => setPassword(v)}
               />
             </div>
           </CardContent>

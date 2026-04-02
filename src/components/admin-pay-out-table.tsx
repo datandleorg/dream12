@@ -137,10 +137,10 @@ export function AdminPayOutTable({ rows }: { rows: Row[] }) {
                         className="font-mono text-xs min-h-9"
                         placeholder="UTR after you paid"
                         value={payoutUtrById[r.id] ?? ""}
-                        onChange={(e) =>
+                        onValueChange={(v) =>
                           setPayoutUtrById((prev) => ({
                             ...prev,
-                            [r.id]: e.target.value,
+                            [r.id]: v,
                           }))
                         }
                         autoComplete="off"

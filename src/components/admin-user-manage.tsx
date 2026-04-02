@@ -170,7 +170,7 @@ export function AdminUserManage({
           id="edit-user"
           className="min-h-11"
           value={uName}
-          onChange={(e) => setUName(e.target.value)}
+          onValueChange={(v) => setUName(v)}
         />
         <Button type="submit" className="min-h-11 w-fit">
           Save username
@@ -184,7 +184,7 @@ export function AdminUserManage({
           type="email"
           className="min-h-11"
           value={uEmail}
-          onChange={(e) => setUEmail(e.target.value)}
+          onValueChange={(v) => setUEmail(v)}
         />
         <p className="text-muted-foreground text-xs leading-relaxed">
           Updates Supabase Auth (login identifier). Notification and password-reset emails use this address
@@ -208,7 +208,7 @@ export function AdminUserManage({
           autoComplete="new-password"
           className="min-h-11"
           value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
+          onValueChange={(v) => setNewPassword(v)}
         />
         <Label htmlFor="admin-confirm-password">Confirm new password</Label>
         <Input
@@ -217,7 +217,7 @@ export function AdminUserManage({
           autoComplete="new-password"
           className="min-h-11"
           value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
+          onValueChange={(v) => setConfirmPassword(v)}
         />
         <p className="text-muted-foreground text-xs leading-relaxed">{PASSWORD_RULES_HINT}</p>
         <Button type="submit" className="min-h-11 w-fit">
@@ -246,14 +246,14 @@ export function AdminUserManage({
           step="0.01"
           className="min-h-11"
           value={delta}
-          onChange={(e) => setDelta(e.target.value)}
+          onValueChange={(v) => setDelta(v)}
         />
         <Label htmlFor="why">Reason (required)</Label>
         <Input
           id="why"
           className="min-h-11"
           value={reason}
-          onChange={(e) => setReason(e.target.value)}
+          onValueChange={(v) => setReason(v)}
         />
         <Button type="submit" className="min-h-11 w-fit">
           Apply adjustment

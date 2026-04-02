@@ -103,7 +103,7 @@ export function WalletPayInSection({
             min="0"
             className="min-h-11"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onValueChange={(v) => setAmount(v)}
             required
           />
         </div>
@@ -113,7 +113,7 @@ export function WalletPayInSection({
             id="payin-utr"
             className="min-h-11"
             value={utr}
-            onChange={(e) => setUtr(e.target.value)}
+            onValueChange={(v) => setUtr(v)}
             placeholder="From bank or UPI receipt"
             required
           />
@@ -125,7 +125,7 @@ export function WalletPayInSection({
             id="payin-note"
             className="min-h-11"
             value={userNote}
-            onChange={(e) => setUserNote(e.target.value)}
+            onValueChange={(v) => setUserNote(v)}
           />
         </div>
         <Button type="submit" className="min-h-11 w-full" disabled={loading}>
