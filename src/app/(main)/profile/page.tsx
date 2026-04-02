@@ -10,6 +10,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ProfileAvatarEditor } from "@/components/profile-avatar-editor";
+import { ProfilePasswordForm } from "@/components/profile-password-form";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -17,6 +18,9 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
+
+  const canChangePassword =
+    user.identities?.some((i) => i.provider === "email") ?? false;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -42,6 +46,7 @@ export default async function ProfilePage() {
           </p>
         </CardHeader>
       </Card>
+      <ProfilePasswordForm canChangePassword={canChangePassword} />
       {profile?.is_admin ? (
         <Link
           href="/admin/pay-in-requests"

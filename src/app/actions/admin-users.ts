@@ -10,6 +10,7 @@ import {
   isAvatarUrlAllowedForUser,
   presignAvatarPut,
 } from "@/lib/storage/do-spaces";
+import { validateNewPasswordStrength } from "@/lib/password-policy";
 
 /** GoTrue: ban_duration uses h/m/s suffixes; ~100y for admin deactivate. Unban with `none` (auth-js types). */
 const DEACTIVATE_BAN_DURATION = "876000h";
@@ -26,6 +27,8 @@ export async function adminCreateUser(input: {
   if (!email || !input.password || !username) {
     return { ok: false as const, message: "Email, password, and username required" };
   }
+  const strengthErr = validateNewPasswordStrength(input.password);
+  if (strengthErr) return { ok: false as const, message: strengthErr };
   const { data, error } = await r.service.auth.admin.createUser({
     email,
     password: input.password,
@@ -109,6 +112,27 @@ export async function adminUpdateEmail(userId: string, email: string) {
     entity_type: "auth_user",
     entity_id: userId,
     metadata: { email: em },
+  });
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  return { ok: true as const };
+}
+
+export async function adminUpdateUserPassword(userId: string, newPassword: string) {
+  const r = await requireAdminService();
+  if (!r.ok) return { ok: false as const, message: r.message };
+  const strengthErr = validateNewPasswordStrength(newPassword);
+  if (strengthErr) return { ok: false as const, message: strengthErr };
+  const { error } = await r.service.auth.admin.updateUserById(userId, {
+    password: newPassword,
+  });
+  if (error) return { ok: false as const, message: error.message };
+  await r.service.from("admin_audit_log").insert({
+    actor_id: r.userId,
+    action: "user.password_updated",
+    entity_type: "auth_user",
+    entity_id: userId,
+    metadata: {},
   });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);

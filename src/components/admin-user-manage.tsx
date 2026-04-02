@@ -8,6 +8,7 @@ import {
   adminDeleteUser,
   adminSetIsAdmin,
   adminUpdateEmail,
+  adminUpdateUserPassword,
   adminUpdateUsername,
 } from "@/app/actions/admin-users";
 import { AdminUserActiveToggle } from "@/components/admin-user-active-toggle";
@@ -19,6 +20,7 @@ import { toast } from "sonner";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { PASSWORD_RULES_HINT } from "@/lib/password-policy";
 
 export function AdminUserManage({
   userId,
@@ -45,6 +47,8 @@ export function AdminUserManage({
   const [uName, setUName] = useState(username);
   const [delta, setDelta] = useState("");
   const [reason, setReason] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   async function saveUsername(e: React.FormEvent) {
     e.preventDefault();
@@ -66,6 +70,24 @@ export function AdminUserManage({
     if (!r.ok) toast.error(r.message);
     else {
       toast.success("Email updated");
+      router.refresh();
+    }
+  }
+
+  async function savePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    const r = await adminUpdateUserPassword(userId, newPassword);
+    setLoading(false);
+    if (!r.ok) toast.error(r.message);
+    else {
+      toast.success("Password updated");
+      setNewPassword("");
+      setConfirmPassword("");
       router.refresh();
     }
   }
@@ -170,6 +192,36 @@ export function AdminUserManage({
         </p>
         <Button type="submit" className="min-h-11 w-fit">
           Save email
+        </Button>
+      </form>
+
+      <form onSubmit={(e) => void savePassword(e)} className="grid max-w-md gap-3">
+        <p className="font-medium">Set password</p>
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          Sets the user&apos;s login password immediately. They should sign in with the new password on
+          their next session; existing sessions may stay valid until they expire.
+        </p>
+        <Label htmlFor="admin-new-password">New password</Label>
+        <Input
+          id="admin-new-password"
+          type="password"
+          autoComplete="new-password"
+          className="min-h-11"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+        />
+        <Label htmlFor="admin-confirm-password">Confirm new password</Label>
+        <Input
+          id="admin-confirm-password"
+          type="password"
+          autoComplete="new-password"
+          className="min-h-11"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
+        <p className="text-muted-foreground text-xs leading-relaxed">{PASSWORD_RULES_HINT}</p>
+        <Button type="submit" className="min-h-11 w-fit">
+          Set password
         </Button>
       </form>
 

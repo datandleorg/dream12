@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminCreateUser } from "@/app/actions/admin-users";
+import { PASSWORD_RULES_HINT } from "@/lib/password-policy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,12 +96,13 @@ export function AdminCreateUserForm({
               id="nu-pass"
               type="password"
               required
-              minLength={6}
+              minLength={8}
               className="min-h-11"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={authAdminBlocked}
             />
+            <p className="text-muted-foreground text-xs leading-relaxed">{PASSWORD_RULES_HINT}</p>
           </div>
           <Button type="submit" disabled={loading || authAdminBlocked} className="min-h-11 w-fit">
             Create user
