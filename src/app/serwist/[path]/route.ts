@@ -10,5 +10,7 @@ export const { dynamic, dynamicParams, revalidate, generateStaticParams, GET } =
   createSerwistRoute({
     swSrc: "src/app/sw.ts",
     additionalPrecacheEntries: [{ url: "/~offline", revision }],
+    /** Splash PNGs are large and only used by iOS as startup images — fetch at runtime, don’t precache. */
+    globIgnores: ["public/splash/**"],
     useNativeEsbuild: true,
   });

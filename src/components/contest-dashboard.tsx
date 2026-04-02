@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { RefreshCw, UserPlus } from "lucide-react";
 import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
-import { PullToRefresh } from "@/components/pull-to-refresh";
 import { ContestTeamPreviewSheet } from "@/components/contest-team-preview-sheet";
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -92,6 +92,7 @@ export function ContestDashboard({
   squadHref: string;
   pointsUpdatedAt: string | null;
 }) {
+  const router = useRouter();
   const [preview, setPreview] = useState<{
     teamId: string;
     username: string | null;
@@ -99,7 +100,17 @@ export function ContestDashboard({
   } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pageRefreshNonce, setPageRefreshNonce] = useState(0);
+  const [pageRefreshing, setPageRefreshing] = useState(false);
   const [whatsappShareHref, setWhatsappShareHref] = useState<string | null>(null);
+
+  const refreshPage = useCallback(() => {
+    setPageRefreshing(true);
+    router.refresh();
+    window.setTimeout(() => {
+      setPageRefreshNonce((n) => n + 1);
+      setPageRefreshing(false);
+    }, 750);
+  }, [router]);
 
   const live = useMatchLiveRow({
     matchId: matchCard.id,
@@ -168,10 +179,27 @@ export function ContestDashboard({
   return (
     <>
         <div className="space-y-4 py-2">
-          <div className="flex items-start justify-between gap-2">
-            <h1 className="text-lg font-semibold leading-tight sm:text-xl">
-              {contestTitle}
-            </h1>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h1 className="text-lg font-semibold leading-tight sm:text-xl">
+                {contestTitle}
+              </h1>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => void refreshPage()}
+                disabled={pageRefreshing}
+                title="Refresh contest"
+                aria-label="Refresh contest"
+              >
+                <RefreshCw
+                  className={cn("size-5", pageRefreshing && "animate-spin")}
+                  aria-hidden
+                />
+              </Button>
+            </div>
             <div className="flex max-w-[min(100%,14rem)] shrink-0 flex-col items-end gap-1.5 sm:max-w-none">
               <div className="flex flex-wrap items-center justify-end gap-2">
                 {invitePublic && whatsappShareHref ? (

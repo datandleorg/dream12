@@ -4,6 +4,7 @@ import { Bebas_Neue, Source_Sans_3 } from "next/font/google";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { SerwistProvider } from "@/components/serwist-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { appleWebAppStartupImages } from "@/lib/generated/pwa-apple-startup";
 import "./globals.css";
 
 const display = Bebas_Neue({
@@ -39,6 +40,7 @@ export const metadata: Metadata = {
     capable: true,
     title: APP_NAME,
     statusBarStyle: "black-translucent",
+    startupImage: [...appleWebAppStartupImages],
   },
   icons: {
     icon: [
