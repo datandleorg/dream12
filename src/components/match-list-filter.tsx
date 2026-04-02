@@ -46,8 +46,8 @@ export function MatchListSection({
               className={cn(
                 "tap-app flex min-h-10 min-w-0 flex-1 items-center justify-center rounded-lg px-2 py-2 text-center text-xs font-semibold leading-none transition-colors sm:text-sm",
                 isOn
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-background text-foreground shadow-sm active:bg-background/85"
+                  : "text-muted-foreground hover:text-foreground active:bg-muted/55 dark:active:bg-muted/40",
               )}
             >
               {label}

@@ -23,8 +23,9 @@ const walletSegmentList = cn(
 );
 
 const walletSegmentTrigger = cn(
-  "relative flex h-full min-h-[2.5rem] w-full items-center justify-center rounded-lg px-2 py-2 text-sm font-semibold",
-  "transition-[color,background-color,box-shadow]",
+  "relative flex h-full min-h-[2.5rem] w-full touch-manipulation items-center justify-center rounded-lg px-2 py-2 text-sm font-semibold",
+  "transition-[color,background-color,box-shadow,transform,opacity] duration-100",
+  "active:scale-[0.98] motion-reduce:active:scale-100 not-data-active:active:bg-muted/50 dark:not-data-active:active:bg-muted/35 data-active:active:bg-primary/90",
   "!shadow-none",
   // Inactive: readable on track (not washed out)
   "text-foreground/70 hover:text-foreground hover:bg-muted/40 dark:text-foreground/75 dark:hover:bg-muted/30",

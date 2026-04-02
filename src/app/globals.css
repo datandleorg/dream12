@@ -175,12 +175,17 @@
 
 /* Subtle press feedback for tappable rows (use with links/buttons) */
 @utility tap-app {
-  @apply transition-transform duration-100 active:scale-[0.98];
+  @apply touch-manipulation transition-transform duration-100 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tap-app {
     transform: none !important;
+    transition: none !important;
+  }
+
+  .tap-app:active {
+    opacity: 0.92;
   }
 }
 
