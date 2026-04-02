@@ -11,6 +11,7 @@ import {
   adminUpdateUsername,
 } from "@/app/actions/admin-users";
 import { AdminUserActiveToggle } from "@/components/admin-user-active-toggle";
+import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,7 @@ export function AdminUserManage({
   currentAdminId,
   email,
   username,
+  avatarUrl,
   walletBalance,
   isAdmin,
   isActive,
@@ -32,6 +34,7 @@ export function AdminUserManage({
   currentAdminId: string;
   email: string;
   username: string;
+  avatarUrl?: string | null;
   walletBalance: number;
   isAdmin: boolean;
   isActive: boolean;
@@ -125,10 +128,27 @@ export function AdminUserManage({
         ) : null}
       </div>
 
-      <div className="grid gap-2">
-        <p className="text-muted-foreground text-sm">User id</p>
-        <code className="text-xs">{userId}</code>
-        <p className="text-lg font-semibold tabular-nums">Wallet: ₹{walletBalance.toFixed(2)}</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+        <UserAvatar
+          avatarUrl={avatarUrl}
+          username={username || undefined}
+          userIdFallback={userId}
+          size="xl"
+          className="text-base"
+        />
+        <div className="grid min-w-0 flex-1 gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <h1 className="text-xl font-semibold tracking-tight">
+              {username?.trim() || "User"}
+            </h1>
+            {email ? (
+              <span className="text-muted-foreground max-w-full truncate text-sm">{email}</span>
+            ) : null}
+          </div>
+          <p className="text-muted-foreground text-sm">User id</p>
+          <code className="text-xs break-all">{userId}</code>
+          <p className="text-lg font-semibold tabular-nums">Wallet: ₹{walletBalance.toFixed(2)}</p>
+        </div>
       </div>
 
       <form onSubmit={saveUsername} className="grid max-w-md gap-3">

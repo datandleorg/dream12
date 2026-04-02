@@ -12,11 +12,17 @@ export default async function AdminPayOutRequestsPage() {
   const userIds = [...new Set((rows ?? []).map((r) => r.user_id as string))];
   const { data: names } = await supabase
     .from("profile_usernames")
-    .select("id,username")
+    .select("id,username,avatar_url")
     .in("id", userIds);
 
-  const nameById = new Map(
-    (names ?? []).map((n) => [n.id as string, n.username as string]),
+  const profileById = new Map(
+    (names ?? []).map((n) => [
+      n.id as string,
+      {
+        username: n.username as string,
+        avatar_url: (n.avatar_url as string | null) ?? null,
+      },
+    ]),
   );
 
   return (
@@ -30,7 +36,8 @@ export default async function AdminPayOutRequestsPage() {
           rows?.map((r) => ({
             id: r.id as string,
             user_id: r.user_id as string,
-            username: nameById.get(r.user_id as string) ?? null,
+            username: profileById.get(r.user_id as string)?.username ?? null,
+            avatar_url: profileById.get(r.user_id as string)?.avatar_url ?? null,
             amount_inr: Number(r.amount_inr),
             payee_upi: r.payee_upi as string,
             status: r.status as string,

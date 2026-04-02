@@ -176,6 +176,86 @@ Rules:
 
 **All production services load the same `.env`** via `env_file: .env` in [`docker-compose.production.yml`](../docker-compose.production.yml).
 
+### Profile photos (DigitalOcean Spaces)
+
+User profile pictures upload via **presigned `PUT`** to **Spaces**; the app stores the resulting **HTTPS public URL** in Supabase (`profiles.avatar_url`). Without these variables, uploads are disabled but the rest of the app still runs (fallback avatars use generated placeholders).
+
+1. **Create a Space** in the same region you prefer (e.g. **BLR1**).
+2. **Public read so images load:** By default, new objects are **private**—the presigned **PUT** can succeed while **GET** (browser / `next/image`) returns **403**, so the UI falls back to initials. The app sets the **`public-read`** ACL on each avatar upload when the Space allows ACLs. **Already-uploaded** files stay private until you fix permissions or re-upload. Quick check: open the stored image URL in a **private/incognito** window—if you see **AccessDenied**, use a bucket policy (next item) or per-object public read.
+
+3. **Public read bucket policy — `avatars/` only (recommended):** Dream12 stores profile images under the **`avatars/`** prefix. To allow anonymous **`GetObject`** **only** for that folder (everything else in the Space stays non-public by default), use a policy whose `Resource` ends with **`/avatars/*`**.
+
+   Copy [`docs/examples/spaces-avatars-public-read-policy.json`](examples/spaces-avatars-public-read-policy.json), replace **`YOUR_SPACE_NAME`** with your bucket name (e.g. `optimus`), save as e.g. `avatars-public-policy.json`, then apply with **s3cmd** (configure it for Spaces per DigitalOcean’s [bucket policies + s3cmd](https://docs.digitalocean.com/products/spaces/how-to/configure-bucket-policies/#configure-bucket-policies-using-s3cmd)):
+
+   ```bash
+   s3cmd setpolicy avatars-public-policy.json s3://your-space-name
+   ```
+
+   Equivalent JSON:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": "*",
+         "Action": "s3:GetObject",
+         "Resource": "arn:aws:s3:::your-space-name/avatars/*"
+       }
+     ]
+   }
+   ```
+
+   Background: DigitalOcean’s [public read policy example](https://docs.digitalocean.com/products/spaces/how-to/configure-bucket-policies/#set-a-public-read-policy) uses `/*` on the whole Space; narrowing to **`avatars/*`** matches how this app uploads (`avatars/{userId}/…`) and avoids exposing other keys.
+
+   **If you truly need every object in the Space publicly readable**, use `Resource` `arn:aws:s3:::your-space-name/*` instead (same DO doc).
+
+   Note: **Spaces Cold Storage** buckets do not support bucket policies (see [Spaces limits](https://docs.digitalocean.com/products/spaces/details/limits/)); use a standard Space for public avatars.
+
+4. **CORS (required):** the browser **`PUT`**s directly to Spaces using the presigned URL. If CORS is missing or the **origin does not match exactly** (scheme + host + port), the upload fails in DevTools with a CORS error.
+
+   In the [DigitalOcean control panel](https://cloud.digitalocean.com/spaces): open your **Space** → **Settings** → **CORS Configurations** → add a rule (or use the Spaces API). Include **every origin** you use:
+
+   | Environment | Example `AllowedOrigins` entry |
+   |-------------|-------------------------------|
+   | Local Next.js | `http://localhost:3000` |
+   | Local (alternate) | `http://127.0.0.1:3000` |
+   | Docker mapped to 3000 | Same as above (browser origin, not `host.docker.internal`) |
+   | Production | `https://your-domain.com` (no trailing slash) |
+   | ngrok / tunnel | Exact tunnel URL origin, e.g. `https://abc123.ngrok-free.dev` |
+
+   Example JSON (adjust origins; duplicate rules or list multiple origins in one rule as allowed by DO):
+
+   ```json
+   [
+     {
+       "AllowedOrigins": [
+         "http://localhost:3000",
+         "http://127.0.0.1:3000",
+         "https://dream12.botnetworks.in"
+       ],
+       "AllowedMethods": ["GET", "PUT", "HEAD"],
+       "AllowedHeaders": ["*"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3000
+     }
+   ]
+   ```
+
+   After saving, wait a minute and hard-refresh the app. If it still fails, confirm the failing request’s **`Origin`** header in DevTools → Network matches one of the listed origins exactly.
+
+5. **Environment variables** (add to `.env` next to Compose):
+
+| Variable | Purpose |
+|----------|---------|
+| **`DO_SPACES_KEY`** | Spaces access key (S3 access key id). |
+| **`DO_SPACES_SECRET`** | Spaces secret. |
+| **`DO_SPACES_ENDPOINT`** | S3 API endpoint, e.g. `https://blr1.digitaloceanspaces.com` (no bucket in the path). |
+| **`DO_SPACES_BUCKET`** | Bucket name. |
+
+Optional **`DO_SPACES_PUBLIC_ORIGIN`**: if you front the bucket with a **CDN or custom domain**, set this to that HTTPS origin (no trailing slash). Otherwise the app builds the public URL as `https://{bucket}.{endpoint-host}/{key}` (DigitalOcean virtual-hosted style). Stored `avatar_url` values must match that origin (or the override); arbitrary URLs are rejected on save.
+
 ### Supabase dashboard
 
 Under **Authentication → URL configuration**, add **both** site URLs you use, for example:

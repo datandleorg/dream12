@@ -9,6 +9,9 @@ services:
       - "3000:3000"
     env_file:
       - .env
+      # Next.js dev often uses `.env.local`; Compose only loaded `.env` before, so DO_* here were invisible in the container.
+      - path: .env.local
+        required: false
     environment:
       HOSTNAME: "0.0.0.0"
       PORT: "3000"

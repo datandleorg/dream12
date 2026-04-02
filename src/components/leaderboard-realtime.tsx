@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { prizeAmountForRank } from "@/lib/contest-prize";
+import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 
 export type Row = {
@@ -10,6 +11,7 @@ export type Row = {
   user_id: string;
   total_points: number;
   username: string | null;
+  avatar_url: string | null;
 };
 
 /** Fixed locale + TZ so SSR and browser match (avoids hydration mismatch). */
@@ -25,16 +27,6 @@ const POINTS_UPDATED_AT_FORMAT = new Intl.DateTimeFormat("en-GB", {
 
 function formatPointsUpdatedAtLabel(iso: string): string {
   return POINTS_UPDATED_AT_FORMAT.format(new Date(iso));
-}
-
-function initialsFromUsername(u: string | null): string {
-  if (!u?.trim()) return "?";
-  const t = u.trim();
-  const parts = t.split(/[\s_]+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return (parts[0]![0] + parts[1]![0]).toUpperCase();
-  }
-  return t.slice(0, 2).toUpperCase();
 }
 
 export function LeaderboardRealtime({
@@ -115,6 +107,10 @@ export function LeaderboardRealtime({
               old?.username ??
               prev.find((r) => r.id === next.id)?.username ??
               null;
+            const avatar_url =
+              old?.avatar_url ??
+              prev.find((r) => r.id === next.id)?.avatar_url ??
+              null;
             const rest = prev.filter((r) => r.id !== next.id);
             return [
               ...rest,
@@ -123,6 +119,7 @@ export function LeaderboardRealtime({
                 user_id: next.user_id,
                 total_points: pts,
                 username,
+                avatar_url,
               },
             ];
           });
@@ -172,12 +169,12 @@ export function LeaderboardRealtime({
           );
           const inner = (
             <>
-              <div
-                className="border-border bg-secondary/80 flex size-10 shrink-0 items-center justify-center rounded-full border text-xs font-bold"
-                aria-hidden
-              >
-                {initialsFromUsername(r.username)}
-              </div>
+              <UserAvatar
+                avatarUrl={r.avatar_url}
+                username={r.username}
+                userIdFallback={r.user_id}
+                size="md"
+              />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">
                   {(r.username ?? r.user_id.slice(0, 8)).toUpperCase()}

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { LoadingOverlay } from "@/components/loading-overlay";
+import { UserAvatar } from "@/components/user-avatar";
 import { formatStatusLabel } from "@/lib/format-status-ui";
 import {
   isPlausibleUpiTransactionRef,
@@ -27,6 +28,7 @@ type Row = {
   id: string;
   user_id: string;
   username: string | null;
+  avatar_url: string | null;
   amount_inr: number;
   utr_ref: string;
   status: string;
@@ -74,8 +76,18 @@ export function AdminPayInTable({ rows }: { rows: Row[] }) {
             const utrOk = isPlausibleUpiTransactionRef(r.utr_ref);
             return (
             <TableRow key={r.id}>
-              <TableCell className="max-w-[120px] truncate">
-                {r.username ?? r.user_id.slice(0, 8)}
+              <TableCell className="max-w-[160px]">
+                <div className="flex min-w-0 items-center gap-2">
+                  <UserAvatar
+                    avatarUrl={r.avatar_url}
+                    username={r.username}
+                    userIdFallback={r.user_id}
+                    size="sm"
+                  />
+                  <span className="truncate">
+                    {r.username ?? r.user_id.slice(0, 8)}
+                  </span>
+                </div>
               </TableCell>
               <TableCell className="font-mono text-xs">
                 {r.utr_ref}

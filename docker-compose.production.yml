@@ -16,6 +16,8 @@ services:
       - "3000"
     env_file:
       - .env
+      - path: .env.local
+        required: false
     # HOSTNAME/PORT override .env so the app always binds correctly inside the container.
     environment:
       HOSTNAME: "0.0.0.0"

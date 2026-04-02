@@ -13,6 +13,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { ContestTeamPointsBreakdown } from "@/components/contest-team-points-breakdown";
+import { UserAvatar } from "@/components/user-avatar";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { SQUAD_SIZE } from "@/lib/fantasy/rules";
 
@@ -22,12 +23,14 @@ export function ContestTeamPreviewSheet({
   open,
   onOpenChange,
   username,
+  avatarUrl = null,
 }: {
   contestId: string;
   userTeamId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   username: string | null;
+  avatarUrl?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [data, setData] = useState<Extract<ContestTeamBreakdownResult, { ok: true }> | null>(
@@ -58,8 +61,11 @@ export function ContestTeamPreviewSheet({
       >
         <SheetHeader className="border-border/80 shrink-0 border-b px-4 py-3 text-left">
           <SheetTitle>Team preview</SheetTitle>
-          <SheetDescription>
-            {username?.trim() || "Contestant"} · fantasy points on the pitch
+          <SheetDescription className="flex items-center gap-2 pt-1">
+            <UserAvatar avatarUrl={avatarUrl} username={username} size="sm" />
+            <span>
+              {username?.trim() || "Contestant"} · fantasy points on the pitch
+            </span>
           </SheetDescription>
         </SheetHeader>
 

@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { UserAvatar } from "@/components/user-avatar";
 import type { SeasonLeaderboardRow } from "@/lib/season-leaderboard-rows";
 
 type SortKey =
@@ -216,8 +217,16 @@ export function SeasonLeaderboardClient({
                 <TableCell className="text-muted-foreground font-medium">
                   {i + 1}
                 </TableCell>
-                <TableCell className="max-w-[7rem] truncate font-medium">
-                  {r.username || "—"}
+                <TableCell className="max-w-[10rem] font-medium">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <UserAvatar
+                      avatarUrl={r.avatar_url}
+                      username={r.username}
+                      userIdFallback={r.user_id}
+                      size="sm"
+                    />
+                    <span className="truncate">{r.username || "—"}</span>
+                  </div>
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {r.contests_played}/{r.contests_in_window}

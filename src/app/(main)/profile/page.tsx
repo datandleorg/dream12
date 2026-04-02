@@ -9,6 +9,7 @@ import {
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/sign-out-button";
+import { ProfileAvatarEditor } from "@/components/profile-avatar-editor";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -19,7 +20,7 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username,is_admin,wallet_balance")
+    .select("username,is_admin,wallet_balance,avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -28,6 +29,12 @@ export default async function ProfilePage() {
       <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
       <Card>
         <CardHeader>
+          <div className="pb-4">
+            <ProfileAvatarEditor
+              username={profile?.username ?? "Player"}
+              avatarUrl={(profile?.avatar_url as string | null) ?? null}
+            />
+          </div>
           <CardTitle>{profile?.username ?? "Player"}</CardTitle>
           <CardDescription>{user.email}</CardDescription>
           <p className="text-muted-foreground pt-2 text-sm">

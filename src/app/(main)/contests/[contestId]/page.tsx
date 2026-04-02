@@ -77,19 +77,30 @@ export default async function ContestLeaderboardPage({
   const userIds = [...new Set((teams ?? []).map((t) => t.user_id))];
   const { data: profiles } = await supabase
     .from("profile_usernames")
-    .select("id,username")
+    .select("id,username,avatar_url")
     .in("id", userIds);
 
-  const nameByUser = new Map(
-    (profiles ?? []).map((p) => [p.id, p.username as string]),
+  const profileByUser = new Map(
+    (profiles ?? []).map((p) => [
+      p.id as string,
+      {
+        username: p.username as string,
+        avatar_url: (p.avatar_url as string | null) ?? null,
+      },
+    ]),
   );
 
-  const initialRows: Row[] = (teams ?? []).map((t) => ({
-    id: t.id as string,
-    user_id: t.user_id as string,
-    total_points: Number(t.total_points),
-    username: nameByUser.get(t.user_id as string) ?? null,
-  }));
+  const initialRows: Row[] = (teams ?? []).map((t) => {
+    const uid = t.user_id as string;
+    const pr = profileByUser.get(uid);
+    return {
+      id: t.id as string,
+      user_id: uid,
+      total_points: Number(t.total_points),
+      username: pr?.username ?? null,
+      avatar_url: pr?.avatar_url ?? null,
+    };
+  });
 
   const sortedForRank = [...initialRows].sort((a, b) => b.total_points - a.total_points);
   const myIndex =
@@ -126,19 +137,28 @@ export default async function ContestLeaderboardPage({
     const payoutUserIds = [...new Set((payouts ?? []).map((p) => p.user_id))];
     const { data: payoutProfiles } = await supabase
       .from("profile_usernames")
-      .select("id,username")
+      .select("id,username,avatar_url")
       .in("id", payoutUserIds);
 
-    const payoutNames = new Map(
-      (payoutProfiles ?? []).map((p) => [p.id, p.username as string]),
+    const payoutProfileByUser = new Map(
+      (payoutProfiles ?? []).map((p) => [
+        p.id as string,
+        {
+          username: p.username as string,
+          avatar_url: (p.avatar_url as string | null) ?? null,
+        },
+      ]),
     );
 
     for (const p of payouts ?? []) {
       const tid = p.user_team_id as string;
+      const uid = p.user_id as string;
+      const pr = payoutProfileByUser.get(uid);
       payoutByTeamId[tid] = Number(p.amount_inr);
       payoutRows.push({
         rank: p.rank as number,
-        username: payoutNames.get(p.user_id as string) ?? "Player",
+        username: pr?.username ?? "Player",
+        avatar_url: pr?.avatar_url ?? null,
         amount: Number(p.amount_inr),
         userTeamId: tid,
       });

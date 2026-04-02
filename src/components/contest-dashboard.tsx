@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LeaderboardPullRefresh } from "@/components/leaderboard-pull-refresh";
 import type { Row } from "@/components/leaderboard-realtime";
 import { ContestTeamPreviewSheet } from "@/components/contest-team-preview-sheet";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   HomeUpcomingCard,
   type HomeMatchCardModel,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 export type ContestPayoutDisplayRow = {
   rank: number;
   username: string;
+  avatar_url: string | null;
   amount: number;
   userTeamId: string;
 };
@@ -70,7 +72,11 @@ export function ContestDashboard({
   squadHref: string;
   pointsUpdatedAt: string | null;
 }) {
-  const [preview, setPreview] = useState<{ teamId: string; username: string | null } | null>(null);
+  const [preview, setPreview] = useState<{
+    teamId: string;
+    username: string | null;
+    avatar_url: string | null;
+  } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const live = useMatchLiveRow({
@@ -106,7 +112,11 @@ export function ContestDashboard({
     ) {
       return;
     }
-    setPreview({ teamId: row.id, username: row.username });
+    setPreview({
+      teamId: row.id,
+      username: row.username,
+      avatar_url: row.avatar_url,
+    });
     setSheetOpen(true);
   };
 
@@ -195,8 +205,15 @@ export function ContestDashboard({
                     key={p.userTeamId}
                     className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm"
                   >
-                    <span className="min-w-0 truncate font-medium">
-                      #{p.rank} · {p.username}
+                    <span className="flex min-w-0 items-center gap-2 font-medium">
+                      <UserAvatar
+                        avatarUrl={p.avatar_url}
+                        username={p.username}
+                        size="sm"
+                      />
+                      <span className="truncate">
+                        #{p.rank} · {p.username}
+                      </span>
                     </span>
                     <span className="text-emerald-600 dark:text-emerald-400 shrink-0 font-semibold tabular-nums">
                       ₹{p.amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
@@ -269,6 +286,7 @@ export function ContestDashboard({
           if (!o) setPreview(null);
         }}
         username={preview?.username ?? null}
+        avatarUrl={preview?.avatar_url ?? null}
       />
     </div>
   );

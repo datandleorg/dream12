@@ -21,10 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/user-avatar";
 
 type ProfileCols = {
   id: string;
   username: string;
+  avatar_url: string | null;
   wallet_balance: number;
   is_admin: boolean;
   is_active: boolean | null;
@@ -34,6 +36,7 @@ type ProfileCols = {
 type TableRowModel = {
   id: string;
   username: string;
+  avatar_url: string | null;
   email: string | null;
   wallet_balance: number;
   is_admin: boolean;
@@ -111,7 +114,7 @@ export default async function AdminUsersPage() {
       ids.length > 0
         ? await service
             .from("profiles")
-            .select("id,username,wallet_balance,is_admin,is_active,created_at")
+            .select("id,username,avatar_url,wallet_balance,is_admin,is_active,created_at")
             .in("id", ids)
         : { data: [] as ProfileCols[] };
 
@@ -121,6 +124,7 @@ export default async function AdminUsersPage() {
       return {
         id: u.id,
         username: p?.username ?? "—",
+        avatar_url: (p?.avatar_url as string | null) ?? null,
         email: u.email,
         wallet_balance: Number(p?.wallet_balance ?? 0),
         is_admin: Boolean(p?.is_admin),
@@ -142,7 +146,7 @@ export default async function AdminUsersPage() {
   } else {
     const { data: profiles, error: profErr } = await service
       .from("profiles")
-      .select("id,username,wallet_balance,is_admin,is_active,created_at")
+      .select("id,username,avatar_url,wallet_balance,is_admin,is_active,created_at")
       .order("created_at", { ascending: false })
       .limit(500);
 
@@ -165,6 +169,7 @@ export default async function AdminUsersPage() {
     rows = (profiles ?? []).map((p) => ({
       id: p.id as string,
       username: p.username,
+      avatar_url: (p.avatar_url as string | null) ?? null,
       email: null,
       wallet_balance: Number(p.wallet_balance ?? 0),
       is_admin: Boolean(p.is_admin),
@@ -257,7 +262,7 @@ export default async function AdminUsersPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Username</TableHead>
+              <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Wallet</TableHead>
               <TableHead>Role</TableHead>
@@ -268,7 +273,17 @@ export default async function AdminUsersPage() {
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell>{r.username}</TableCell>
+                <TableCell>
+                  <div className="flex min-w-0 max-w-[220px] items-center gap-2">
+                    <UserAvatar
+                      avatarUrl={r.avatar_url}
+                      username={r.username}
+                      userIdFallback={r.id}
+                      size="sm"
+                    />
+                    <span className="truncate font-medium">{r.username}</span>
+                  </div>
+                </TableCell>
                 <TableCell className="max-w-[200px] truncate text-sm">
                   {r.email ?? "—"}
                 </TableCell>
