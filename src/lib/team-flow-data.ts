@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { SQUAD_SIZE } from "@/lib/fantasy/rules";
 import { countRosterNotInPlayingXi } from "@/lib/lineup-conflict";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
@@ -46,6 +47,24 @@ const PLAYERS_SELECT =
   "id,sportmonks_id,name,team,role,credit_value,season_points,selection_pct,played_last_match,photo_url,in_playing_xi" as const;
 
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
+
+/** Deep link for this user’s progress: squad vs captain vs preview. */
+export function contestTeamBuildPath(
+  matchId: number,
+  contestId: string,
+  rosterPlayerCount: number,
+  captainId: string | null,
+  viceCaptainId: string | null,
+): string {
+  const base = `/matches/${matchId}/contests/${contestId}`;
+  const capVcOk =
+    Boolean(captainId) &&
+    Boolean(viceCaptainId) &&
+    captainId !== viceCaptainId;
+  if (rosterPlayerCount === SQUAD_SIZE && !capVcOk) return `${base}/captain`;
+  if (rosterPlayerCount === SQUAD_SIZE && capVcOk) return `${base}/preview`;
+  return `${base}/squad`;
+}
 
 async function loadPlayersForMatch(
   supabase: ServerSupabase,
@@ -180,6 +199,9 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
     prize_pool: Number(contest.prize_pool ?? 0),
   };
 
+  const initialCaptainId = (team?.captain_id as string) ?? null;
+  const initialViceId = (team?.vice_captain_id as string) ?? null;
+
   return {
     user,
     match,
@@ -187,8 +209,15 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
     hasExistingTeam: Boolean(team?.id),
     players,
     initialRoster,
-    initialCaptainId: (team?.captain_id as string) ?? null,
-    initialViceId: (team?.vice_captain_id as string) ?? null,
+    initialCaptainId,
+    initialViceId,
     lineupConflictCount,
+    teamBuildPath: contestTeamBuildPath(
+      matchId,
+      contestId,
+      initialRoster.length,
+      initialCaptainId,
+      initialViceId,
+    ),
   };
 }

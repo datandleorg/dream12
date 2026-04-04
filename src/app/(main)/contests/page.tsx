@@ -11,6 +11,7 @@ import {
   MyContestsClient,
   type MyContestListRow,
 } from "@/components/my-contests-client";
+import { contestTeamBuildPath } from "@/lib/team-flow-data";
 import { cn } from "@/lib/utils";
 
 const START_LABEL = new Intl.DateTimeFormat("en-GB", {
@@ -89,6 +90,8 @@ export default async function MyContestsPage() {
       id,
       total_points,
       contest_id,
+      captain_id,
+      vice_captain_id,
       contests (
         id,
         name,
@@ -140,6 +143,19 @@ export default async function MyContestsPage() {
     }
   }
 
+  const teamIds = (teams ?? []).map((t) => t.id as string);
+  const rosterCountByTeamId = new Map<string, number>();
+  if (teamIds.length) {
+    const { data: rosterRows } = await supabase
+      .from("team_roster")
+      .select("team_id")
+      .in("team_id", teamIds);
+    for (const rr of rosterRows ?? []) {
+      const tid = rr.team_id as string;
+      rosterCountByTeamId.set(tid, (rosterCountByTeamId.get(tid) ?? 0) + 1);
+    }
+  }
+
   const rows: MyContestListRow[] = (teams ?? [])
     .map((t) => {
       const c = t.contests as unknown as ContestNested;
@@ -176,6 +192,13 @@ export default async function MyContestsPage() {
         rank,
         amountWonInr,
         canEditTeam,
+        teamFlowHref: contestTeamBuildPath(
+          Number(c.match_id),
+          c.id,
+          rosterCountByTeamId.get(userTeamId) ?? 0,
+          (t.captain_id as string) ?? null,
+          (t.vice_captain_id as string) ?? null,
+        ),
       };
       return row;
     })

@@ -29,6 +29,8 @@ export type MyContestListRow = {
   /** null when contest not settled; 0 when settled but no payout row */
   amountWonInr: number | null;
   canEditTeam: boolean;
+  /** Squad vs captain vs preview based on saved progress. */
+  teamFlowHref: string;
 };
 
 function ContestCard({ row }: { row: MyContestListRow }) {
@@ -88,7 +90,7 @@ function ContestCard({ row }: { row: MyContestListRow }) {
           </Link>
           {row.canEditTeam ? (
             <Link
-              href={`/matches/${row.matchId}/contests/${row.contestId}/squad`}
+              href={row.teamFlowHref}
               className={cn(
                 buttonVariants({ variant: "default" }),
                 "inline-flex min-h-11 flex-1 items-center justify-center",

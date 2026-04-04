@@ -50,6 +50,9 @@ export function AdminUserManage({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const canSubmitPassword =
+    newPassword.trim().length > 0 && confirmPassword.trim().length > 0;
+
   async function saveUsername(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -220,7 +223,7 @@ export function AdminUserManage({
           onValueChange={(v) => setConfirmPassword(v)}
         />
         <p className="text-muted-foreground text-xs leading-relaxed">{PASSWORD_RULES_HINT}</p>
-        <Button type="submit" className="min-h-11 w-fit">
+        <Button type="submit" className="min-h-11 w-fit" disabled={loading || !canSubmitPassword}>
           Set password
         </Button>
       </form>

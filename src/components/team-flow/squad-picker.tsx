@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   MAX_CREDITS,
-  ROLE_LIMITS,
   ROLE_ORDER,
   SQUAD_SIZE,
   type RoleKey,
@@ -33,6 +32,7 @@ import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { canAddPlayerToSquad } from "@/lib/fantasy/validate-squad";
+import { saveSquadRosterAction } from "@/app/actions/save-team";
 import { cn } from "@/lib/utils";
 
 function roleCounts(players: TeamFlowPlayerRow[]) {
@@ -74,6 +74,7 @@ export function SquadPicker({
 }) {
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [savingSquad, startSavingSquad] = useTransition();
 
   const roleTab = useTeamBuilderStore((s) => s.roleTab);
   const setRoleTab = useTeamBuilderStore((s) => s.setRoleTab);
@@ -126,8 +127,7 @@ export function SquadPicker({
   const base = `/matches/${matchId}/contests/${contestId}`;
   const canContinue = selected.length === SQUAD_SIZE;
 
-  const lim = ROLE_LIMITS[roleTab];
-  const pickInstruction = `Select ${lim.min} – ${lim.max} ${ROLE_PICK_COPY[roleTab]}`;
+  const pickInstruction = `Pick any ${SQUAD_SIZE} within credits · ${ROLE_PICK_COPY[roleTab]}`;
 
   function onTogglePlayer(bp: ReturnType<typeof mapRowToBuilderPlayer>) {
     if (rosterLocked) return;
@@ -361,10 +361,25 @@ export function SquadPicker({
             <Button
               type="button"
               className="min-h-12 flex-1 bg-emerald-600 font-semibold text-white shadow-sm hover:bg-emerald-600/90"
-              disabled={!canContinue}
-              onClick={() => router.push(`${base}/captain`)}
+              disabled={!canContinue || rosterLocked || savingSquad}
+              onClick={() => {
+                if (rosterLocked) return;
+                startSavingSquad(async () => {
+                  const res = await saveSquadRosterAction({
+                    contestId,
+                    matchId,
+                    playerIds: selected.map((p) => p.id),
+                  });
+                  if (!res.ok) {
+                    toast.error(res.message);
+                    return;
+                  }
+                  router.refresh();
+                  router.push(`${base}/captain`);
+                });
+              }}
             >
-              Continue
+              {savingSquad ? "Saving…" : "Continue"}
             </Button>
           </div>
           {selected.length > 0 ? (

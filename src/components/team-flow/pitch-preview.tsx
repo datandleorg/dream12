@@ -62,8 +62,9 @@ export function PitchPreview({
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
   const rosterLocked = isTeamEditLocked(match.start_time);
   const picksRemaining = SQUAD_SIZE - selected.length;
-  const capVcReady =
-    Boolean(captainId && viceCaptainId && captainId !== viceCaptainId);
+  const capVcReady = Boolean(
+    captainId && viceCaptainId && captainId !== viceCaptainId,
+  );
   const canSaveTeam =
     selected.length === SQUAD_SIZE && capVcReady && !rosterLocked;
 
@@ -81,7 +82,14 @@ export function PitchPreview({
   }, [selected.length, captainId, viceCaptainId, router, base]);
 
   async function onSave() {
-    if (selected.length !== SQUAD_SIZE || !captainId || !viceCaptainId) return;
+    if (
+      selected.length !== SQUAD_SIZE ||
+      !captainId ||
+      !viceCaptainId ||
+      captainId === viceCaptainId
+    ) {
+      return;
+    }
     setSaving(true);
     const res = await saveTeamAction({
       contestId,

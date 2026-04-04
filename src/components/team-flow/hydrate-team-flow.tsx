@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import {
   mapRowToBuilderPlayer,
   mergeBuilderPlayersWithPool,
+  normalizeCaptainVicePair,
   useTeamBuilderStore,
 } from "@/stores/team-builder";
 import type { TeamFlowPlayerRow } from "@/lib/team-flow-data";
@@ -52,8 +53,12 @@ export function HydrateTeamFlow({
     if (teamFlowContestId !== contestId) {
       if (pre.length) {
         reset(pre.map(mapRowToBuilderPlayer));
-        setCaptain(initialCaptainId);
-        setViceCaptain(initialViceId);
+        const { captainId: c, viceCaptainId: v } = normalizeCaptainVicePair(
+          initialCaptainId,
+          initialViceId,
+        );
+        setCaptain(c);
+        setViceCaptain(v);
       } else {
         reset();
         setCaptain(null);
@@ -68,15 +73,23 @@ export function HydrateTeamFlow({
       const merged = mergeBuilderPlayersWithPool(currentSelected, players);
       const ids = new Set(merged.map((p) => p.id));
       reset(merged);
-      setCaptain(captainId && ids.has(captainId) ? captainId : null);
-      setViceCaptain(viceCaptainId && ids.has(viceCaptainId) ? viceCaptainId : null);
+      const { captainId: c, viceCaptainId: v } = normalizeCaptainVicePair(
+        captainId && ids.has(captainId) ? captainId : null,
+        viceCaptainId && ids.has(viceCaptainId) ? viceCaptainId : null,
+      );
+      setCaptain(c);
+      setViceCaptain(v);
       return;
     }
 
     if (pre.length) {
       reset(pre.map(mapRowToBuilderPlayer));
-      setCaptain(initialCaptainId);
-      setViceCaptain(initialViceId);
+      const { captainId: c, viceCaptainId: v } = normalizeCaptainVicePair(
+        initialCaptainId,
+        initialViceId,
+      );
+      setCaptain(c);
+      setViceCaptain(v);
     } else if (resetWhenNoSavedTeam) {
       reset();
     }

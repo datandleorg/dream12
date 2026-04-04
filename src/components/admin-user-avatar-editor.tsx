@@ -68,8 +68,9 @@ export function AdminUserAvatarEditor({
           headers: up.headers,
         });
       } catch {
+        const origin = window.location.origin;
         toast.error(
-          "Upload was blocked (often CORS). In DigitalOcean Spaces → Settings → CORS, allow PUT from this site’s origin.",
+          `Upload was blocked (often CORS). In DigitalOcean Spaces → Settings → CORS, allow PUT from this origin (must match exactly): ${origin}. See docs/digitalocean-deployment.md.`,
         );
         return;
       }

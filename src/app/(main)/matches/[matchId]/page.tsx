@@ -23,6 +23,7 @@ import { MatchDetailLiveSection } from "@/components/match-detail-live-section";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { venueStageLabels } from "@/lib/match-venue-stage";
+import { contestTeamBuildPath } from "@/lib/team-flow-data";
 
 export default async function MatchDetailPage({
   params,
@@ -122,6 +123,7 @@ export default async function MatchDetailPage({
 
   const filledByContest = new Map<string, number>();
   const joinedContestIds = new Set<string>();
+  const myTeamResumeHrefByContest = new Map<string, string>();
   if (contestIds.length) {
     const { data: teamRows } = await supabase
       .from("user_teams")
@@ -132,6 +134,40 @@ export default async function MatchDetailPage({
       filledByContest.set(id, (filledByContest.get(id) ?? 0) + 1);
       if (user && r.user_id === user.id) {
         joinedContestIds.add(id);
+      }
+    }
+
+    if (user) {
+      const { data: myRows } = await supabase
+        .from("user_teams")
+        .select("id,contest_id,captain_id,vice_captain_id")
+        .eq("user_id", user.id)
+        .in("contest_id", contestIds);
+      const myTeamIds = (myRows ?? []).map((t) => t.id as string);
+      if (myTeamIds.length) {
+        const { data: rosterRows } = await supabase
+          .from("team_roster")
+          .select("team_id")
+          .in("team_id", myTeamIds);
+        const rosterCountByTeamId = new Map<string, number>();
+        for (const rr of rosterRows ?? []) {
+          const tid = rr.team_id as string;
+          rosterCountByTeamId.set(tid, (rosterCountByTeamId.get(tid) ?? 0) + 1);
+        }
+        for (const t of myRows ?? []) {
+          const tid = t.id as string;
+          const cid = t.contest_id as string;
+          myTeamResumeHrefByContest.set(
+            cid,
+            contestTeamBuildPath(
+              matchId,
+              cid,
+              rosterCountByTeamId.get(tid) ?? 0,
+              (t.captain_id as string) ?? null,
+              (t.vice_captain_id as string) ?? null,
+            ),
+          );
+        }
       }
     }
   }
@@ -286,7 +322,10 @@ export default async function MatchDetailPage({
                         ) : joinedContestIds.has(c.id) ? (
                           !isLive ? (
                             <Link
-                              href={`/matches/${matchId}/contests/${c.id}/squad`}
+                              href={
+                                myTeamResumeHrefByContest.get(c.id) ??
+                                `/matches/${matchId}/contests/${c.id}/squad`
+                              }
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
                                 "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",

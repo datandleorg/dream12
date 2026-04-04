@@ -16,6 +16,7 @@ import {
   isCreatorDraftContest,
 } from "@/lib/contest-visibility";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { contestTeamBuildPath } from "@/lib/team-flow-data";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -47,17 +48,30 @@ export default async function ContestLeaderboardPage({
   const invitePublic = isContestVisibleToUser(contestVisibility, null);
 
   let userHasTeamInContest = false;
+  const matchId = Number(contest.match_id);
+  let squadHref = `/matches/${matchId}/contests/${contestId}/squad`;
   if (user) {
     const { data: myTeamRow } = await supabase
       .from("user_teams")
-      .select("id")
+      .select("id,captain_id,vice_captain_id")
       .eq("contest_id", contestId)
       .eq("user_id", user.id)
       .maybeSingle();
     userHasTeamInContest = Boolean(myTeamRow);
+    if (myTeamRow?.id) {
+      const { count } = await supabase
+        .from("team_roster")
+        .select("*", { count: "exact", head: true })
+        .eq("team_id", myTeamRow.id);
+      squadHref = contestTeamBuildPath(
+        matchId,
+        contestId,
+        count ?? 0,
+        (myTeamRow.captain_id as string) ?? null,
+        (myTeamRow.vice_captain_id as string) ?? null,
+      );
+    }
   }
-
-  const matchId = Number(contest.match_id);
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
@@ -190,8 +204,6 @@ export default async function ContestLeaderboardPage({
   const contestTitle =
     contest.name?.trim() ||
     (matchRow ? `Contest · ${matchSubtitle}` : "Contest");
-
-  const squadHref = `/matches/${contest.match_id}/contests/${contestId}/squad`;
 
   const matchCard: HomeMatchCardModel = {
     id: matchId,

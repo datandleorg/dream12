@@ -54,7 +54,9 @@ export function CaptainSelector({
     }
   }, [selected.length, router, base]);
 
-  const canContinue = Boolean(captainId && viceCaptainId && captainId !== viceCaptainId);
+  const canContinue = Boolean(
+    captainId && viceCaptainId && captainId !== viceCaptainId,
+  );
 
   return (
     <div className="flex flex-col gap-3 pb-28">
@@ -96,7 +98,7 @@ export function CaptainSelector({
       </Link>
 
       <p className="text-muted-foreground text-sm">
-        Captain earns 2× points · Vice-captain 1.5×
+        Captain earns 2× points · Vice-captain 1.5×. Choose two different players.
       </p>
 
       <div className="space-y-2">
@@ -166,8 +168,8 @@ export function CaptainSelector({
         })}
       </div>
 
-      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">
-        <div className="flex flex-col gap-2">
+      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2" style={{ bottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex flex-col gap-2"> 
           <Button
             type="button"
             variant="secondary"
