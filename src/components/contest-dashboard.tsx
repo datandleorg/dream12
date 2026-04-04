@@ -160,6 +160,14 @@ export function ContestDashboard({
   const opponentTeamPreviewLocked = liveSt === "upcoming";
   const showSquadLink = userHasTeamInContest && liveSt !== "live";
 
+  const myTeamId = useMemo(() => {
+    if (!currentUserId || !userHasTeamInContest) return null;
+    return initialRows.find((r) => r.user_id === currentUserId)?.id ?? null;
+  }, [initialRows, currentUserId, userHasTeamInContest]);
+
+  const leaderboardCompareHint =
+    !opponentTeamPreviewLocked && userHasTeamInContest && myTeamId;
+
   const openPreview = (row: Row) => {
     if (!currentUserId) return;
     if (
@@ -401,6 +409,11 @@ export function ContestDashboard({
               live.
             </p>
           ) : null}
+          {leaderboardCompareHint && currentUserId ? (
+            <p className="text-muted-foreground mb-2 text-xs">
+              Tap another contestant to compare teams (your picks vs theirs).
+            </p>
+          ) : null}
           {!initialRows.length ? (
             <p className="text-muted-foreground text-sm">No teams yet.</p>
           ) : (
@@ -447,6 +460,7 @@ export function ContestDashboard({
         key={preview?.teamId ?? "closed"}
         contestId={contestId}
         userTeamId={preview?.teamId ?? null}
+        compareWithTeamId={leaderboardCompareHint ? myTeamId : null}
         open={sheetOpen}
         onOpenChange={(o) => {
           setSheetOpen(o);
