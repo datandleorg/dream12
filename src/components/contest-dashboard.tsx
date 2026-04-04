@@ -192,21 +192,6 @@ export function ContestDashboard({
               <h1 className="text-lg font-semibold leading-tight sm:text-xl">
                 {contestTitle}
               </h1>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-foreground shrink-0"
-                onClick={() => void refreshPage()}
-                disabled={pageRefreshing}
-                title="Refresh contest"
-                aria-label="Refresh contest"
-              >
-                <RefreshCw
-                  className={cn("size-5", pageRefreshing && "animate-spin")}
-                  aria-hidden
-                />
-              </Button>
             </div>
             <div className="flex max-w-[min(100%,14rem)] shrink-0 flex-col items-end gap-1.5 sm:max-w-none">
               <div className="flex flex-wrap items-center justify-end gap-2">

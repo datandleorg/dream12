@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BellIcon, Wallet } from "lucide-react";
+import { BellIcon, RefreshCw, Wallet } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { safeInternalPath } from "@/lib/safe-return-to";
 
@@ -34,6 +34,17 @@ export function AppHeader({
     <header className="border-border/60 bg-background/80 sticky top-0 z-40 mb-1 flex items-center justify-between gap-2 border-b px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <BrandLogo variant="compact" />
       <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          className="text-foreground hover:bg-muted/80 inline-flex size-9 items-center justify-center rounded-md transition-colors"
+          aria-label="Refresh page"
+          title="Reload the app — useful when installed as a PWA to fetch the latest content"
+          onClick={() => {
+            window.location.reload();
+          }}
+        >
+          <RefreshCw className="size-5" aria-hidden />
+        </button>
         <Link
           href="/notifications"
           className="text-foreground hover:bg-muted/80 relative inline-flex size-9 items-center justify-center rounded-md transition-colors"
