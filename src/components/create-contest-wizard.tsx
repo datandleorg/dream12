@@ -238,8 +238,9 @@ export function CreateContestWizard({
 
       <div className="bg-primary/10 border-primary/25 text-primary-foreground/90 rounded-lg border px-3 py-2 text-center text-xs">
         This is a <strong className="text-foreground">Flexible Contest</strong> — it can run without every spot
-        filled. The prize pool and breakup are recalculated from actual entries when the match settles (min. two
-        teams; otherwise the contest is void and fees refunded).
+        filled. After join closes (1 minute before match start), a scheduled job updates the displayed prize pool
+        and breakup to match actual entries; final payouts still run when the match settles (min. two teams;
+        otherwise the contest is void and fees refunded).
       </div>
 
       <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">

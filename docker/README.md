@@ -54,6 +54,7 @@ All times below are **UTC** unless you set `TZ` on the `cron` service. The **`cr
 | `* 8-19 * * *` | Every **minute** during UTC hours **8–19** — `runMatchPipeline` / live-match-tick (IST ≈ **2pm–1:30am**; aligned to **2pm–1am IST**). |
 | `*/15 * * * *` | Every **15 minutes** — finalize scores (`/api/cron/finalize-scores`). |
 | `*/5 * * * *` | Every **5 minutes** — settle contests (`/api/cron/settle-contests`). |
+| `*/5 * * * *` | Every **5 minutes** — scale displayed prize pool after join lock (`/api/cron/recompute-contest-prizes-at-lock`). |
 
 ## Changing jobs
 
