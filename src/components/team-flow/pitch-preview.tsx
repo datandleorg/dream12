@@ -27,7 +27,9 @@ import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
+import { useMatchTossLive } from "@/lib/hooks/use-match-toss-live";
 
 export function PitchPreview({
   matchId,
@@ -62,6 +64,11 @@ export function PitchPreview({
   const creditsLeft = MAX_CREDITS - creditsUsed;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
   const rosterLocked = isTeamEditLocked(match.start_time);
+
+  const { tossWinnerTeamId, tossDecision } = useMatchTossLive(matchId, {
+    toss_winner_team_id: match.toss_winner_team_id,
+    toss_decision: match.toss_decision,
+  });
   const picksRemaining = SQUAD_SIZE - selected.length;
   const capVcReady = Boolean(
     captainId && viceCaptainId && captainId !== viceCaptainId,
@@ -150,6 +157,15 @@ export function PitchPreview({
         {match.stage_label ? (
           <p className="mt-0.5 text-xs">{match.stage_label}</p>
         ) : null}
+        <MatchTossLines
+          teamA={match.team_a}
+          teamB={match.team_b}
+          localteamId={match.localteam_id}
+          visitorteamId={match.visitorteam_id}
+          tossWinnerTeamId={tossWinnerTeamId}
+          tossDecision={tossDecision}
+          className="mt-2 border-t border-border/50 pt-2"
+        />
       </div>
 
       {rosterLocked ? (

@@ -18,6 +18,8 @@ export type MyContestListRow = {
   contestTitle: string;
   matchId: number;
   matchVersus: string;
+  /** Toss + batting first when known (server-computed). */
+  tossSummaryLine: string | null;
   startTimeLabel: string;
   matchStatus: string;
   tournamentName: string | null;
@@ -43,6 +45,9 @@ function ContestCard({ row }: { row: MyContestListRow }) {
         </div>
         <div className="text-muted-foreground space-y-1 text-sm">
           <p className="font-medium text-foreground">{row.matchVersus}</p>
+          {row.tossSummaryLine ? (
+            <p className="text-xs leading-snug">{row.tossSummaryLine}</p>
+          ) : null}
           {row.tournamentName ? (
             <p className="text-xs">{row.tournamentName}</p>
           ) : null}

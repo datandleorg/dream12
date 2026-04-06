@@ -33,6 +33,10 @@ export type TeamFlowMatchRow = {
   match_format: string | null;
   venue_label: string | null;
   stage_label: string | null;
+  localteam_id: number | null;
+  visitorteam_id: number | null;
+  toss_winner_team_id: number | null;
+  toss_decision: string | null;
 };
 
 export type TeamFlowContestSummary = {
@@ -129,7 +133,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
   const { data: matchRaw } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id,venue_id,stage_id,match_format",
+      "id,name,start_time,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id,venue_id,stage_id,match_format,localteam_id,visitorteam_id,toss_winner_team_id,toss_decision",
     )
     .eq("id", matchId)
     .single();
@@ -169,6 +173,20 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
         match_format: matchRaw.match_format ?? null,
         venue_label,
         stage_label,
+        localteam_id:
+          matchRaw.localteam_id != null ? Number(matchRaw.localteam_id) : null,
+        visitorteam_id:
+          matchRaw.visitorteam_id != null
+            ? Number(matchRaw.visitorteam_id)
+            : null,
+        toss_winner_team_id:
+          matchRaw.toss_winner_team_id != null
+            ? Number(matchRaw.toss_winner_team_id)
+            : null,
+        toss_decision:
+          typeof matchRaw.toss_decision === "string"
+            ? matchRaw.toss_decision
+            : null,
       }
     : null;
 

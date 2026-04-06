@@ -13,6 +13,7 @@ import {
 } from "@/components/home-upcoming-card";
 import { JoinContestButton } from "@/components/join-contest-button";
 import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -120,6 +121,8 @@ export function ContestDashboard({
     sm_fixture_status: matchCard.sm_fixture_status ?? null,
     fixture_scoreboard_raw: matchCard.fixture_scoreboard_raw,
     initialParsedSnapshot: liveSnapshot,
+    toss_winner_team_id: matchCard.toss_winner_team_id ?? null,
+    toss_decision: matchCard.toss_decision ?? null,
   });
 
   const matchCardLive = useMemo(
@@ -128,8 +131,19 @@ export function ContestDashboard({
       status: live.status,
       live_snapshot: live.snapshot as unknown,
       sm_fixture_status: live.smFixtureStatus,
+      fixture_scoreboard_raw: live.fixtureScoreboardRaw,
+      toss_winner_team_id: live.tossWinnerTeamId,
+      toss_decision: live.tossDecision,
     }),
-    [matchCard, live.status, live.snapshot, live.smFixtureStatus],
+    [
+      matchCard,
+      live.status,
+      live.snapshot,
+      live.smFixtureStatus,
+      live.fixtureScoreboardRaw,
+      live.tossWinnerTeamId,
+      live.tossDecision,
+    ],
   );
 
   useEffect(() => {
@@ -430,6 +444,16 @@ export function ContestDashboard({
             fixtureScoreboardRaw={live.fixtureScoreboardRaw}
             defaultTab="scorecard"
             isCompleted={matchCompleted}
+            tossSummary={
+              <MatchTossLines
+                teamA={matchCard.team_a ?? null}
+                teamB={matchCard.team_b ?? null}
+                localteamId={matchCard.localteam_id ?? null}
+                visitorteamId={matchCard.visitorteam_id ?? null}
+                tossWinnerTeamId={live.tossWinnerTeamId}
+                tossDecision={live.tossDecision}
+              />
+            }
           />
         </TabsContent>
 

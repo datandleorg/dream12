@@ -19,6 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { LoadingOverlay } from "@/components/loading-overlay";
+import { MatchTossLines } from "@/components/match-toss-lines";
+import { useMatchTossLive } from "@/lib/hooks/use-match-toss-live";
 
 const ENTRY_CHIPS = [25, 50, 75];
 
@@ -40,14 +42,30 @@ export function CreateContestWizard({
   defaultContestName,
   /** From server so preview matches create-contest server action (client-inlined env can be stale). */
   platformFeeFraction,
+  teamA,
+  teamB,
+  localteamId,
+  visitorteamId,
+  tossWinnerTeamId: initialTossWinnerTeamId,
+  tossDecision: initialTossDecision,
 }: {
   matchId: number;
   matchTitle: string;
   startIso: string;
   defaultContestName: string;
   platformFeeFraction: number;
+  teamA: string | null;
+  teamB: string | null;
+  localteamId: number | null;
+  visitorteamId: number | null;
+  tossWinnerTeamId: number | null;
+  tossDecision: string | null;
 }) {
   const router = useRouter();
+  const { tossWinnerTeamId, tossDecision } = useMatchTossLive(matchId, {
+    toss_winner_team_id: initialTossWinnerTeamId,
+    toss_decision: initialTossDecision,
+  });
   const [name, setName] = useState(defaultContestName);
   const [entryStr, setEntryStr] = useState("10");
   const [spotsStr, setSpotsStr] = useState("10");
@@ -110,6 +128,15 @@ export function CreateContestWizard({
         <p className="text-muted-foreground mt-1 text-center text-xs">
           Starts {new Date(startIso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
         </p>
+        <MatchTossLines
+          teamA={teamA}
+          teamB={teamB}
+          localteamId={localteamId}
+          visitorteamId={visitorteamId}
+          tossWinnerTeamId={tossWinnerTeamId}
+          tossDecision={tossDecision}
+          className="mt-2 text-center text-xs"
+        />
         <p className="text-muted-foreground mt-2 text-center text-[11px] leading-relaxed">
           After you create this contest, you&apos;ll pick a team from the same pool as
           joiners: official squads for the match, with playing XI marks once lineups sync.

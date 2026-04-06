@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
 import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
 import { MatchStatusBadge } from "@/components/match-status-badge";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
 import type { LiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
@@ -19,6 +20,12 @@ export function MatchLivePageClient({
   sm_fixture_status,
   fixture_scoreboard_raw,
   initialParsedSnapshot,
+  teamA,
+  teamB,
+  localteamId,
+  visitorteamId,
+  tossWinnerTeamId: initialTossWinnerTeamId,
+  tossDecision: initialTossDecision,
 }: {
   matchId: number;
   tournamentName: string | null;
@@ -29,8 +36,21 @@ export function MatchLivePageClient({
   sm_fixture_status: string | null;
   fixture_scoreboard_raw?: unknown;
   initialParsedSnapshot: LiveSnapshot;
+  teamA: string | null;
+  teamB: string | null;
+  localteamId: number | null;
+  visitorteamId: number | null;
+  tossWinnerTeamId: number | null;
+  tossDecision: string | null;
 }) {
-  const { snapshot, status, smFixtureStatus, fixtureScoreboardRaw } = useMatchLiveRow({
+  const {
+    snapshot,
+    status,
+    smFixtureStatus,
+    fixtureScoreboardRaw,
+    tossWinnerTeamId,
+    tossDecision,
+  } = useMatchLiveRow({
     matchId,
     live_snapshot,
     live_snapshot_at,
@@ -38,6 +58,8 @@ export function MatchLivePageClient({
     sm_fixture_status,
     fixture_scoreboard_raw,
     initialParsedSnapshot,
+    toss_winner_team_id: initialTossWinnerTeamId,
+    toss_decision: initialTossDecision,
   });
 
   const st = String(status).toLowerCase();
@@ -58,6 +80,15 @@ export function MatchLivePageClient({
           </div>
           <FixtureSmStatusLine label={smFixtureStatus} />
           <p className="text-muted-foreground mt-1 text-sm">{subtitle}</p>
+          <MatchTossLines
+            teamA={teamA}
+            teamB={teamB}
+            localteamId={localteamId}
+            visitorteamId={visitorteamId}
+            tossWinnerTeamId={tossWinnerTeamId}
+            tossDecision={tossDecision}
+            className="mt-2 text-xs"
+          />
         </div>
         <Link
           href={`/matches/${matchId}`}
@@ -74,6 +105,17 @@ export function MatchLivePageClient({
         snapshot={snapshot}
         fixtureScoreboardRaw={fixtureScoreboardRaw}
         isCompleted={matchCompleted}
+        tossSummary={
+          <MatchTossLines
+            teamA={teamA}
+            teamB={teamB}
+            localteamId={localteamId}
+            visitorteamId={visitorteamId}
+            tossWinnerTeamId={tossWinnerTeamId}
+            tossDecision={tossDecision}
+            className="mb-3"
+          />
+        }
       />
     </div>
   );

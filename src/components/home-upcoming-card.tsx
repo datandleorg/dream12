@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { MatchShortScore } from "@/components/match-short-score";
 import { MatchStatusBadge } from "@/components/match-status-badge";
 import {
@@ -40,6 +41,10 @@ export type HomeMatchCardModel = {
   /** Resolved on the home list from `sm_stages` */
   stage_line?: string | null;
   match_format?: string | null;
+  localteam_id?: number | null;
+  visitorteam_id?: number | null;
+  toss_winner_team_id?: number | null;
+  toss_decision?: string | null;
 };
 
 function TeamOrb({
@@ -546,6 +551,15 @@ export function HomeUpcomingCard({
           </CardTitle>
           <MatchStatusBadge status={match.status} className="shrink-0" />
         </div>
+        <MatchTossLines
+          teamA={match.team_a ?? null}
+          teamB={match.team_b ?? null}
+          localteamId={match.localteam_id ?? null}
+          visitorteamId={match.visitorteam_id ?? null}
+          tossWinnerTeamId={match.toss_winner_team_id ?? null}
+          tossDecision={match.toss_decision ?? null}
+          className="pt-1 text-xs"
+        />
         {isCompleted ? (
           <>
             <CardDescription className="block w-full pt-1 pb-0 text-center">

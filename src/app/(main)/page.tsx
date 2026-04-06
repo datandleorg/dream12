@@ -13,7 +13,7 @@ import { isContestVisibleToUser } from "@/lib/contest-visibility";
 import { venueStageLabels } from "@/lib/match-venue-stage";
 
 const matchColumns =
-  "id, name, start_time, status, tournament_name, team_a, team_b, team_a_logo_url, team_b_logo_url, live_snapshot, sm_fixture_status, venue_id, stage_id, match_format";
+  "id, name, start_time, status, tournament_name, team_a, team_b, team_a_logo_url, team_b_logo_url, live_snapshot, sm_fixture_status, venue_id, stage_id, match_format, localteam_id, visitorteam_id, toss_winner_team_id, toss_decision";
 
 type MatchRow = {
   id: number | string;
@@ -30,6 +30,10 @@ type MatchRow = {
   venue_id: number | null;
   stage_id: number | null;
   match_format: string | null;
+  localteam_id: number | null;
+  visitorteam_id: number | null;
+  toss_winner_team_id: number | null;
+  toss_decision: string | null;
 };
 
 const EMPTY_COPY: Record<MatchListFilter, string> = {
@@ -187,6 +191,16 @@ export default async function HomePage({
       venue_line: venueLine,
       stage_line: stageLine,
       match_format: m.match_format?.trim() || null,
+      localteam_id:
+        m.localteam_id != null ? Number(m.localteam_id) : null,
+      visitorteam_id:
+        m.visitorteam_id != null ? Number(m.visitorteam_id) : null,
+      toss_winner_team_id:
+        m.toss_winner_team_id != null
+          ? Number(m.toss_winner_team_id)
+          : null,
+      toss_decision:
+        typeof m.toss_decision === "string" ? m.toss_decision : null,
     };
   });
 

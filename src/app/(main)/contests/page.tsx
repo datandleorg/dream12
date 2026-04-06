@@ -11,6 +11,7 @@ import {
   MyContestsClient,
   type MyContestListRow,
 } from "@/components/my-contests-client";
+import { formatMatchTossSummary } from "@/lib/match-toss-summary";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,10 @@ type ContestNested = {
     tournament_name?: string | null;
     team_a?: string | null;
     team_b?: string | null;
+    localteam_id?: number | string | null;
+    visitorteam_id?: number | string | null;
+    toss_winner_team_id?: number | string | null;
+    toss_decision?: string | null;
   } | null;
 } | null;
 
@@ -106,7 +111,11 @@ export default async function MyContestsPage() {
           start_time,
           tournament_name,
           team_a,
-          team_b
+          team_b,
+          localteam_id,
+          visitorteam_id,
+          toss_winner_team_id,
+          toss_decision
         )
       )
     `,
@@ -170,6 +179,23 @@ export default async function MyContestsPage() {
       const teamB = m?.team_b ?? null;
       const matchVersus =
         teamA && teamB ? `${teamA} vs ${teamB}` : matchName;
+      const tossBits = formatMatchTossSummary({
+        team_a: teamA,
+        team_b: teamB,
+        localteam_id:
+          m?.localteam_id != null ? Number(m.localteam_id) : null,
+        visitorteam_id:
+          m?.visitorteam_id != null ? Number(m.visitorteam_id) : null,
+        toss_winner_team_id:
+          m?.toss_winner_team_id != null
+            ? Number(m.toss_winner_team_id)
+            : null,
+        toss_decision:
+          typeof m?.toss_decision === "string" ? m.toss_decision : null,
+      });
+      const tossSummaryLine = [tossBits.tossLine, tossBits.battingFirstLine]
+        .filter(Boolean)
+        .join(" · ");
       const matchStatus = String(m?.status ?? "").trim() || "upcoming";
       const matchStatusKey = matchStatus.toLowerCase();
       const canEditTeam = matchStatusKey === "upcoming";
@@ -186,6 +212,7 @@ export default async function MyContestsPage() {
         contestTitle: c.name?.trim() || `Contest · ${matchName}`,
         matchId: Number(c.match_id),
         matchVersus,
+        tossSummaryLine: tossSummaryLine || null,
         startTimeLabel: formatStartUtc(m?.start_time ?? undefined),
         matchStatus,
         tournamentName: m?.tournament_name ?? null,

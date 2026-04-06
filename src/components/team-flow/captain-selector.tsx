@@ -71,6 +71,15 @@ export function CaptainSelector({
         picked={selected.length}
         squadSize={SQUAD_SIZE}
         creditsLeft={creditsLeft}
+        liveToss={{
+          matchId,
+          teamA,
+          teamB,
+          localteamId: match.localteam_id,
+          visitorteamId: match.visitorteam_id,
+          tossWinnerTeamId: match.toss_winner_team_id,
+          tossDecision: match.toss_decision,
+        }}
       />
 
       {rosterLocked ? (

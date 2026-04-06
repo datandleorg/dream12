@@ -3,9 +3,45 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CircleHelp } from "lucide-react";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { MAX_PLAYERS_SAME_FRANCHISE } from "@/lib/fantasy/rules";
+import { useMatchTossLive } from "@/lib/hooks/use-match-toss-live";
 import { formatMatchCountdown, msUntilStart } from "@/lib/time/match-countdown";
 import { cn } from "@/lib/utils";
+
+type FlowHeaderLiveToss = {
+  matchId: number;
+  teamA: string;
+  teamB: string;
+  localteamId: number | null;
+  visitorteamId: number | null;
+  tossWinnerTeamId: number | null;
+  tossDecision: string | null;
+};
+
+function FlowHeaderTossBlock({
+  liveToss,
+  className,
+}: {
+  liveToss: FlowHeaderLiveToss;
+  className?: string;
+}) {
+  const { tossWinnerTeamId, tossDecision } = useMatchTossLive(liveToss.matchId, {
+    toss_winner_team_id: liveToss.tossWinnerTeamId,
+    toss_decision: liveToss.tossDecision,
+  });
+  return (
+    <MatchTossLines
+      teamA={liveToss.teamA}
+      teamB={liveToss.teamB}
+      localteamId={liveToss.localteamId}
+      visitorteamId={liveToss.visitorteamId}
+      tossWinnerTeamId={tossWinnerTeamId}
+      tossDecision={tossDecision}
+      className={className}
+    />
+  );
+}
 
 function abbrTeam(name: string): string {
   const w = name.trim().split(/\s+/).filter(Boolean);
@@ -27,6 +63,7 @@ type BaseProps = {
   squadSize: number;
   creditsLeft: number;
   className?: string;
+  liveToss?: FlowHeaderLiveToss;
 };
 
 type DefaultVariant = BaseProps & {
@@ -56,6 +93,7 @@ export function FlowHeader(props: FlowHeaderProps) {
     squadSize,
     creditsLeft,
     className,
+    liveToss,
   } = props;
 
   const [label, setLabel] = useState("—");
@@ -110,6 +148,13 @@ export function FlowHeader(props: FlowHeaderProps) {
         <h1 className="mt-0.5 text-center text-[11px] font-medium leading-snug text-zinc-400 sm:text-xs">
           {matchTitle}
         </h1>
+
+        {liveToss ? (
+          <FlowHeaderTossBlock
+            liveToss={liveToss}
+            className="mt-1.5 text-center text-[11px] leading-snug text-zinc-400"
+          />
+        ) : null}
 
         <p className="mt-2 text-center text-[11px] leading-tight text-zinc-400">
           You can select only {MAX_PLAYERS_SAME_FRANCHISE} from each team
@@ -192,6 +237,12 @@ export function FlowHeader(props: FlowHeaderProps) {
           {label}
         </span>
       </div>
+      {liveToss ? (
+        <FlowHeaderTossBlock
+          liveToss={liveToss}
+          className="mt-1.5 text-[11px] leading-snug"
+        />
+      ) : null}
       <p className="text-muted-foreground mt-1 text-[11px]">
         Max {MAX_PLAYERS_SAME_FRANCHISE} players from one team
       </p>

@@ -46,7 +46,7 @@ export default async function MatchDetailPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status,fixture_scoreboard_raw",
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status,fixture_scoreboard_raw,localteam_id,visitorteam_id,toss_winner_team_id,toss_decision",
     )
     .eq("id", matchId)
     .single();
@@ -196,6 +196,26 @@ export default async function MatchDetailPage({
           status={String(matchRow.status)}
           sm_fixture_status={matchRow.sm_fixture_status as string | null}
           fixture_scoreboard_raw={matchRow.fixture_scoreboard_raw}
+          teamA={match.team_a ?? null}
+          teamB={match.team_b ?? null}
+          localteamId={
+            matchRow.localteam_id != null ? Number(matchRow.localteam_id) : null
+          }
+          visitorteamId={
+            matchRow.visitorteam_id != null
+              ? Number(matchRow.visitorteam_id)
+              : null
+          }
+          tossWinnerTeamId={
+            matchRow.toss_winner_team_id != null
+              ? Number(matchRow.toss_winner_team_id)
+              : null
+          }
+          tossDecision={
+            typeof matchRow.toss_decision === "string"
+              ? matchRow.toss_decision
+              : null
+          }
         />
         {venueLine ? (
           <p className="text-muted-foreground mt-1 text-sm">{venueLine}</p>
