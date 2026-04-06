@@ -71,7 +71,7 @@ export function FixtureSmStatusLine({
   return (
     <div className={cn("space-y-1", className)}>
       {t ? (
-        <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs leading-snug">
+        <p className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs leading-snug mt-2">
           <span className="text-foreground/80 font-medium">Fixture status</span>
           <Badge
             variant="outline"
