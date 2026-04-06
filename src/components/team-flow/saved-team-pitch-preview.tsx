@@ -4,17 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { saveTeamAction } from "@/app/actions/save-team";
-import {
-  createSavedMatchTeamAction,
-  saveContestLineupAsSavedTeamAction,
-} from "@/app/actions/saved-match-teams";
 import { MAX_CREDITS, SQUAD_SIZE } from "@/lib/fantasy/rules";
 import { useTeamBuilderStore } from "@/stores/team-builder";
-import type {
-  TeamFlowContestSummary,
-  TeamFlowMatchRow,
-} from "@/lib/team-flow-data";
+import type { TeamFlowMatchRow } from "@/lib/team-flow-data";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,39 +17,38 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { cn } from "@/lib/utils";
-import { LoadingOverlay } from "@/components/loading-overlay";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
-import { MatchTossLines } from "@/components/match-toss-lines";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { useMatchTossLive } from "@/lib/hooks/use-match-toss-live";
+import { LoadingOverlay } from "@/components/loading-overlay";
+import {
+  createSavedMatchTeamAction,
+  updateSavedMatchTeamAction,
+} from "@/app/actions/saved-match-teams";
+import { cn } from "@/lib/utils";
 
-export function PitchPreview({
+export function SavedTeamPitchPreview({
   matchId,
-  contestId,
   match,
-  contest,
-  hasPaidEntry,
+  navigationBase,
+  mode,
 }: {
   matchId: number;
-  contestId: string;
   match: TeamFlowMatchRow;
-  contest: TeamFlowContestSummary;
-  /** True after wallet debit / free join confirmed (not merely XI draft saved). */
-  hasPaidEntry: boolean;
+  navigationBase: string;
+  mode: { type: "create" } | { type: "edit"; savedTeamId: string };
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [savingMatchTeam, setSavingMatchTeam] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const selected = useTeamBuilderStore((s) => s.selected);
   const captainId = useTeamBuilderStore((s) => s.captainId);
   const viceCaptainId = useTeamBuilderStore((s) => s.viceCaptainId);
 
-  const base = `/matches/${matchId}/contests/${contestId}`;
   const teamA = match.team_a?.trim() || "Team A";
   const teamB = match.team_b?.trim() || "Team B";
   const title =
@@ -69,11 +60,6 @@ export function PitchPreview({
   const creditsLeft = MAX_CREDITS - creditsUsed;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
   const rosterLocked = isTeamEditLocked(match.start_time);
-
-  const { tossWinnerTeamId, tossDecision } = useMatchTossLive(matchId, {
-    toss_winner_team_id: match.toss_winner_team_id,
-    toss_decision: match.toss_decision,
-  });
   const picksRemaining = SQUAD_SIZE - selected.length;
   const capVcReady = Boolean(
     captainId && viceCaptainId && captainId !== viceCaptainId,
@@ -81,18 +67,23 @@ export function PitchPreview({
   const canSaveTeam =
     selected.length === SQUAD_SIZE && capVcReady && !rosterLocked;
 
+  const { tossWinnerTeamId, tossDecision } = useMatchTossLive(matchId, {
+    toss_winner_team_id: match.toss_winner_team_id,
+    toss_decision: match.toss_decision,
+  });
+
   useEffect(() => {
     if (selected.length === 0) {
-      router.replace(`${base}/squad`);
+      router.replace(`${navigationBase}/squad`);
       return;
     }
     if (
       selected.length === SQUAD_SIZE &&
       (!captainId || !viceCaptainId || captainId === viceCaptainId)
     ) {
-      router.replace(`${base}/captain`);
+      router.replace(`${navigationBase}/captain`);
     }
-  }, [selected.length, captainId, viceCaptainId, router, base]);
+  }, [selected.length, captainId, viceCaptainId, router, navigationBase]);
 
   async function onSave() {
     if (
@@ -104,66 +95,42 @@ export function PitchPreview({
       return;
     }
     setSaving(true);
-    const res = await saveTeamAction({
-      contestId,
-      matchId,
-      playerIds: selected.map((p) => p.id),
-      captainId,
-      viceCaptainId,
-    });
+    const playerIds = selected.map((p) => p.id);
+    const res =
+      mode.type === "create"
+        ? await createSavedMatchTeamAction({
+            matchId,
+            playerIds,
+            captainId,
+            viceCaptainId,
+          })
+        : await updateSavedMatchTeamAction({
+            matchId,
+            savedTeamId: mode.savedTeamId,
+            playerIds,
+            captainId,
+            viceCaptainId,
+          });
     if (!res.ok) {
       setSaving(false);
       toast.error(res.message);
       return;
     }
     setConfirmOpen(false);
-    toast.success("Team saved");
-    router.push(`/contests/${contestId}`);
+    toast.success(
+      mode.type === "create" ? "Match team saved as next Tn." : "Match team updated.",
+    );
+    router.push(`/matches/${matchId}/teams`);
     router.refresh();
   }
-
-  async function onSaveAsMatchTeam() {
-    if (
-      selected.length !== SQUAD_SIZE ||
-      !captainId ||
-      !viceCaptainId ||
-      captainId === viceCaptainId
-    ) {
-      toast.error("Pick a full XI with captain and vice-captain first.");
-      return;
-    }
-    setSavingMatchTeam(true);
-    const res = hasPaidEntry
-      ? await saveContestLineupAsSavedTeamAction({ matchId, contestId })
-      : await createSavedMatchTeamAction({
-          matchId,
-          playerIds: selected.map((p) => p.id),
-          captainId,
-          viceCaptainId,
-        });
-    setSavingMatchTeam(false);
-    if (!res.ok) {
-      toast.error(res.message);
-      return;
-    }
-    toast.success("Saved as next match team (T1, T2, …). Manage under Match teams.");
-    router.refresh();
-  }
-
-  const contestLabel = contest.name?.trim() || "this contest";
-  const fee = contest.entry_fee;
-  const feeLine =
-    fee > 0
-      ? `Entry fee ₹${fee.toFixed(0)} will be deducted from your wallet when you confirm below.`
-      : "This contest is free to join.";
 
   return (
     <div className="relative flex flex-col gap-3 pb-28">
-      <LoadingOverlay show={saving} label="Saving team…" />
+      <LoadingOverlay show={saving} label="Saving…" />
 
       <div className="flex gap-2">
         <Link
-          href={`${base}/captain`}
+          href={`${navigationBase}/captain`}
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
             "inline-flex min-h-10 items-center justify-center px-2",
@@ -203,26 +170,25 @@ export function PitchPreview({
 
       {rosterLocked ? (
         <p className="text-zinc-600 px-1 text-center text-xs dark:text-zinc-400">
-          Team lock is on (1 minute before start). Saving or updating your team is no longer allowed.
+          Team lock is on — you cannot save match teams this close to start.
         </p>
       ) : null}
 
       {lineupConflictSelected > 0 ? (
         <LineupConflictBanner
           count={lineupConflictSelected}
-          editHref={`${base}/squad`}
+          editHref={`${navigationBase}/squad`}
           matchStartIso={match.start_time}
         />
       ) : null}
 
       {picksRemaining > 0 ? (
         <p className="text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-center text-sm">
-          Preview only — pick {picksRemaining} more {picksRemaining === 1 ? "player" : "players"} on the squad
-          step, then set captain and vice-captain to save.
+          Pick {picksRemaining} more on the squad step, then set captain and vice-captain.
         </p>
       ) : !capVcReady ? (
         <p className="text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-center text-sm">
-          Preview only — choose captain and vice-captain to save your team.
+          Choose captain and vice-captain to save this match team.
         </p>
       ) : null}
 
@@ -236,28 +202,13 @@ export function PitchPreview({
         viceCaptainId={viceCaptainId}
       />
 
-      {canSaveTeam && !rosterLocked ? (
-        <div className="px-1">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-10 w-full"
-            disabled={saving || savingMatchTeam}
-            onClick={() => void onSaveAsMatchTeam()}
-          >
-            {savingMatchTeam ? "Saving…" : "Save as match team (next Tn)"}
-          </Button>
-          <p className="text-muted-foreground mt-1 text-center text-[11px] leading-snug">
-            Reuse this XI when joining other contests for this match (up to 10 teams).
-          </p>
-        </div>
-      ) : null}
-
       <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">
         <div className="flex gap-2">
           <Link
             href={
-              picksRemaining > 0 || !capVcReady ? `${base}/squad` : `${base}/captain`
+              picksRemaining > 0 || !capVcReady
+                ? `${navigationBase}/squad`
+                : `${navigationBase}/captain`
             }
             className={cn(
               buttonVariants({ variant: "secondary" }),
@@ -272,7 +223,7 @@ export function PitchPreview({
             disabled={saving || !canSaveTeam}
             onClick={() => setConfirmOpen(true)}
           >
-            Save team
+            Save match team
           </Button>
         </div>
       </div>
@@ -287,26 +238,21 @@ export function PitchPreview({
         <DialogContent showCloseButton className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {hasPaidEntry ? "Update team?" : "Join contest?"}
+              {mode.type === "create" ? "Save match team?" : "Update match team?"}
             </DialogTitle>
             <DialogDescription className="space-y-2">
               <span className="block">
-                {hasPaidEntry ? (
+                {mode.type === "create" ? (
                   <>
-                    Save changes to <strong className="text-foreground">{contestLabel}</strong> for{" "}
-                    <strong className="text-foreground">{title}</strong>? You will not be charged the entry
-                    fee again.
+                    This will save your XI as the next available slot (T1, T2, …) for{" "}
+                    <strong className="text-foreground">{title}</strong>. You can reuse it when joining
+                    contests for this match.
                   </>
                 ) : (
                   <>
-                    You are about to join <strong className="text-foreground">{contestLabel}</strong> for{" "}
-                    <strong className="text-foreground">{title}</strong>.
+                    Update this saved match team for <strong className="text-foreground">{title}</strong>?
                   </>
                 )}
-              </span>
-              {!hasPaidEntry ? <span className="block">{feeLine}</span> : null}
-              <span className="block text-xs">
-                Prize pool up to ₹{contest.prize_pool.toLocaleString("en-IN")}.
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -326,7 +272,7 @@ export function PitchPreview({
               disabled={saving}
               onClick={() => void onSave()}
             >
-              {saving ? "Saving…" : hasPaidEntry ? "Save changes" : "Confirm & join"}
+              {saving ? "Saving…" : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>
