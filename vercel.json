@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/live-match-tick",
-      "schedule": "* 8-19 * * *"
+      "schedule": "*/30 8-19 * * * *"
     },
     {
       "path": "/api/cron/finalize-scores",
