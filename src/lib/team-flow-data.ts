@@ -48,6 +48,14 @@ const PLAYERS_SELECT =
 
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 
+export type ContestTeamBuildPathOptions = {
+  /**
+   * Resume / "My team" / edit: always open the squad picker first instead of
+   * deep-linking to captain or preview when the XI is already complete.
+   */
+  startAtSquad?: boolean;
+};
+
 /** Deep link for this user’s progress: squad vs captain vs preview. */
 export function contestTeamBuildPath(
   matchId: number,
@@ -55,8 +63,12 @@ export function contestTeamBuildPath(
   rosterPlayerCount: number,
   captainId: string | null,
   viceCaptainId: string | null,
+  options?: ContestTeamBuildPathOptions,
 ): string {
   const base = `/matches/${matchId}/contests/${contestId}`;
+  if (options?.startAtSquad) {
+    return `${base}/squad`;
+  }
   const capVcOk =
     Boolean(captainId) &&
     Boolean(viceCaptainId) &&
@@ -172,7 +184,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
 
   const { data: team } = await supabase
     .from("user_teams")
-    .select("id,captain_id,vice_captain_id")
+    .select("id,captain_id,vice_captain_id,entry_fee_paid_at")
     .eq("user_id", user.id)
     .eq("contest_id", contestId)
     .maybeSingle();
@@ -207,6 +219,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
     match,
     contest: contestSummary,
     hasExistingTeam: Boolean(team?.id),
+    hasPaidEntry: team?.entry_fee_paid_at != null,
     players,
     initialRoster,
     initialCaptainId,

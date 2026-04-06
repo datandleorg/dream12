@@ -119,6 +119,7 @@ export async function getContestTeamsCompare(input: {
     .select(USER_TEAM_SELECT)
     .eq("contest_id", input.contestId)
     .eq("user_id", user.id)
+    .not("entry_fee_paid_at", "is", null)
     .maybeSingle();
 
   if (viewerErr || !viewerTeam) {
@@ -130,6 +131,7 @@ export async function getContestTeamsCompare(input: {
     .select(USER_TEAM_SELECT)
     .eq("id", input.opponentUserTeamId)
     .eq("contest_id", input.contestId)
+    .not("entry_fee_paid_at", "is", null)
     .maybeSingle();
 
   if (oppErr || !opponentTeam) {

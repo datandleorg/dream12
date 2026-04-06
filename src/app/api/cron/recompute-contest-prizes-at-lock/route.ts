@@ -9,7 +9,7 @@ const ROUTE = "/api/cron/recompute-contest-prizes-at-lock";
 
 /**
  * Scales `contests.gross_collected`, `prize_pool`, and `prize_breakup` to actual
- * `user_teams` count after join lock (1 min before match start). No wallet payouts;
+ * Paid `user_teams` count (`entry_fee_paid_at` set) after join lock (1 min before start). No wallet payouts;
  * settlement still runs later via settle-contests.
  */
 export async function GET(request: NextRequest) {

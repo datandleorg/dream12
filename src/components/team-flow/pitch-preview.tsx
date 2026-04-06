@@ -34,13 +34,14 @@ export function PitchPreview({
   contestId,
   match,
   contest,
-  hasExistingTeam,
+  hasPaidEntry,
 }: {
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
   contest: TeamFlowContestSummary;
-  hasExistingTeam: boolean;
+  /** True after wallet debit / free join confirmed (not merely XI draft saved). */
+  hasPaidEntry: boolean;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -113,7 +114,7 @@ export function PitchPreview({
   const fee = contest.entry_fee;
   const feeLine =
     fee > 0
-      ? `Entry fee ₹${fee.toFixed(0)} will be deducted from your wallet on first join only.`
+      ? `Entry fee ₹${fee.toFixed(0)} will be deducted from your wallet when you confirm below.`
       : "This contest is free to join.";
 
   return (
@@ -220,11 +221,11 @@ export function PitchPreview({
         <DialogContent showCloseButton className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {hasExistingTeam ? "Update team?" : "Join contest?"}
+              {hasPaidEntry ? "Update team?" : "Join contest?"}
             </DialogTitle>
             <DialogDescription className="space-y-2">
               <span className="block">
-                {hasExistingTeam ? (
+                {hasPaidEntry ? (
                   <>
                     Save changes to <strong className="text-foreground">{contestLabel}</strong> for{" "}
                     <strong className="text-foreground">{title}</strong>? You will not be charged the entry
@@ -237,7 +238,7 @@ export function PitchPreview({
                   </>
                 )}
               </span>
-              {!hasExistingTeam ? <span className="block">{feeLine}</span> : null}
+              {!hasPaidEntry ? <span className="block">{feeLine}</span> : null}
               <span className="block text-xs">
                 Prize pool up to ₹{contest.prize_pool.toLocaleString("en-IN")}.
               </span>
@@ -259,7 +260,7 @@ export function PitchPreview({
               disabled={saving}
               onClick={() => void onSave()}
             >
-              {saving ? "Saving…" : hasExistingTeam ? "Save changes" : "Confirm & join"}
+              {saving ? "Saving…" : hasPaidEntry ? "Save changes" : "Confirm & join"}
             </Button>
           </DialogFooter>
         </DialogContent>

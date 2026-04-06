@@ -127,11 +127,13 @@ export default async function MatchDetailPage({
   if (contestIds.length) {
     const { data: teamRows } = await supabase
       .from("user_teams")
-      .select("contest_id,user_id")
+      .select("contest_id,user_id,entry_fee_paid_at")
       .in("contest_id", contestIds);
     for (const r of teamRows ?? []) {
       const id = r.contest_id as string;
-      filledByContest.set(id, (filledByContest.get(id) ?? 0) + 1);
+      if (r.entry_fee_paid_at != null) {
+        filledByContest.set(id, (filledByContest.get(id) ?? 0) + 1);
+      }
       if (user && r.user_id === user.id) {
         joinedContestIds.add(id);
       }
@@ -165,6 +167,7 @@ export default async function MatchDetailPage({
               rosterCountByTeamId.get(tid) ?? 0,
               (t.captain_id as string) ?? null,
               (t.vice_captain_id as string) ?? null,
+              { startAtSquad: true },
             ),
           );
         }

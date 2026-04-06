@@ -12,7 +12,8 @@ export async function updateUserTeamsPointsForMatch(
   const { data: teams } = await supabase
     .from("user_teams")
     .select("id,user_id,captain_id,vice_captain_id")
-    .eq("match_id", matchId);
+    .eq("match_id", matchId)
+    .not("entry_fee_paid_at", "is", null);
 
   if (!teams?.length) return 0;
 

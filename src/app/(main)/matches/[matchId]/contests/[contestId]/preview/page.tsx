@@ -31,7 +31,7 @@ export default async function ContestPreviewPage({
         contestId={contestId}
         match={data.match}
         contest={data.contest}
-        hasExistingTeam={data.hasExistingTeam}
+        hasPaidEntry={data.hasPaidEntry}
       />
     </div>
   );

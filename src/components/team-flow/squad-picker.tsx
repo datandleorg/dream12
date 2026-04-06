@@ -33,6 +33,7 @@ import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { canAddPlayerToSquad } from "@/lib/fantasy/validate-squad";
 import { saveSquadRosterAction } from "@/app/actions/save-team";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { cn } from "@/lib/utils";
 
 function roleCounts(players: TeamFlowPlayerRow[]) {
@@ -151,6 +152,7 @@ export function SquadPicker({
 
   return (
     <div className="flex flex-1 flex-col">
+      <LoadingOverlay show={savingSquad} label="Saving your squad…" />
       <div className="shrink-0">
         <FlowHeader
           variant="squad"

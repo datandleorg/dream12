@@ -17,6 +17,9 @@ function mapRpcError(msg: string): string {
   if (m.includes("insufficient wallet")) {
     return "Not enough wallet balance for this contest. Add money and try again.";
   }
+  if (m.includes("contest is full")) {
+    return "This contest is full — no spots left.";
+  }
   if (m.includes("deadline")) return "Team lock deadline has passed.";
   if (m.includes("not authenticated")) return "Sign in again to save your team.";
   if (

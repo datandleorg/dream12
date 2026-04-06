@@ -86,8 +86,12 @@ export function LeaderboardRealtime({
             id: string;
             user_id: string;
             total_points: number;
+            entry_fee_paid_at?: string | null;
           };
           setRows((prev) => {
+            if (next.entry_fee_paid_at === null) {
+              return prev.filter((r) => r.id !== next.id);
+            }
             const old = prev.find((r) => r.id === next.id);
             const pts = Number(next.total_points);
             if (old && pts !== old.total_points) {

@@ -66,6 +66,7 @@ export async function getContestTeamBreakdown(input: {
     )
     .eq("id", input.userTeamId)
     .eq("contest_id", input.contestId)
+    .not("entry_fee_paid_at", "is", null)
     .maybeSingle();
 
   if (teamErr || !team) {

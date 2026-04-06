@@ -69,6 +69,7 @@ export default async function ContestLeaderboardPage({
         count ?? 0,
         (myTeamRow.captain_id as string) ?? null,
         (myTeamRow.vice_captain_id as string) ?? null,
+        { startAtSquad: true },
       );
     }
   }
@@ -104,7 +105,8 @@ export default async function ContestLeaderboardPage({
   const { data: teams } = await supabase
     .from("user_teams")
     .select("id,user_id,total_points")
-    .eq("contest_id", contestId);
+    .eq("contest_id", contestId)
+    .not("entry_fee_paid_at", "is", null);
 
   const userIds = [...new Set((teams ?? []).map((t) => t.user_id))];
   const { data: profiles } = await supabase

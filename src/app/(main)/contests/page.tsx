@@ -90,6 +90,7 @@ export default async function MyContestsPage() {
       id,
       total_points,
       contest_id,
+      entry_fee_paid_at,
       captain_id,
       vice_captain_id,
       contests (
@@ -126,10 +127,13 @@ export default async function MyContestsPage() {
   if (contestIds.length > 0) {
     const { data: allInContests } = await supabase
       .from("user_teams")
-      .select("contest_id, user_id, total_points")
+      .select("contest_id, user_id, total_points, entry_fee_paid_at")
       .in("contest_id", contestIds);
 
-    rankByContest = buildRankByContestId(allInContests ?? [], user.id);
+    const paidInContests = (allInContests ?? []).filter(
+      (t) => t.entry_fee_paid_at != null,
+    );
+    rankByContest = buildRankByContestId(paidInContests, user.id);
 
     const { data: payouts } = await supabase
       .from("contest_payouts")
@@ -198,6 +202,7 @@ export default async function MyContestsPage() {
           rosterCountByTeamId.get(userTeamId) ?? 0,
           (t.captain_id as string) ?? null,
           (t.vice_captain_id as string) ?? null,
+          { startAtSquad: true },
         ),
       };
       return row;
