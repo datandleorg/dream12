@@ -3,8 +3,10 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BellIcon, RefreshCw, Wallet } from "lucide-react";
+import { RefreshCw, Wallet } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { NotificationsHeaderMenu } from "@/components/notifications-header-menu";
+import type { NotificationRow } from "@/lib/notifications";
 import { safeInternalPath } from "@/lib/safe-return-to";
 
 function formatBalanceChip(n: number) {
@@ -18,9 +20,11 @@ function formatBalanceChip(n: number) {
 export function AppHeader({
   initialBalance,
   unreadNotifications = 0,
+  notificationPreview = [],
 }: {
   initialBalance: number;
   unreadNotifications?: number;
+  notificationPreview?: NotificationRow[];
 }) {
   const searchParams = useSearchParams();
   const returnTo = useMemo(
@@ -45,18 +49,10 @@ export function AppHeader({
         >
           <RefreshCw className="size-5" aria-hidden />
         </button>
-        <Link
-          href="/notifications"
-          className="text-foreground hover:bg-muted/80 relative inline-flex size-9 items-center justify-center rounded-md transition-colors"
-          aria-label="Notifications"
-        >
-          <BellIcon className="size-5" />
-          {unreadNotifications > 0 ? (
-            <span className="bg-primary text-primary-foreground absolute -right-0.5 -top-0.5 flex min-w-4 justify-center rounded-full px-1 text-[10px] font-bold leading-4 tabular-nums">
-              {unreadNotifications > 99 ? "99+" : unreadNotifications}
-            </span>
-          ) : null}
-        </Link>
+        <NotificationsHeaderMenu
+          initialPreview={notificationPreview}
+          unreadCount={unreadNotifications}
+        />
         <Link
           href={walletHref}
           className="text-foreground hover:bg-muted/80 inline-flex max-w-[10rem] items-center gap-1.5 truncate rounded-md px-2 py-1 text-sm font-semibold tabular-nums transition-colors sm:max-w-none"

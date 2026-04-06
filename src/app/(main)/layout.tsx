@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { safeInternalPath } from "@/lib/safe-return-to";
+import { notificationRowFromDb } from "@/lib/notifications";
 import { createClient } from "@/lib/supabase/server";
 import { BrandLogo } from "@/components/brand-logo";
 import { AppHeader } from "@/components/app-header";
@@ -45,6 +46,14 @@ export default async function MainLayout({
     .select("*", { count: "exact", head: true })
     .is("read_at", null);
 
+  const { data: previewRows } = await supabase
+    .from("notifications")
+    .select("id,type,title,body,payload,read_at,created_at")
+    .order("created_at", { ascending: false })
+    .limit(8);
+
+  const notificationPreview = (previewRows ?? []).map(notificationRowFromDb);
+
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-1 flex-col pt-[env(safe-area-inset-top)]">
       <Suspense
@@ -58,6 +67,7 @@ export default async function MainLayout({
         <AppHeader
           initialBalance={initialBalance}
           unreadNotifications={unreadNotifications ?? 0}
+          notificationPreview={notificationPreview}
         />
       </Suspense>
       <main className="flex-1 px-4 pb-24">{children}</main>
