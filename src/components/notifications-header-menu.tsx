@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BellIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { hrefFromPayload, type NotificationRow } from "@/lib/notifications";
+import { hrefFromPayload, notificationRowFromDb, type NotificationRow } from "@/lib/notifications";
+import { playNotificationSound } from "@/lib/play-notification-sound";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -16,29 +17,91 @@ import {
 } from "@/components/ui/popover";
 
 export function NotificationsHeaderMenu({
+  userId,
   initialPreview,
   unreadCount,
 }: {
+  userId: string;
   initialPreview: NotificationRow[];
   unreadCount: number;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState(initialPreview);
+  const [liveUnread, setLiveUnread] = useState(unreadCount);
+  /** Dedupes realtime + Strict Mode so we don't double-play sound or bump the badge. */
+  const knownIdsRef = useRef<Set<string>>(new Set(initialPreview.map((r) => r.id)));
 
   useEffect(() => {
     setRows(initialPreview);
   }, [initialPreview]);
 
+  useEffect(() => {
+    knownIdsRef.current = new Set(initialPreview.map((r) => r.id));
+  }, [initialPreview]);
+
+  useEffect(() => {
+    setLiveUnread(unreadCount);
+  }, [unreadCount]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const row = notificationRowFromDb(
+            payload.new as {
+              id: unknown;
+              type: unknown;
+              title: unknown;
+              body: unknown;
+              payload: unknown;
+              read_at: unknown;
+              created_at: unknown;
+            },
+          );
+          if (knownIdsRef.current.has(row.id)) return;
+          knownIdsRef.current.add(row.id);
+
+          setRows((prev) => {
+            if (prev.some((r) => r.id === row.id)) return prev;
+            return [row, ...prev].slice(0, 8);
+          });
+          if (!row.read_at) {
+            setLiveUnread((c) => c + 1);
+          }
+          playNotificationSound();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
   const unreadInPreview = useMemo(() => rows.filter((r) => !r.read_at).length, [rows]);
+  const badgeCount = liveUnread;
 
   async function markRead(id: string) {
     const supabase = createClient();
+    const wasUnread = rows.find((r) => r.id === id)?.read_at == null;
     await supabase.rpc("mark_notification_read", { p_id: id });
     setRows((prev) =>
       prev.map((r) =>
         r.id === id ? { ...r, read_at: r.read_at ?? new Date().toISOString() } : r,
       ),
     );
+    if (wasUnread) {
+      setLiveUnread((c) => Math.max(0, c - 1));
+    }
     router.refresh();
   }
 
@@ -51,9 +114,9 @@ export function NotificationsHeaderMenu({
         aria-haspopup="dialog"
       >
         <BellIcon className="size-5" aria-hidden />
-        {unreadCount > 0 ? (
+        {badgeCount > 0 ? (
           <span className="bg-primary text-primary-foreground absolute -right-0.5 -top-0.5 flex min-w-4 justify-center rounded-full px-1 text-[10px] font-bold leading-4 tabular-nums">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {badgeCount > 99 ? "99+" : badgeCount}
           </span>
         ) : null}
       </PopoverTrigger>

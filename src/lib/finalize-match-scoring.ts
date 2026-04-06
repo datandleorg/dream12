@@ -6,7 +6,7 @@ import {
   mergeFieldingFromBattingRows,
 } from "@/lib/extract-scoreboard-raw-to-live-map";
 import { pickScoreboardRaw } from "@/lib/pick-scoreboard-raw";
-import { sportmonksToken } from "@/lib/sportmonks/client";
+import { smFixtureNoteFromPayload, sportmonksToken } from "@/lib/sportmonks/client";
 import { fetchFixtureScoreboardRaw } from "@/lib/sportmonks/fixture-scoreboard";
 import { buildLiveSnapshotFromFixture } from "@/lib/sportmonks/normalize-live-snapshot";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
@@ -78,6 +78,10 @@ export async function finalizeScoringForMatch(
     const st = merged.status;
     if (typeof st === "string" && st.trim()) {
       persist.sm_fixture_status = st.trim();
+    }
+    const notePersist = smFixtureNoteFromPayload(merged.note);
+    if (notePersist) {
+      persist.sm_fixture_note = notePersist;
     }
   } else {
     const storedRaw = matchRow?.fixture_scoreboard_raw;

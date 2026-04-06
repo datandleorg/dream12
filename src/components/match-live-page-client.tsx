@@ -18,6 +18,7 @@ export function MatchLivePageClient({
   live_snapshot_at,
   status: initialStatus,
   sm_fixture_status,
+  sm_fixture_note,
   fixture_scoreboard_raw,
   initialParsedSnapshot,
   teamA,
@@ -34,6 +35,7 @@ export function MatchLivePageClient({
   live_snapshot_at: string | null;
   status: string;
   sm_fixture_status: string | null;
+  sm_fixture_note?: string | null;
   fixture_scoreboard_raw?: unknown;
   initialParsedSnapshot: LiveSnapshot;
   teamA: string | null;
@@ -47,6 +49,7 @@ export function MatchLivePageClient({
     snapshot,
     status,
     smFixtureStatus,
+    smFixtureNote,
     fixtureScoreboardRaw,
     tossWinnerTeamId,
     tossDecision,
@@ -56,6 +59,7 @@ export function MatchLivePageClient({
     live_snapshot_at,
     status: initialStatus,
     sm_fixture_status,
+    sm_fixture_note: sm_fixture_note ?? null,
     fixture_scoreboard_raw,
     initialParsedSnapshot,
     toss_winner_team_id: initialTossWinnerTeamId,
@@ -78,7 +82,7 @@ export function MatchLivePageClient({
             <h1 className="text-xl font-semibold leading-tight">Live score</h1>
             <MatchStatusBadge status={String(status)} />
           </div>
-          <FixtureSmStatusLine label={smFixtureStatus} />
+          <FixtureSmStatusLine label={smFixtureStatus} note={smFixtureNote} />
           <p className="text-muted-foreground mt-1 text-sm">{subtitle}</p>
           <MatchTossLines
             teamA={teamA}

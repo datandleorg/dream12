@@ -8,7 +8,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
+import {
+  FixtureSmStatusLine,
+  smFixtureToneHeadlineClass,
+} from "@/components/fixture-sm-status-line";
+import { matchCardLiveCenterLine } from "@/lib/sportmonks/match-status-from-sm";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
 import { MatchShortScore } from "@/components/match-short-score";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -26,6 +30,7 @@ export function ContestMatchInfo({
   stageLine,
   liveSnapshot,
   smFixtureStatus,
+  smFixtureNote,
 }: {
   matchId: number;
   startIso: string;
@@ -37,11 +42,15 @@ export function ContestMatchInfo({
   stageLine: string | null;
   liveSnapshot?: LiveSnapshot | null;
   smFixtureStatus?: string | null;
+  smFixtureNote?: string | null;
 }) {
   const statusKey = status.toLowerCase();
   const isLive = statusKey === "live";
   const isInReview = statusKey === "in_review";
   const isCompleted = statusKey === "completed" || isInReview;
+  const liveCenterLine = isLive
+    ? matchCardLiveCenterLine(smFixtureStatus, smFixtureNote)
+    : null;
 
   return (
     <Card>
@@ -63,7 +72,11 @@ export function ContestMatchInfo({
             </Badge>
           ) : null}
         </div>
-        <FixtureSmStatusLine label={smFixtureStatus} />
+        <FixtureSmStatusLine
+          label={smFixtureStatus}
+          note={smFixtureNote}
+          showNote={!isLive}
+        />
         <MatchShortScore snapshot={liveSnapshot} className="mt-0.5" />
         <p className="text-muted-foreground">
           {new Date(startIso).toLocaleString(undefined, {
@@ -78,9 +91,16 @@ export function ContestMatchInfo({
         ) : isCompleted ? (
           <p className="text-muted-foreground text-sm font-medium">Match finished</p>
         ) : isLive ? (
-          <p className="text-emerald-700 dark:text-emerald-400 text-sm font-medium">
-            Match in progress
-          </p>
+          liveCenterLine ? (
+            <p
+              className={cn(
+                "text-sm font-medium leading-snug",
+                smFixtureToneHeadlineClass(liveCenterLine.tone),
+              )}
+            >
+              {liveCenterLine.text}
+            </p>
+          ) : null
         ) : (
           <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>Starts in</span>
