@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BellIcon } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { hrefFromPayload, notificationRowFromDb, type NotificationRow } from "@/lib/notifications";
 import { playNotificationSound } from "@/lib/play-notification-sound";
@@ -26,8 +27,12 @@ export function NotificationsHeaderMenu({
   unreadCount: number;
 }) {
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const [rows, setRows] = useState(initialPreview);
   const [liveUnread, setLiveUnread] = useState(unreadCount);
+  const [bellPop, setBellPop] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   /** Dedupes realtime + Strict Mode so we don't double-play sound or bump the badge. */
   const knownIdsRef = useRef<Set<string>>(new Set(initialPreview.map((r) => r.id)));
 
@@ -79,6 +84,33 @@ export function NotificationsHeaderMenu({
       if (!row.read_at) {
         setLiveUnread((c) => c + 1);
       }
+
+      const link = hrefFromPayload(row.payload);
+      toast.message(row.title, {
+        description: row.body,
+        duration: 7200,
+        icon: <BellIcon className="text-primary size-5 shrink-0" aria-hidden />,
+        className: "!border-primary/45 !shadow-lg !shadow-primary/15",
+        action: {
+          label: link ? "Open" : "View all",
+          onClick: () =>
+            link
+              ? routerRef.current.push(link)
+              : routerRef.current.push("/notifications"),
+        },
+      });
+
+      setBellPop(true);
+      window.setTimeout(() => {
+        if (!cancelled) setBellPop(false);
+      }, 760);
+      setHighlightId(row.id);
+      window.setTimeout(() => {
+        if (!cancelled) {
+          setHighlightId((cur) => (cur === row.id ? null : cur));
+        }
+      }, 2600);
+
       playNotificationSound();
     };
 
@@ -153,13 +185,21 @@ export function NotificationsHeaderMenu({
     <Popover>
       <PopoverTrigger
         type="button"
-        className="text-foreground hover:bg-muted/80 relative inline-flex size-9 items-center justify-center rounded-md transition-colors"
+        className={cn(
+          "text-foreground hover:bg-muted/80 relative inline-flex size-9 items-center justify-center rounded-md transition-colors",
+          bellPop && "notify-bell-pop",
+        )}
         aria-label="Notifications"
         aria-haspopup="dialog"
       >
         <BellIcon className="size-5" aria-hidden />
         {badgeCount > 0 ? (
-          <span className="bg-primary text-primary-foreground absolute -right-0.5 -top-0.5 flex min-w-4 justify-center rounded-full px-1 text-[10px] font-bold leading-4 tabular-nums">
+          <span
+            className={cn(
+              "bg-primary text-primary-foreground absolute -right-0.5 -top-0.5 flex min-w-4 justify-center rounded-full px-1 text-[10px] font-bold leading-4 tabular-nums",
+              bellPop && "notify-badge-bump",
+            )}
+          >
             {badgeCount > 99 ? "99+" : badgeCount}
           </span>
         ) : null}
@@ -183,11 +223,13 @@ export function NotificationsHeaderMenu({
             <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-0.5">
               {rows.map((n) => {
                 const href = hrefFromPayload(n.payload);
+                const isNewHighlight = n.id === highlightId;
                 const inner = (
                   <div
                     className={cn(
                       "rounded-lg border px-2.5 py-2 text-left transition-colors",
                       n.read_at ? "bg-background opacity-80" : "bg-muted/30 border-primary/20",
+                      isNewHighlight && "notify-row-arrive border-primary/50 notify-row-glow",
                     )}
                   >
                     <p className="text-xs font-semibold leading-snug">{n.title}</p>
