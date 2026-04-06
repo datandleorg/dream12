@@ -31,6 +31,7 @@ import { PlayingXiDot } from "@/components/team-flow/playing-xi-dot";
 import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { sortSquadByLineupFirst } from "@/lib/fantasy/squad-sort";
 import { canAddPlayerToSquad } from "@/lib/fantasy/validate-squad";
 import { saveSquadRosterAction } from "@/app/actions/save-team";
 import { LoadingOverlay } from "@/components/loading-overlay";
@@ -123,6 +124,11 @@ export function SquadPicker({
   const filtered = useMemo(
     () => players.filter((p) => mapRowToBuilderPlayer(p).role === roleTab),
     [players, roleTab],
+  );
+
+  const sortedFiltered = useMemo(
+    () => sortSquadByLineupFirst(filtered),
+    [filtered],
   );
 
   const base = `/matches/${matchId}/contests/${contestId}`;
@@ -234,12 +240,12 @@ export function SquadPicker({
           </div>
 
           <ul className="space-y-2 px-2 pb-3 sm:px-3">
-            {filtered.length === 0 ? (
+            {sortedFiltered.length === 0 ? (
               <li className="text-zinc-500 py-6 text-center text-sm">
                 No players in this role tab. Try another position.
               </li>
             ) : null}
-            {filtered.map((p) => {
+            {sortedFiltered.map((p) => {
               const bp = mapRowToBuilderPlayer(p);
               const isOn = selected.some((x) => x.id === p.id);
               const pickFields = {
