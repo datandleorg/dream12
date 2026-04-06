@@ -18,10 +18,12 @@ function formatBalanceChip(n: number) {
 }
 
 export function AppHeader({
+  userId,
   initialBalance,
   unreadNotifications = 0,
   notificationPreview = [],
 }: {
+  userId: string;
   initialBalance: number;
   unreadNotifications?: number;
   notificationPreview?: NotificationRow[];
@@ -50,6 +52,7 @@ export function AppHeader({
           <RefreshCw className="size-5" aria-hidden />
         </button>
         <NotificationsHeaderMenu
+          userId={userId}
           initialPreview={notificationPreview}
           unreadCount={unreadNotifications}
         />

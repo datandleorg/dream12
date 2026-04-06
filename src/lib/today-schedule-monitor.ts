@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SmFixture } from "@/lib/sportmonks/client";
-import { sportmonksToken } from "@/lib/sportmonks/client";
+import { smFixtureNoteFromPayload, sportmonksToken } from "@/lib/sportmonks/client";
 import { fetchFixtureMetaRaw } from "@/lib/sportmonks/fixture-scoreboard";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 
@@ -56,6 +56,12 @@ export async function runTodayScheduleMonitor(
       const st = meta.status;
       if (typeof st === "string" && st.trim()) {
         patch.sm_fixture_status = st.trim();
+      }
+      const notePersist = smFixtureNoteFromPayload(
+        (meta as Record<string, unknown>).note,
+      );
+      if (notePersist) {
+        patch.sm_fixture_note = notePersist;
       }
 
       const { error } = await supabase.from("matches").update(patch).eq("id", id);

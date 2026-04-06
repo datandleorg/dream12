@@ -65,6 +65,7 @@ export default async function MainLayout({
         }
       >
         <AppHeader
+          userId={user.id}
           initialBalance={initialBalance}
           unreadNotifications={unreadNotifications ?? 0}
           notificationPreview={notificationPreview}

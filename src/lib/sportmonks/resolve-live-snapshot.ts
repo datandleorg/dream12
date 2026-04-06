@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { sportmonksToken, type SmFixture } from "./client";
+import { smFixtureNoteFromPayload, sportmonksToken, type SmFixture } from "./client";
 import { mapMatchStatusFromSmFixture } from "./match-status-from-sm";
 import { fetchFixtureScoreboardRaw } from "./fixture-scoreboard";
 import {
@@ -42,6 +42,10 @@ export async function resolveLiveSnapshotForPage(
   const st = raw.status;
   if (typeof st === "string" && st.trim()) {
     patch.sm_fixture_status = st.trim();
+  }
+  const notePersist = smFixtureNoteFromPayload(raw.note);
+  if (notePersist) {
+    patch.sm_fixture_note = notePersist;
   }
   if (raw.starting_at) {
     patch.status = mapMatchStatusFromSmFixture({ ...raw, id: matchId } as SmFixture);

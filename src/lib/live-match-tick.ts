@@ -6,6 +6,7 @@ import {
 } from "@/lib/extract-scoreboard-raw-to-live-map";
 import { pickScoreboardRaw } from "@/lib/pick-scoreboard-raw";
 import type { SmFixture } from "@/lib/sportmonks/client";
+import { smFixtureNoteFromPayload } from "@/lib/sportmonks/client";
 import { sportmonksToken } from "@/lib/sportmonks/client";
 import {
   fetchFixtureMetaRaw,
@@ -131,6 +132,10 @@ export async function runLiveMatchTickForMatch(
     const st = merged.status;
     if (typeof st === "string" && st.trim()) {
       payload.sm_fixture_status = st.trim();
+    }
+    const notePersist = smFixtureNoteFromPayload(merged.note);
+    if (notePersist) {
+      payload.sm_fixture_note = notePersist;
     }
 
     const asF = merged as Partial<SmFixture>;
@@ -378,6 +383,12 @@ export async function runMatchPipeline(
         const merged = nowMap.get(id);
         const smSt =
           merged && typeof merged.status === "string" ? merged.status.trim() : null;
+        const smNote =
+          merged && typeof merged === "object"
+            ? smFixtureNoteFromPayload(
+                (merged as Record<string, unknown>).note,
+              )
+            : null;
         if (merged && typeof merged === "object") {
           const nested = merged.fixture;
           const startFromNested =
@@ -392,6 +403,7 @@ export async function runMatchPipeline(
               .update({
                 status: "live",
                 ...(smSt ? { sm_fixture_status: smSt } : {}),
+                ...(smNote ? { sm_fixture_note: smNote } : {}),
               })
               .eq("id", id);
             promote.promoted += 1;

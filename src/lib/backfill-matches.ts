@@ -1,12 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sportmonksToken } from "@/lib/sportmonks/client";
+import {
+  smFixtureNoteFromPayload,
+  sportmonksToken,
+  type SmFixture,
+} from "@/lib/sportmonks/client";
 import {
   fetchFixturePrematchRaw,
   fetchFixtureScoreboardRaw,
 } from "@/lib/sportmonks/fixture-scoreboard";
 import { buildLiveSnapshotFromFixture } from "@/lib/sportmonks/normalize-live-snapshot";
 import { pickScoreboardRaw } from "@/lib/pick-scoreboard-raw";
-import type { SmFixture } from "@/lib/sportmonks/client";
 import { applyLineupFromFixturePayload } from "@/lib/sportmonks/sync-lineup";
 import { normalizeSportmonksToss } from "@/lib/sportmonks/toss";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
@@ -232,6 +235,10 @@ export async function runBackfillMatchesBatch(
       const st = merged.status;
       if (typeof st === "string" && st.trim()) {
         patch.sm_fixture_status = st.trim();
+      }
+      const notePersist = smFixtureNoteFromPayload(merged.note);
+      if (notePersist) {
+        patch.sm_fixture_note = notePersist;
       }
 
       const tossNorm = normalizeSportmonksToss(

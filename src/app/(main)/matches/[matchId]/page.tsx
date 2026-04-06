@@ -46,7 +46,7 @@ export default async function MatchDetailPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status,fixture_scoreboard_raw,localteam_id,visitorteam_id,toss_winner_team_id,toss_decision",
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status,sm_fixture_note,fixture_scoreboard_raw,localteam_id,visitorteam_id,toss_winner_team_id,toss_decision",
     )
     .eq("id", matchId)
     .single();
@@ -195,6 +195,7 @@ export default async function MatchDetailPage({
           live_snapshot_at={matchRow.live_snapshot_at as string | null}
           status={String(matchRow.status)}
           sm_fixture_status={matchRow.sm_fixture_status as string | null}
+          sm_fixture_note={matchRow.sm_fixture_note as string | null}
           fixture_scoreboard_raw={matchRow.fixture_scoreboard_raw}
           teamA={match.team_a ?? null}
           teamB={match.team_b ?? null}
