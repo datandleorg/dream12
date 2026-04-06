@@ -109,17 +109,6 @@ export function MatchLivePageClient({
         snapshot={snapshot}
         fixtureScoreboardRaw={fixtureScoreboardRaw}
         isCompleted={matchCompleted}
-        tossSummary={
-          <MatchTossLines
-            teamA={teamA}
-            teamB={teamB}
-            localteamId={localteamId}
-            visitorteamId={visitorteamId}
-            tossWinnerTeamId={tossWinnerTeamId}
-            tossDecision={tossDecision}
-            className="mb-3"
-          />
-        }
       />
     </div>
   );

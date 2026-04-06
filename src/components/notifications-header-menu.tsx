@@ -45,45 +45,89 @@ export function NotificationsHeaderMenu({
 
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          const row = notificationRowFromDb(
-            payload.new as {
-              id: unknown;
-              type: unknown;
-              title: unknown;
-              body: unknown;
-              payload: unknown;
-              read_at: unknown;
-              created_at: unknown;
-            },
-          );
-          if (knownIdsRef.current.has(row.id)) return;
-          knownIdsRef.current.add(row.id);
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-          setRows((prev) => {
-            if (prev.some((r) => r.id === row.id)) return prev;
-            return [row, ...prev].slice(0, 8);
-          });
-          if (!row.read_at) {
-            setLiveUnread((c) => c + 1);
-          }
-          playNotificationSound();
+    const removeChannel = () => {
+      if (channel) {
+        void supabase.removeChannel(channel);
+        channel = null;
+      }
+    };
+
+    const onInsert = (payload: {
+      new: Record<string, unknown>;
+    }) => {
+      const row = notificationRowFromDb(
+        payload.new as {
+          id: unknown;
+          type: unknown;
+          title: unknown;
+          body: unknown;
+          payload: unknown;
+          read_at: unknown;
+          created_at: unknown;
         },
-      )
-      .subscribe();
+      );
+      if (knownIdsRef.current.has(row.id)) return;
+      knownIdsRef.current.add(row.id);
+
+      setRows((prev) => {
+        if (prev.some((r) => r.id === row.id)) return prev;
+        return [row, ...prev].slice(0, 8);
+      });
+      if (!row.read_at) {
+        setLiveUnread((c) => c + 1);
+      }
+      playNotificationSound();
+    };
+
+    /** RLS on `notifications` requires a user JWT on the Realtime join; subscribing before the session is ready uses the anon key and receives no rows. */
+    const subscribeWithToken = async (accessToken: string) => {
+      if (cancelled) return;
+      await supabase.realtime.setAuth(accessToken);
+      if (cancelled) return;
+
+      removeChannel();
+      channel = supabase
+        .channel(`notifications:${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${userId}`,
+          },
+          onInsert,
+        )
+        .subscribe();
+    };
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.access_token) {
+        void subscribeWithToken(data.session.access_token);
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (event === "SIGNED_OUT") {
+        removeChannel();
+        return;
+      }
+      if (session?.access_token && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
+        // Avoid awaiting auth APIs inside this callback (Supabase lock); token is already on the event.
+        queueMicrotask(() => {
+          void subscribeWithToken(session.access_token);
+        });
+      }
+    });
 
     return () => {
-      void supabase.removeChannel(channel);
+      cancelled = true;
+      authListener.subscription.unsubscribe();
+      removeChannel();
     };
   }, [userId]);
 
