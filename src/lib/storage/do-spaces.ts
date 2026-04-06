@@ -119,6 +119,17 @@ export function extensionForContentType(contentType: string): string | null {
   return ALLOWED_TYPES[ct] ?? null;
 }
 
+/** Long cache safe because each upload uses a new object key (URL changes when avatar changes). */
+export const AVATAR_OBJECT_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+/** Headers the browser must send on presigned PUT (must match signed PutObject). */
+export function avatarUploadRequestHeaders(contentType: string): Record<string, string> {
+  return {
+    "Content-Type": contentType.trim(),
+    "Cache-Control": AVATAR_OBJECT_CACHE_CONTROL,
+  };
+}
+
 export async function presignAvatarPut(input: {
   contentType: string;
   objectKey: string;
@@ -128,6 +139,7 @@ export async function presignAvatarPut(input: {
     Bucket: bucket,
     Key: input.objectKey,
     ContentType: input.contentType,
+    CacheControl: AVATAR_OBJECT_CACHE_CONTROL,
     // Without this, objects are private: PUT succeeds but GET (browser / next/image) returns 403.
     ACL: "public-read",
   });

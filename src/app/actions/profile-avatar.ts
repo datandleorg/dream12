@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { MAX_PROFILE_AVATAR_BYTES } from "@/lib/profile-avatar-limits";
 import {
+  avatarUploadRequestHeaders,
   extensionForContentType,
   isAvatarUrlAllowedForUser,
   presignAvatarPut,
@@ -34,7 +35,9 @@ export async function requestProfileAvatarUpload(
   const ext = extensionForContentType(contentType);
   if (!ext) return { ok: false, message: "Use JPEG, PNG, or WebP." };
 
-  const objectKey = `avatars/${user.id}/${randomUUID()}.${ext}`;
+  // New key per upload — never overwrite; new URL in DB busts browser/CDN caches for the avatar.
+  const version = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const objectKey = `avatars/${user.id}/${version}.${ext}`;
   try {
     const { uploadUrl, publicUrl } = await presignAvatarPut({
       contentType: contentType.trim(),
@@ -44,8 +47,7 @@ export async function requestProfileAvatarUpload(
       ok: true,
       uploadUrl,
       publicUrl,
-      // ACL is applied via query params on the presigned URL (not a separate header).
-      headers: { "Content-Type": contentType.trim() },
+      headers: avatarUploadRequestHeaders(contentType.trim()),
       maxBytes: MAX_PROFILE_AVATAR_BYTES,
     };
   } catch (e) {

@@ -184,6 +184,10 @@ Rules:
 
 User profile pictures upload via **presigned `PUT**` to **Spaces**; the app stores the resulting **HTTPS public URL** in Supabase (`profiles.avatar_url`). Without these variables, uploads are disabled but the rest of the app still runs (fallback avatars use generated placeholders).
 
+**Upload behavior (app):** The browser may pick **JPEG, PNG, or WebP** up to **10 MB**; the client **re-encodes to JPEG** and shrinks the image until the file is **≤ 2 MB** before `PUT`. Each upload is stored under a **new object key** (`avatars/{userId}/{timestamp}-{shortId}.jpg`) so the URL in the database always changes when the user replaces a photo—**no manual CDN purge**. Objects are written with **`Cache-Control: public, max-age=31536000, immutable`** so browsers (and any CDN in front of Spaces) can cache each URL aggressively; old URLs are simply unused after a new upload.
+
+**CORS:** If your Spaces CORS rule lists specific **Allowed headers** (instead of `*`), include **`Cache-Control`** alongside **`Content-Type`** so the browser may send both on the presigned `PUT`.
+
 1. **Create a Space** in the same region you prefer (e.g. **BLR1**).
 2. **Public read so images load:** By default, new objects are **private**—the presigned **PUT** can succeed while **GET** (browser / `next/image`) returns **403**, so the UI falls back to initials. The app sets the `**public-read**` ACL on each avatar upload when the Space allows ACLs. **Already-uploaded** files stay private until you fix permissions or re-upload. Quick check: open the stored image URL in a **private/incognito** window—if you see **AccessDenied**, use a bucket policy (next item) or per-object public read.
 3. **Public read bucket policy — `avatars/` only (recommended):** Dream12 stores profile images under the `**avatars/**` prefix. To allow anonymous `**GetObject**` **only** for that folder (everything else in the Space stays non-public by default), use a policy whose `Resource` ends with `**/avatars/***`.
