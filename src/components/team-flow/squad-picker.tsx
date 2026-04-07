@@ -68,11 +68,14 @@ export function SquadPicker({
   contestId,
   match,
   players,
+  /** When set, squad step does not persist to `user_teams`; navigation uses `navigationBase` (saved-team builder). */
+  savedFlow,
 }: {
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
   players: TeamFlowPlayerRow[];
+  savedFlow?: { navigationBase: string; backHref: string };
 }) {
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -131,7 +134,8 @@ export function SquadPicker({
     [filtered],
   );
 
-  const base = `/matches/${matchId}/contests/${contestId}`;
+  const base =
+    savedFlow?.navigationBase ?? `/matches/${matchId}/contests/${contestId}`;
   const canContinue = selected.length === SQUAD_SIZE;
 
   const pickInstruction = `Pick any ${SQUAD_SIZE} within credits · ${ROLE_PICK_COPY[roleTab]}`;
@@ -162,7 +166,7 @@ export function SquadPicker({
       <div className="shrink-0">
         <FlowHeader
           variant="squad"
-          backHref={`/matches/${matchId}`}
+          backHref={savedFlow?.backHref ?? `/matches/${matchId}`}
           tournamentName={match.tournament_name}
           matchTitle={title}
           teamA={teamA}
@@ -381,6 +385,10 @@ export function SquadPicker({
               disabled={!canContinue || rosterLocked || savingSquad}
               onClick={() => {
                 if (rosterLocked) return;
+                if (savedFlow) {
+                  router.push(`${base}/captain`);
+                  return;
+                }
                 startSavingSquad(async () => {
                   const res = await saveSquadRosterAction({
                     contestId,

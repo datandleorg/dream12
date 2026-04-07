@@ -17,6 +17,7 @@ import {
 } from "@/lib/contest-visibility";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
+import { listSavedMatchTeamsForUser } from "@/lib/saved-team-flow-data";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -207,6 +208,11 @@ export default async function ContestLeaderboardPage({
     contest.name?.trim() ||
     (matchRow ? `Contest · ${matchSubtitle}` : "Contest");
 
+  const savedMatchTeams =
+    user && matchRow
+      ? await listSavedMatchTeamsForUser(matchId)
+      : [];
+
   const matchCard: HomeMatchCardModel = {
     id: matchId,
     name: String(matchRow?.name ?? "Match"),
@@ -264,6 +270,7 @@ export default async function ContestLeaderboardPage({
       myStandings={myStandings}
       squadHref={squadHref}
       pointsUpdatedAt={pointsUpdatedAt}
+      savedTeamsForMatch={savedMatchTeams}
     />
   );
 }

@@ -24,6 +24,7 @@ import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { venueStageLabels } from "@/lib/match-venue-stage";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
+import { listSavedMatchTeamsForUser } from "@/lib/saved-team-flow-data";
 
 export default async function MatchDetailPage({
   params,
@@ -93,6 +94,10 @@ export default async function MatchDetailPage({
       .single();
     balance = Number(profile?.wallet_balance ?? 0);
   }
+
+  const savedMatchTeams = user
+    ? await listSavedMatchTeamsForUser(matchId)
+    : [];
 
   const { data: contestsRaw } = await supabase
     .from("contests")
@@ -244,6 +249,17 @@ export default async function MatchDetailPage({
           >
             Live score
           </Link>
+          {user ? (
+            <Link
+              href={`/matches/${matchId}/teams`}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "inline-flex min-h-10 w-full items-center justify-center sm:w-auto",
+              )}
+            >
+              Match teams
+            </Link>
+          ) : null}
         </div>
         {user && isUpcoming ? (
           rosterLocked ? (
@@ -367,6 +383,7 @@ export default async function MatchDetailPage({
                             label="Join"
                             disabled={rosterLocked}
                             disabledReason="Team lock is on — you cannot join new contests this close to start."
+                            savedTeams={savedMatchTeams}
                           />
                         )
                       ) : (

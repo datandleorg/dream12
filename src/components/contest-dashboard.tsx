@@ -11,7 +11,10 @@ import {
   HomeUpcomingCard,
   type HomeMatchCardModel,
 } from "@/components/home-upcoming-card";
-import { JoinContestButton } from "@/components/join-contest-button";
+import {
+  JoinContestButton,
+  type SavedTeamChoice,
+} from "@/components/join-contest-button";
 import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
 import { MatchTossLines } from "@/components/match-toss-lines";
 import { Button } from "@/components/ui/button";
@@ -65,6 +68,7 @@ export function ContestDashboard({
   myStandings,
   squadHref,
   pointsUpdatedAt,
+  savedTeamsForMatch,
 }: {
   contestId: string;
   contestTitle: string;
@@ -92,6 +96,7 @@ export function ContestDashboard({
   myStandings: { rank: number; points: number } | null;
   squadHref: string;
   pointsUpdatedAt: string | null;
+  savedTeamsForMatch: SavedTeamChoice[];
 }) {
   const router = useRouter();
   const [preview, setPreview] = useState<{
@@ -287,6 +292,7 @@ export function ContestDashboard({
                         label="Join"
                         disabled={rosterLocked}
                         disabledReason="Team lock is on — you cannot join new contests this close to start."
+                        savedTeams={savedTeamsForMatch}
                       />
                     </div>
                   ) : null
