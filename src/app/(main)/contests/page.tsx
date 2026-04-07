@@ -13,6 +13,7 @@ import {
 } from "@/components/my-contests-client";
 import { formatMatchTossSummary } from "@/lib/match-toss-summary";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { cn } from "@/lib/utils";
 
 const START_LABEL = new Intl.DateTimeFormat("en-GB", {
@@ -40,6 +41,7 @@ type ContestNested = {
   entry_fee: number;
   prize_pool: number;
   prizes_settled_at: string | null;
+  created_by: string | null;
   matches: {
     name: string;
     status?: string | null;
@@ -105,6 +107,7 @@ export default async function MyContestsPage() {
         entry_fee,
         prize_pool,
         prizes_settled_at,
+        created_by,
         matches (
           name,
           status,
@@ -132,6 +135,7 @@ export default async function MyContestsPage() {
 
   let rankByContest = new Map<string, number>();
   const payoutByUserTeam = new Map<string, number>();
+  let paidCountByContest = new Map<string, number>();
 
   if (contestIds.length > 0) {
     const { data: allInContests } = await supabase
@@ -143,6 +147,13 @@ export default async function MyContestsPage() {
       (t) => t.entry_fee_paid_at != null,
     );
     rankByContest = buildRankByContestId(paidInContests, user.id);
+
+    const counts = new Map<string, number>();
+    for (const t of paidInContests) {
+      const cid = t.contest_id as string;
+      counts.set(cid, (counts.get(cid) ?? 0) + 1);
+    }
+    paidCountByContest = counts;
 
     const { data: payouts } = await supabase
       .from("contest_payouts")
@@ -200,6 +211,15 @@ export default async function MyContestsPage() {
       const matchStatusKey = matchStatus.toLowerCase();
       const canEditTeam = matchStatusKey === "upcoming";
       const prizesSettled = c.prizes_settled_at != null && c.prizes_settled_at !== "";
+      const startIso = m?.start_time ? String(m.start_time) : "";
+      const rosterLockedForHost = isTeamEditLocked(startIso);
+      const createdBy = c.created_by ?? null;
+      const canDeleteAsHost =
+        !prizesSettled &&
+        !rosterLockedForHost &&
+        createdBy != null &&
+        createdBy === user.id;
+      const paidParticipantsCount = paidCountByContest.get(c.id) ?? 0;
       const userTeamId = t.id as string;
       const rank = rankByContest.get(c.id) ?? 0;
       const amountWonInr = prizesSettled
@@ -223,6 +243,8 @@ export default async function MyContestsPage() {
         rank,
         amountWonInr,
         canEditTeam,
+        canDeleteAsHost,
+        paidParticipantsCount,
         teamFlowHref: contestTeamBuildPath(
           Number(c.match_id),
           c.id,

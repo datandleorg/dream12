@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MatchStatusBadge } from "@/components/match-status-badge";
 import { cn } from "@/lib/utils";
+import { DeleteContestButton } from "@/components/delete-contest-button";
 
 export type MyContestListRow = {
   userTeamId: string;
@@ -31,6 +32,9 @@ export type MyContestListRow = {
   /** null when contest not settled; 0 when settled but no payout row */
   amountWonInr: number | null;
   canEditTeam: boolean;
+  /** Host can delete before lock (same rules as match page). */
+  canDeleteAsHost: boolean;
+  paidParticipantsCount: number;
   /** Squad vs captain vs preview based on saved progress. */
   teamFlowHref: string;
 };
@@ -83,26 +87,39 @@ function ContestCard({ row }: { row: MyContestListRow }) {
             <span className="text-muted-foreground font-normal">Winnings pending settlement</span>
           )}
         </CardDescription>
-        <div className="flex gap-2 pt-1">
-          <Link
-            href={`/contests/${row.contestId}`}
-            className={cn(
-              buttonVariants({ variant: "secondary" }),
-              "inline-flex min-h-11 flex-1 items-center justify-center",
-            )}
-          >
-            Leaderboard
-          </Link>
-          {row.canEditTeam ? (
+        <div className="flex flex-col gap-2 pt-1">
+          <div className="flex gap-2">
             <Link
-              href={row.teamFlowHref}
+              href={`/contests/${row.contestId}`}
               className={cn(
-                buttonVariants({ variant: "default" }),
+                buttonVariants({ variant: "secondary" }),
                 "inline-flex min-h-11 flex-1 items-center justify-center",
               )}
             >
-              Edit team
+              Leaderboard
             </Link>
+            {row.canEditTeam ? (
+              <Link
+                href={row.teamFlowHref}
+                className={cn(
+                  buttonVariants({ variant: "default" }),
+                  "inline-flex min-h-11 flex-1 items-center justify-center",
+                )}
+              >
+                Edit team
+              </Link>
+            ) : null}
+          </div>
+          {row.canDeleteAsHost ? (
+            <DeleteContestButton
+              contestId={row.contestId}
+              contestTitle={row.contestTitle}
+              entryFee={row.entryFee}
+              matchId={row.matchId}
+              paidParticipantsCount={row.paidParticipantsCount}
+              redirectToMatchAfterDelete
+              fullWidth
+            />
           ) : null}
         </div>
       </CardHeader>

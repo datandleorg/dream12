@@ -24,6 +24,7 @@ import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { venueStageLabels } from "@/lib/match-venue-stage";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
+import { DeleteContestButton } from "@/components/delete-contest-button";
 
 export default async function MatchDetailPage({
   params,
@@ -97,7 +98,7 @@ export default async function MatchDetailPage({
   const { data: contestsRaw } = await supabase
     .from("contests")
     .select(
-      "id,name,entry_fee,prize_pool,max_participants,created_by,creator_joined_at",
+      "id,name,entry_fee,prize_pool,max_participants,created_by,creator_joined_at,prizes_settled_at",
     )
     .eq("match_id", matchId);
 
@@ -280,6 +281,13 @@ export default async function MatchDetailPage({
           {contests.map((c) => {
             const filled = filledByContest.get(c.id) ?? 0;
             const lineupConflict = lineupConflictsByContest.get(c.id) ?? 0;
+            const prizesSettled = Boolean(c.prizes_settled_at);
+            const canDeleteAsHost =
+              Boolean(user) &&
+              !prizesSettled &&
+              !rosterLocked &&
+              c.created_by != null &&
+              c.created_by === user!.id;
             return (
               <li key={c.id}>
                 <Card>
@@ -380,6 +388,17 @@ export default async function MatchDetailPage({
                           Sign in to join
                         </Link>
                       )
+                    ) : null}
+                    {canDeleteAsHost ? (
+                      <DeleteContestButton
+                        contestId={c.id}
+                        contestTitle={c.name?.trim() || "Contest"}
+                        entryFee={Number(c.entry_fee)}
+                        matchId={matchId}
+                        paidParticipantsCount={filled}
+                        fullWidth
+                        className="sm:flex-1"
+                      />
                     ) : null}
                   </CardFooter>
                 </Card>
