@@ -177,6 +177,7 @@ Rules:
 - `**NEXT_PUBLIC_SUPABASE_URL**`, `**NEXT_PUBLIC_SUPABASE_ANON_KEY**` — required at `**docker compose build**` time (baked into the browser bundle).
 - `**SUPABASE_SERVICE_ROLE_KEY**` — server only; keep secret.
 - Optional: **SportMonks**, UPI, `**TZ**`, etc.
+- **`MAINTENANCE_MODE`** — when set to `true`, `1`, or `yes`, the Next.js middleware sends normal page requests to **`/maintenance`** (API routes under `/api/*` are **not** affected, so Docker/Vercel cron jobs keep working). Restart the **`web`** container (or redeploy) after changing this. Optional **`MAINTENANCE_BYPASS_SECRET`**: if set, requests with cookie `maintenance_bypass` equal to that secret skip the gate (use HTTPS only; rotate after use).
 
 **All production services load the same `.env**` via `env_file: .env` in `[docker-compose.production.yml](../docker-compose.production.yml)`.
 
