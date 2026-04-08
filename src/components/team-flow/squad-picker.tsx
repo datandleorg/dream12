@@ -34,7 +34,6 @@ import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { sortSquadByLineupFirst } from "@/lib/fantasy/squad-sort";
 import { canAddPlayerToSquad } from "@/lib/fantasy/validate-squad";
 import { saveSquadRosterAction } from "@/app/actions/save-team";
-import { LoadingOverlay } from "@/components/loading-overlay";
 import { cn } from "@/lib/utils";
 
 function roleCounts(players: TeamFlowPlayerRow[]) {
@@ -68,11 +67,14 @@ export function SquadPicker({
   contestId,
   match,
   players,
+  savedFlow,
 }: {
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
   players: TeamFlowPlayerRow[];
+  /** Match-level saved team builder: no contest roster draft in DB until preview. */
+  savedFlow?: { basePath: string; backHref: string };
 }) {
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -131,7 +133,9 @@ export function SquadPicker({
     [filtered],
   );
 
-  const base = `/matches/${matchId}/contests/${contestId}`;
+  const base =
+    savedFlow?.basePath ?? `/matches/${matchId}/contests/${contestId}`;
+  const squadBackHref = savedFlow?.backHref ?? `/matches/${matchId}`;
   const canContinue = selected.length === SQUAD_SIZE;
 
   const pickInstruction = `Pick any ${SQUAD_SIZE} within credits · ${ROLE_PICK_COPY[roleTab]}`;
@@ -158,11 +162,10 @@ export function SquadPicker({
 
   return (
     <div className="flex flex-1 flex-col">
-      <LoadingOverlay show={savingSquad} label="Saving your squad…" />
       <div className="shrink-0">
         <FlowHeader
           variant="squad"
-          backHref={`/matches/${matchId}`}
+          backHref={squadBackHref}
           tournamentName={match.tournament_name}
           matchTitle={title}
           teamA={teamA}
@@ -381,6 +384,10 @@ export function SquadPicker({
               disabled={!canContinue || rosterLocked || savingSquad}
               onClick={() => {
                 if (rosterLocked) return;
+                if (savedFlow) {
+                  router.push(`${base}/captain`);
+                  return;
+                }
                 startSavingSquad(async () => {
                   const res = await saveSquadRosterAction({
                     contestId,

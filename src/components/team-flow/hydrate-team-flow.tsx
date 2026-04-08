@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   mapRowToBuilderPlayer,
   mergeBuilderPlayersWithPool,
@@ -17,6 +17,11 @@ export function HydrateTeamFlow({
   initialViceId,
   /** Squad step: clear client state when DB has no team (new contest / switch contest). Captain & preview: keep in-session picks until first save. */
   resetWhenNoSavedTeam = true,
+  /**
+   * From `?fresh=1` on match-level create squad: clear any stale Zustand XI for this flow key
+   * before normal hydration (same store id as a previous create session).
+   */
+  forceEmptyClientSession = false,
 }: {
   contestId: string;
   players: TeamFlowPlayerRow[];
@@ -24,11 +29,13 @@ export function HydrateTeamFlow({
   initialCaptainId: string | null;
   initialViceId: string | null;
   resetWhenNoSavedTeam?: boolean;
+  forceEmptyClientSession?: boolean;
 }) {
   const reset = useTeamBuilderStore((s) => s.reset);
   const setCaptain = useTeamBuilderStore((s) => s.setCaptain);
   const setViceCaptain = useTeamBuilderStore((s) => s.setViceCaptain);
   const setTeamFlowContestId = useTeamBuilderStore((s) => s.setTeamFlowContestId);
+  const forcedEmptyRef = useRef(false);
 
   const xiSig = players
     .map((p) => `${p.id}:${p.in_playing_xi === true ? "t" : p.in_playing_xi === false ? "f" : "n"}`)
@@ -45,6 +52,14 @@ export function HydrateTeamFlow({
     const pre = initialRoster
       .map((id) => players.find((p) => p.id === id))
       .filter(Boolean) as TeamFlowPlayerRow[];
+
+    if (forceEmptyClientSession && !forcedEmptyRef.current) {
+      forcedEmptyRef.current = true;
+      reset();
+      setCaptain(null);
+      setViceCaptain(null);
+      setTeamFlowContestId(contestId);
+    }
 
     const store = useTeamBuilderStore.getState();
     const { teamFlowContestId, captainId, viceCaptainId, selected: currentSelected } = store;
@@ -94,7 +109,7 @@ export function HydrateTeamFlow({
       reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate from server snapshot per contest/team
-  }, [hydrateKey, resetWhenNoSavedTeam]);
+  }, [hydrateKey, resetWhenNoSavedTeam, forceEmptyClientSession, contestId]);
 
   return null;
 }

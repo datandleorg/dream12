@@ -12,6 +12,44 @@ export type SaveTeamResult =
   | { ok: true }
   | { ok: false; message: string };
 
+function sortedPlayerKey(ids: string[]): string {
+  return [...ids].sort().join(",");
+}
+
+function sameFullXi(
+  contestPlayerIds: string[],
+  contestCap: string,
+  contestVc: string,
+  templateRoster: string[],
+  templateCap: string,
+  templateVc: string,
+): boolean {
+  if (contestCap !== templateCap || contestVc !== templateVc) return false;
+  if (templateRoster.length !== 11) return false;
+  return sortedPlayerKey(contestPlayerIds) === sortedPlayerKey(templateRoster);
+}
+
+type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
+
+async function bindUserTeamToSavedTemplate(
+  supabase: ServerSupabase,
+  userId: string,
+  userTeamId: string,
+  savedTemplateId: string,
+  matchId: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from("user_teams")
+    .update({ source_saved_match_team_id: savedTemplateId })
+    .eq("id", userTeamId)
+    .eq("user_id", userId);
+  if (error) {
+    console.error("bind contest entry to saved template:", error.message);
+    return;
+  }
+  revalidatePath(`/matches/${matchId}/teams`);
+}
+
 function mapRpcError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes("insufficient wallet")) {
@@ -79,6 +117,125 @@ export async function saveTeamAction(input: {
   }
   if (!teamId) {
     return { ok: false, message: "Could not save team." };
+  }
+
+  const mid = input.matchId;
+
+  const { data: utAfter } = await supabase
+    .from("user_teams")
+    .select("source_saved_match_team_id")
+    .eq("id", teamId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const boundSource =
+    (utAfter?.source_saved_match_team_id as string | null | undefined) ?? null;
+  if (boundSource) {
+    revalidatePath(`/matches/${mid}/teams`);
+  }
+
+  const { count: savedCount, error: countErr } = await supabase
+    .from("user_saved_match_teams")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("match_id", mid);
+
+  const nSaved = savedCount ?? 0;
+
+  if (!countErr && nSaved === 0) {
+    const { data: newTplId, error: saveTplErr } = await supabase.rpc(
+      "create_user_saved_match_team",
+      {
+        p_match_id: mid,
+        p_player_ids: input.playerIds,
+        p_captain_id: input.captainId,
+        p_vice_captain_id: input.viceCaptainId,
+      },
+    );
+    if (saveTplErr) {
+      console.error("auto-save first match team (T1):", saveTplErr.message);
+    } else if (newTplId) {
+      await bindUserTeamToSavedTemplate(
+        supabase,
+        user.id,
+        teamId,
+        newTplId as string,
+        mid,
+      );
+    }
+  } else if (!countErr && !boundSource && nSaved > 0) {
+    const { data: savedTeams } = await supabase
+      .from("user_saved_match_teams")
+      .select("id,captain_id,vice_captain_id")
+      .eq("user_id", user.id)
+      .eq("match_id", mid);
+
+    const savedIds = (savedTeams ?? []).map((t) => t.id as string);
+    let matchedSavedId: string | null = null;
+
+    if (savedIds.length > 0) {
+      const { data: rosterRows } = await supabase
+        .from("user_saved_match_team_roster")
+        .select("saved_team_id,player_id")
+        .in("saved_team_id", savedIds);
+
+      const rosterBySaved = new Map<string, string[]>();
+      for (const r of rosterRows ?? []) {
+        const sid = r.saved_team_id as string;
+        const list = rosterBySaved.get(sid) ?? [];
+        list.push(r.player_id as string);
+        rosterBySaved.set(sid, list);
+      }
+
+      for (const st of savedTeams ?? []) {
+        const sid = st.id as string;
+        const roster = rosterBySaved.get(sid) ?? [];
+        if (
+          sameFullXi(
+            input.playerIds,
+            input.captainId,
+            input.viceCaptainId,
+            roster,
+            st.captain_id as string,
+            st.vice_captain_id as string,
+          )
+        ) {
+          matchedSavedId = sid;
+          break;
+        }
+      }
+    }
+
+    if (matchedSavedId) {
+      await bindUserTeamToSavedTemplate(
+        supabase,
+        user.id,
+        teamId,
+        matchedSavedId,
+        mid,
+      );
+    } else if (nSaved < 10) {
+      const { data: newTplId, error: saveTplErr } = await supabase.rpc(
+        "create_user_saved_match_team",
+        {
+          p_match_id: mid,
+          p_player_ids: input.playerIds,
+          p_captain_id: input.captainId,
+          p_vice_captain_id: input.viceCaptainId,
+        },
+      );
+      if (saveTplErr) {
+        console.error("auto-save contest XI as new match team:", saveTplErr.message);
+      } else if (newTplId) {
+        await bindUserTeamToSavedTemplate(
+          supabase,
+          user.id,
+          teamId,
+          newTplId as string,
+          mid,
+        );
+      }
+    }
   }
 
   revalidatePath(`/matches/${input.matchId}`);

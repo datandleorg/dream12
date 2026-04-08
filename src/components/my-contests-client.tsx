@@ -18,6 +18,9 @@ export type MyContestListRow = {
   contestId: string;
   contestTitle: string;
   matchId: number;
+  /** Linked My teams template when the contest entry was created from a saved XI. */
+  sourceSavedMatchTeamId: string | null;
+  savedMatchTeamSlot: number | null;
   matchVersus: string;
   /** Toss + batting first when known (server-computed). */
   tossSummaryLine: string | null;
@@ -35,8 +38,6 @@ export type MyContestListRow = {
   /** Host can delete before lock (same rules as match page). */
   canDeleteAsHost: boolean;
   paidParticipantsCount: number;
-  /** Squad vs captain vs preview based on saved progress. */
-  teamFlowHref: string;
 };
 
 function ContestCard({ row }: { row: MyContestListRow }) {
@@ -56,6 +57,22 @@ function ContestCard({ row }: { row: MyContestListRow }) {
             <p className="text-xs">{row.tournamentName}</p>
           ) : null}
           <p className="text-xs tabular-nums">{row.startTimeLabel}</p>
+          <p className="text-xs">
+            <span className="text-muted-foreground">Your squad </span>
+            {row.savedMatchTeamSlot != null && row.sourceSavedMatchTeamId ? (
+              <>
+                <Link
+                  href={`/matches/${row.matchId}/teams/${row.sourceSavedMatchTeamId}/squad`}
+                  className="font-semibold text-foreground underline-offset-2 hover:underline"
+                >
+                  Team {row.savedMatchTeamSlot}
+                </Link>
+                <span className="text-muted-foreground"> · My teams</span>
+              </>
+            ) : (
+              <span className="font-semibold text-foreground">Contest XI</span>
+            )}
+          </p>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm tabular-nums">
           <span>
@@ -100,7 +117,7 @@ function ContestCard({ row }: { row: MyContestListRow }) {
             </Link>
             {row.canEditTeam ? (
               <Link
-                href={row.teamFlowHref}
+                href={`/matches/${row.matchId}/contests/${row.contestId}/pick-team`}
                 className={cn(
                   buttonVariants({ variant: "default" }),
                   "inline-flex min-h-11 flex-1 items-center justify-center",

@@ -121,7 +121,11 @@ function venueStageLabels(
   return { venue_label, stage_label };
 }
 
-export async function loadTeamFlowData(matchId: number, contestId: string) {
+export async function loadTeamFlowData(
+  matchId: number,
+  contestId: string,
+  options?: { resetContestDraft?: boolean },
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -130,6 +134,38 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
 
   if (isSportmonksFixtureId(matchId)) {
     await refreshMatchFromSportmonks(matchId);
+  }
+
+  if (options?.resetContestDraft) {
+    const { data: draftTeam } = await supabase
+      .from("user_teams")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("contest_id", contestId)
+      .maybeSingle();
+
+    if (draftTeam?.id) {
+      const tid = draftTeam.id as string;
+      const { error: rosterErr } = await supabase
+        .from("team_roster")
+        .delete()
+        .eq("team_id", tid);
+      if (rosterErr) {
+        console.error("reset contest draft roster:", rosterErr.message);
+      }
+      const { error: teamErr } = await supabase
+        .from("user_teams")
+        .update({
+          captain_id: null,
+          vice_captain_id: null,
+          source_saved_match_team_id: null,
+        })
+        .eq("id", tid)
+        .eq("user_id", user.id);
+      if (teamErr) {
+        console.error("reset contest draft user_teams:", teamErr.message);
+      }
+    }
   }
 
   const { data: matchRaw } = await supabase

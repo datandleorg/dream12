@@ -40,6 +40,10 @@ export type ContestPrizeSlab = {
   amount: number;
 };
 
+export type ContestEntryTeamSummary =
+  | { kind: "saved"; matchId: number; slot: number; savedTeamId: string }
+  | { kind: "contest_only" };
+
 export function ContestDashboard({
   contestId,
   contestTitle,
@@ -65,6 +69,7 @@ export function ContestDashboard({
   myStandings,
   squadHref,
   pointsUpdatedAt,
+  myEntryTeamSummary,
 }: {
   contestId: string;
   contestTitle: string;
@@ -92,6 +97,7 @@ export function ContestDashboard({
   myStandings: { rank: number; points: number } | null;
   squadHref: string;
   pointsUpdatedAt: string | null;
+  myEntryTeamSummary: ContestEntryTeamSummary | null;
 }) {
   const router = useRouter();
   const [preview, setPreview] = useState<{
@@ -293,13 +299,13 @@ export function ContestDashboard({
                 ) : null}
                 {showSquadLink ? (
                   <Link
-                    href={squadHref}
+                    href={`/matches/${matchCard.id}/contests/${contestId}/pick-team`}
                     className={cn(
                       buttonVariants({ variant: "outline", size: "sm" }),
                       "inline-flex min-h-10 shrink-0 items-center justify-center",
                     )}
                   >
-                    My team
+                    Edit team
                   </Link>
                 ) : null}
               </div>
@@ -313,6 +319,25 @@ export function ContestDashboard({
           </div>
 
           <HomeUpcomingCard match={matchCardLive} linkHref={false} variant="contest" />
+
+          {userHasTeamInContest && myEntryTeamSummary ? (
+            <p className="text-sm">
+              <span className="text-muted-foreground">Your squad </span>
+              {myEntryTeamSummary.kind === "saved" ? (
+                <Link
+                  href={`/matches/${myEntryTeamSummary.matchId}/teams/${myEntryTeamSummary.savedTeamId}/squad`}
+                  className="font-medium text-foreground underline-offset-2 hover:underline"
+                >
+                  Team {myEntryTeamSummary.slot}
+                </Link>
+              ) : (
+                <span className="font-medium text-foreground">Contest XI</span>
+              )}
+              {myEntryTeamSummary.kind === "saved" ? (
+                <span className="text-muted-foreground"> · My teams</span>
+              ) : null}
+            </p>
+          ) : null}
 
           {myStandings ? (
             <p className="border-primary/30 bg-primary/5 rounded-xl border px-3 py-2 text-sm font-medium tabular-nums">

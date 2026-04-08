@@ -103,7 +103,7 @@ export function CreateContestWizard({
       toast.error(res.message);
       return;
     }
-    router.push(`/matches/${matchId}/contests/${res.contestId}/squad`);
+    router.push(`/matches/${matchId}/contests/${res.contestId}/pick-team`);
     router.refresh();
   }
 

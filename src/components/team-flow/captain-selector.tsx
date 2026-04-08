@@ -21,10 +21,12 @@ export function CaptainSelector({
   matchId,
   contestId,
   match,
+  savedFlow,
 }: {
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
+  savedFlow?: { basePath: string };
 }) {
   const router = useRouter();
   const selected = useTeamBuilderStore((s) => s.selected);
@@ -33,7 +35,8 @@ export function CaptainSelector({
   const setCaptain = useTeamBuilderStore((s) => s.setCaptain);
   const setViceCaptain = useTeamBuilderStore((s) => s.setViceCaptain);
 
-  const base = `/matches/${matchId}/contests/${contestId}`;
+  const base =
+    savedFlow?.basePath ?? `/matches/${matchId}/contests/${contestId}`;
   const teamA = match.team_a?.trim() || "Team A";
   const teamB = match.team_b?.trim() || "Team B";
   const title =

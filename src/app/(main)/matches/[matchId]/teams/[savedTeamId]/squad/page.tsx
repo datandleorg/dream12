@@ -1,62 +1,53 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
 import { SquadPicker } from "@/components/team-flow/squad-picker";
 import {
   fetchPlayersForMatch,
-  loadTeamFlowData,
+  type TeamFlowPlayerRow,
 } from "@/lib/team-flow-data";
+import { loadSavedTeamFlowData } from "@/lib/saved-team-flow-data";
 import {
   isSportmonksFixtureId,
   syncPlayersForMatch,
 } from "@/lib/sportmonks/sync";
 
-/** Always read fresh `players.role` from DB after sync (no static cache of squad pool). */
 export const dynamic = "force-dynamic";
 
-export default async function ContestSquadPage({
+export default async function EditSavedTeamSquadPage({
   params,
-  searchParams,
 }: {
-  params: Promise<{ matchId: string; contestId: string }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  params: Promise<{ matchId: string; savedTeamId: string }>;
 }) {
-  const { matchId: mid, contestId } = await params;
+  const { matchId: mid, savedTeamId } = await params;
   const matchId = Number(mid);
   if (!Number.isFinite(matchId)) notFound();
 
-  const sp = (await searchParams) ?? {};
-  const freshRaw = sp.fresh;
-  const freshStr = Array.isArray(freshRaw) ? freshRaw[0] : freshRaw;
-  const buildFresh = freshStr === "1" || freshStr === "true";
+  let data = await loadSavedTeamFlowData(matchId, {
+    type: "edit",
+    savedTeamId,
+  });
 
-  if (buildFresh) {
-    await loadTeamFlowData(matchId, contestId, { resetContestDraft: true });
-    redirect(`/matches/${matchId}/contests/${contestId}/squad`);
-  }
-
-  let data = await loadTeamFlowData(matchId, contestId);
-
-  if (
-    !data.players.length &&
-    isSportmonksFixtureId(matchId)
-  ) {
+  if (!data.players.length && isSportmonksFixtureId(matchId)) {
     await syncPlayersForMatch(matchId);
     const players = await fetchPlayersForMatch(matchId);
     data = { ...data, players };
   }
 
+  const basePath = `/matches/${matchId}/teams/${savedTeamId}`;
+  const savedFlow = { basePath, backHref: `/matches/${matchId}/teams` };
+
   if (!data.players.length) {
     return (
       <div className="flex min-h-0 flex-1 flex-col py-4">
         <HydrateTeamFlow
-          contestId={contestId}
+          contestId={data.storeContestId}
           players={data.players}
           initialRoster={data.initialRoster}
           initialCaptainId={data.initialCaptainId}
           initialViceId={data.initialViceId}
         />
         <p className="text-muted-foreground text-sm">
-          No players in the pool yet for this match. Run sync or check SportMonks data.
+          No players in the pool yet for this match.
         </p>
       </div>
     );
@@ -65,7 +56,7 @@ export default async function ContestSquadPage({
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-1 flex-col py-2">
       <HydrateTeamFlow
-        contestId={contestId}
+        contestId={data.storeContestId}
         players={data.players}
         initialRoster={data.initialRoster}
         initialCaptainId={data.initialCaptainId}
@@ -73,9 +64,10 @@ export default async function ContestSquadPage({
       />
       <SquadPicker
         matchId={matchId}
-        contestId={contestId}
+        contestId={data.storeContestId}
         match={data.match}
-        players={data.players}
+        players={data.players as TeamFlowPlayerRow[]}
+        savedFlow={savedFlow}
       />
     </div>
   );

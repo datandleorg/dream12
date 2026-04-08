@@ -25,6 +25,7 @@ import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { venueStageLabels } from "@/lib/match-venue-stage";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
 import { DeleteContestButton } from "@/components/delete-contest-button";
+import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
 
 export default async function MatchDetailPage({
   params,
@@ -125,6 +126,10 @@ export default async function MatchDetailPage({
   const filledByContest = new Map<string, number>();
   const joinedContestIds = new Set<string>();
   const myTeamResumeHrefByContest = new Map<string, string>();
+  const myEntryTeamByContest = new Map<
+    string,
+    { templateId: string | null; slot: number | null }
+  >();
   if (contestIds.length) {
     const { data: teamRows } = await supabase
       .from("user_teams")
@@ -143,9 +148,20 @@ export default async function MatchDetailPage({
     if (user) {
       const { data: myRows } = await supabase
         .from("user_teams")
-        .select("id,contest_id,captain_id,vice_captain_id")
+        .select("id,contest_id,captain_id,vice_captain_id,source_saved_match_team_id")
         .eq("user_id", user.id)
         .in("contest_id", contestIds);
+      const slotByTemplateId = await mapSavedTemplateIdsToSlots(
+        supabase,
+        user.id,
+        (myRows ?? []).map((r) => r.source_saved_match_team_id as string | null),
+      );
+      for (const t of myRows ?? []) {
+        const cid = t.contest_id as string;
+        const tid = t.source_saved_match_team_id as string | null;
+        const slot = tid ? (slotByTemplateId.get(tid) ?? null) : null;
+        myEntryTeamByContest.set(cid, { templateId: tid, slot });
+      }
       const myTeamIds = (myRows ?? []).map((t) => t.id as string);
       if (myTeamIds.length) {
         const { data: rosterRows } = await supabase
@@ -239,6 +255,17 @@ export default async function MatchDetailPage({
           >
             Live score
           </Link>
+          {user ? (
+            <Link
+              href={`/matches/${matchId}/teams`}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "inline-flex min-h-10 w-full items-center justify-center sm:w-auto",
+              )}
+            >
+              My teams
+            </Link>
+          ) : null}
         </div>
         {user && isUpcoming ? (
           rosterLocked ? (
@@ -282,6 +309,10 @@ export default async function MatchDetailPage({
               !rosterLocked &&
               c.created_by != null &&
               c.created_by === user!.id;
+            const myEntryTeam =
+              user && joinedContestIds.has(c.id)
+                ? myEntryTeamByContest.get(c.id)
+                : undefined;
             return (
               <li key={c.id}>
                 <Card>
@@ -299,10 +330,30 @@ export default async function MatchDetailPage({
                         </Badge>
                       ) : null}
                     </CardTitle>
-                    <CardDescription>
-                      Entry ₹{Number(c.entry_fee)} · Pool ₹
-                      {Number(c.prize_pool)} · {filled}/
-                      {c.max_participants} joined
+                    <CardDescription className="space-y-1">
+                      <span>
+                        Entry ₹{Number(c.entry_fee)} · Pool ₹
+                        {Number(c.prize_pool)} · {filled}/
+                        {c.max_participants} joined
+                      </span>
+                      {myEntryTeam ? (
+                        <span className="block text-xs">
+                          <span className="text-muted-foreground">Your squad </span>
+                          {myEntryTeam.slot != null && myEntryTeam.templateId ? (
+                            <Link
+                              href={`/matches/${matchId}/teams/${myEntryTeam.templateId}/squad`}
+                              className="font-medium text-foreground underline-offset-2 hover:underline"
+                            >
+                              Team {myEntryTeam.slot}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-foreground">Contest XI</span>
+                          )}
+                          {myEntryTeam.slot != null && myEntryTeam.templateId ? (
+                            <span className="text-muted-foreground"> · My teams</span>
+                          ) : null}
+                        </span>
+                      ) : null}
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -336,7 +387,10 @@ export default async function MatchDetailPage({
                             </span>
                           ) : (
                             <Link
-                              href={`/matches/${matchId}/contests/${c.id}/squad`}
+                              href={
+                                myTeamResumeHrefByContest.get(c.id) ??
+                                `/matches/${matchId}/contests/${c.id}/pick-team`
+                              }
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
                                 "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
@@ -348,16 +402,13 @@ export default async function MatchDetailPage({
                         ) : joinedContestIds.has(c.id) ? (
                           !isLive ? (
                             <Link
-                              href={
-                                myTeamResumeHrefByContest.get(c.id) ??
-                                `/matches/${matchId}/contests/${c.id}/squad`
-                              }
+                              href={`/matches/${matchId}/contests/${c.id}/pick-team`}
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
                                 "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
                               )}
                             >
-                              My team
+                              Edit team
                             </Link>
                           ) : null
                         ) : (

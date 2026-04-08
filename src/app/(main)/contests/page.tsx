@@ -12,9 +12,9 @@ import {
   type MyContestListRow,
 } from "@/components/my-contests-client";
 import { formatMatchTossSummary } from "@/lib/match-toss-summary";
-import { contestTeamBuildPath } from "@/lib/team-flow-data";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { cn } from "@/lib/utils";
+import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
 
 const START_LABEL = new Intl.DateTimeFormat("en-GB", {
   weekday: "short",
@@ -100,6 +100,7 @@ export default async function MyContestsPage() {
       entry_fee_paid_at,
       captain_id,
       vice_captain_id,
+      source_saved_match_team_id,
       contests (
         id,
         name,
@@ -124,6 +125,12 @@ export default async function MyContestsPage() {
     `,
     )
     .eq("user_id", user.id);
+
+  const slotByTemplateId = await mapSavedTemplateIdsToSlots(
+    supabase,
+    user.id,
+    (teams ?? []).map((t) => t.source_saved_match_team_id as string | null),
+  );
 
   const contestIds = [
     ...new Set(
@@ -167,19 +174,6 @@ export default async function MyContestsPage() {
     }
   }
 
-  const teamIds = (teams ?? []).map((t) => t.id as string);
-  const rosterCountByTeamId = new Map<string, number>();
-  if (teamIds.length) {
-    const { data: rosterRows } = await supabase
-      .from("team_roster")
-      .select("team_id")
-      .in("team_id", teamIds);
-    for (const rr of rosterRows ?? []) {
-      const tid = rr.team_id as string;
-      rosterCountByTeamId.set(tid, (rosterCountByTeamId.get(tid) ?? 0) + 1);
-    }
-  }
-
   const rows: MyContestListRow[] = (teams ?? [])
     .map((t) => {
       const c = t.contests as unknown as ContestNested;
@@ -220,6 +214,10 @@ export default async function MyContestsPage() {
         createdBy === user.id;
       const paidParticipantsCount = paidCountByContest.get(c.id) ?? 0;
       const userTeamId = t.id as string;
+      const sourceSavedId = t.source_saved_match_team_id as string | null;
+      const savedMatchTeamSlot = sourceSavedId
+        ? (slotByTemplateId.get(sourceSavedId) ?? null)
+        : null;
       const rank = rankByContest.get(c.id) ?? 0;
       const amountWonInr = prizesSettled
         ? (payoutByUserTeam.get(userTeamId) ?? 0)
@@ -230,6 +228,8 @@ export default async function MyContestsPage() {
         contestId: c.id,
         contestTitle: c.name?.trim() || `Contest · ${matchName}`,
         matchId: Number(c.match_id),
+        sourceSavedMatchTeamId: sourceSavedId,
+        savedMatchTeamSlot,
         matchVersus,
         tossSummaryLine: tossSummaryLine || null,
         startTimeLabel: formatStartUtc(m?.start_time ?? undefined),
@@ -244,14 +244,6 @@ export default async function MyContestsPage() {
         canEditTeam,
         canDeleteAsHost,
         paidParticipantsCount,
-        teamFlowHref: contestTeamBuildPath(
-          Number(c.match_id),
-          c.id,
-          rosterCountByTeamId.get(userTeamId) ?? 0,
-          (t.captain_id as string) ?? null,
-          (t.vice_captain_id as string) ?? null,
-          { startAtSquad: true },
-        ),
       };
       return row;
     })

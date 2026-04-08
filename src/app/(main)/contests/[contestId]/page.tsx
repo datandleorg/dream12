@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Row } from "@/components/leaderboard-realtime";
 import {
   ContestDashboard,
+  type ContestEntryTeamSummary,
   type ContestPayoutDisplayRow,
   type ContestPrizeSlab,
 } from "@/components/contest-dashboard";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/contest-visibility";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
+import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -49,11 +51,13 @@ export default async function ContestLeaderboardPage({
 
   let userHasTeamInContest = false;
   const matchId = Number(contest.match_id);
-  let squadHref = `/matches/${matchId}/contests/${contestId}/squad`;
+  /** Dream11-style: choose a saved match team or build new until a contest row exists. */
+  let squadHref = `/matches/${matchId}/contests/${contestId}/pick-team`;
+  let myEntryTeamSummary: ContestEntryTeamSummary | null = null;
   if (user) {
     const { data: myTeamRow } = await supabase
       .from("user_teams")
-      .select("id,captain_id,vice_captain_id")
+      .select("id,captain_id,vice_captain_id,source_saved_match_team_id")
       .eq("contest_id", contestId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -71,6 +75,23 @@ export default async function ContestLeaderboardPage({
         (myTeamRow.vice_captain_id as string) ?? null,
         { startAtSquad: true },
       );
+      const src = myTeamRow.source_saved_match_team_id as string | null;
+      if (src) {
+        const slotMap = await mapSavedTemplateIdsToSlots(supabase, user.id, [src]);
+        const slot = slotMap.get(src);
+        if (slot != null) {
+          myEntryTeamSummary = {
+            kind: "saved",
+            matchId,
+            slot,
+            savedTeamId: src,
+          };
+        } else {
+          myEntryTeamSummary = { kind: "contest_only" };
+        }
+      } else {
+        myEntryTeamSummary = { kind: "contest_only" };
+      }
     }
   }
   const { data: matchRow } = await supabase
@@ -264,6 +285,7 @@ export default async function ContestLeaderboardPage({
       myStandings={myStandings}
       squadHref={squadHref}
       pointsUpdatedAt={pointsUpdatedAt}
+      myEntryTeamSummary={myEntryTeamSummary}
     />
   );
 }
