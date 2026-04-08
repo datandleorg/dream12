@@ -28,6 +28,24 @@ import { updateUserTeamsPointsForMatch } from "@/lib/update-user-teams-for-match
 
 export const MAX_MATCHES_PER_RUN = 25;
 
+/**
+ * Fixture IDs to exclude from the automated live pipeline (cron `/api/cron/live-match-tick`).
+ * Comma- or whitespace-separated positive integers. Does not apply to admin
+ * `POST /api/admin/sync-match` with a single `matchId` (manual tick still runs).
+ */
+function livePipelineSkipMatchIds(): Set<number> {
+  const raw = process.env.LIVE_MATCH_TICK_SKIP_MATCH_IDS?.trim();
+  if (!raw) return new Set();
+  const out = new Set<number>();
+  for (const part of raw.split(/[\s,]+/)) {
+    const t = part.trim();
+    if (!t) continue;
+    const n = Number(t);
+    if (Number.isFinite(n) && n > 0) out.add(Math.trunc(n));
+  }
+  return out;
+}
+
 /** Minimum time between applying `lineup` from the live fixture payload (per match). */
 const LINEUP_SYNC_MIN_MS = 3 * 60 * 1000;
 
@@ -261,6 +279,8 @@ export type MatchPipelineResult = {
     errors: number;
     ids: number[];
   };
+  /** Fixture IDs bypassed this run (env `LIVE_MATCH_TICK_SKIP_MATCH_IDS`). */
+  pipelineSkippedMatchIds?: number[];
   note?: string;
 };
 
@@ -313,6 +333,9 @@ export async function runMatchPipeline(
     };
   }
 
+  const skipMatchIds = livePipelineSkipMatchIds();
+  const pipelineSkipped = new Set<number>();
+
   const now = Date.now();
   let nowMap: Map<number, Record<string, unknown>> = new Map();
   try {
@@ -332,6 +355,10 @@ export async function runMatchPipeline(
   for (const row of upcomingPrematch ?? []) {
     const id = Number(row.id);
     if (!isSportmonksFixtureId(id)) continue;
+    if (skipMatchIds.has(id)) {
+      pipelineSkipped.add(id);
+      continue;
+    }
     const start = String(row.start_time ?? "");
     const tossAt = row.toss_recorded_at as string | null;
     const inWindow = inPrematchWindow(start, now) || tossAt != null;
@@ -389,6 +416,10 @@ export async function runMatchPipeline(
   for (const row of upcomingPromote ?? []) {
     const id = Number(row.id);
     if (!isSportmonksFixtureId(id)) continue;
+    if (skipMatchIds.has(id)) {
+      pipelineSkipped.add(id);
+      continue;
+    }
     if (!inPromoteWindow(String(row.start_time ?? ""), now)) continue;
 
     const merged = nowMap.get(id);
@@ -459,7 +490,14 @@ export async function runMatchPipeline(
   const rows = liveRows ?? [];
   const ids = rows
     .map((r) => Number(r.id))
-    .filter((id) => Number.isFinite(id) && isSportmonksFixtureId(id));
+    .filter((id) => {
+      if (!Number.isFinite(id) || !isSportmonksFixtureId(id)) return false;
+      if (skipMatchIds.has(id)) {
+        pipelineSkipped.add(id);
+        return false;
+      }
+      return true;
+    });
 
   liveTicks.ids = ids;
 
@@ -483,7 +521,11 @@ export async function runMatchPipeline(
     }
   }
 
-  return { prematch, promote, liveTicks };
+  const out: MatchPipelineResult = { prematch, promote, liveTicks };
+  if (pipelineSkipped.size > 0) {
+    out.pipelineSkippedMatchIds = [...pipelineSkipped].sort((a, b) => a - b);
+  }
+  return out;
 }
 
 /**
