@@ -25,6 +25,7 @@ function mapRpcError(msg: string): string {
   if (m.includes("only user-created")) return "Only contests you created can be removed this way.";
   if (m.includes("only the contest creator")) return "Only the contest host can delete it.";
   if (m.includes("already settled")) return "This contest can’t be deleted — it’s already finished or voided.";
+  if (m.includes("finished")) return "This match has finished — this contest can’t be deleted.";
   if (m.includes("deadline") || m.includes("lock")) return "Team lock has passed — this contest can’t be deleted.";
   if (m.includes("match not found")) return "Match not found. Refresh and try again.";
   return msg;

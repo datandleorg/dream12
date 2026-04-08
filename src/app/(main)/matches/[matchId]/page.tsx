@@ -181,7 +181,7 @@ export default async function MatchDetailPage({
       ? `${match.team_a} vs ${match.team_b}`
       : match.name;
 
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const rosterLocked = isTeamEditLocked(matchRow.status);
 
   return (
     <div className="space-y-4 py-4">
@@ -225,12 +225,6 @@ export default async function MatchDetailPage({
         {stageLine ? (
           <p className="text-muted-foreground mt-0.5 text-xs">{stageLine}</p>
         ) : null}
-        {isUpcoming && rosterLocked ? (
-          <p className="text-muted-foreground mt-2 text-xs">
-            Team picks are locked (1 minute before start). You can still open contests if you
-            already joined.
-          </p>
-        ) : null}
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -253,7 +247,7 @@ export default async function MatchDetailPage({
                 buttonVariants({ variant: "secondary" }),
                 "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:w-auto",
               )}
-              title="Team lock is on — new contests cannot be created this close to start."
+              title="Team lock is on — new contests cannot be created after the match goes live."
             >
               Create contest (locked)
             </span>
@@ -374,7 +368,7 @@ export default async function MatchDetailPage({
                             balance={balance}
                             label="Join"
                             disabled={rosterLocked}
-                            disabledReason="Team lock is on — you cannot join new contests this close to start."
+                            disabledReason="Team lock is on — you cannot join new contests after the match goes live."
                           />
                         )
                       ) : (

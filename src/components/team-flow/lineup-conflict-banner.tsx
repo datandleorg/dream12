@@ -8,21 +8,21 @@ import { cn } from "@/lib/utils";
 export function LineupConflictBanner({
   count,
   editHref,
-  matchStartIso,
+  matchStatus,
   className,
 }: {
   count: number;
   /** Squad step can omit link; contest/match surfaces pass squad URL */
   editHref?: string;
-  /** When set, uses same lock rule as save_fantasy_team (1 min before start). */
-  matchStartIso?: string;
+  /** When set, uses same lock rule as save_fantasy_team (not `upcoming`). */
+  matchStatus?: string | null;
   className?: string;
 }) {
   if (count <= 0) return null;
 
   const locked =
-    matchStartIso != null && matchStartIso !== ""
-      ? isTeamEditLocked(matchStartIso)
+    matchStatus != null && String(matchStatus).trim() !== ""
+      ? isTeamEditLocked(matchStatus)
       : false;
 
   const label =
@@ -66,7 +66,7 @@ export function LineupConflictBanner({
         >
           {label}{" "}
           {locked
-            ? "The deadline to edit your team (1 minute before match start) has passed, so changes can no longer be saved."
+            ? "The match is live (or finished), so changes can no longer be saved."
             : "Swap them on the squad step for anyone not in the playing XI, then save again."}
         </p>
       </div>

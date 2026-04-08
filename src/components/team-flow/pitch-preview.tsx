@@ -63,7 +63,7 @@ export function PitchPreview({
   const creditsUsed = selected.reduce((s, p) => s + p.credit_value, 0);
   const creditsLeft = MAX_CREDITS - creditsUsed;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const rosterLocked = isTeamEditLocked(match.status);
 
   const { tossWinnerTeamId, tossDecision } = useMatchTossLive(matchId, {
     toss_winner_team_id: match.toss_winner_team_id,
@@ -170,7 +170,7 @@ export function PitchPreview({
 
       {rosterLocked ? (
         <p className="text-zinc-600 px-1 text-center text-xs dark:text-zinc-400">
-          Team lock is on (1 minute before start). Saving or updating your team is no longer allowed.
+          Team lock is on (match is live). Saving or updating your team is no longer allowed.
         </p>
       ) : null}
 
@@ -178,7 +178,7 @@ export function PitchPreview({
         <LineupConflictBanner
           count={lineupConflictSelected}
           editHref={`${base}/squad`}
-          matchStartIso={match.start_time}
+          matchStatus={match.status}
         />
       ) : null}
 

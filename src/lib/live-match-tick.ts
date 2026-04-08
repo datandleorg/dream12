@@ -80,6 +80,36 @@ function isDbMatchStatus(s: string): s is DbMatchStatus {
 }
 
 /**
+ * Build a minimal `SmFixture` from a livescores "now" row so `mapMatchStatusFromSmFixture`
+ * can classify (e.g. Delayed → upcoming). Returns null if there is nothing to map.
+ */
+function smFixtureFromLivescoreNow(
+  id: number,
+  merged: Record<string, unknown> | undefined,
+): SmFixture | null {
+  if (!merged || typeof merged !== "object") return null;
+  const nested = merged.fixture;
+  const startFromNested =
+    nested && typeof nested === "object" && nested !== null
+      ? (nested as { starting_at?: string }).starting_at
+      : undefined;
+  const asF = merged as Partial<SmFixture>;
+  const starting_at =
+    typeof asF.starting_at === "string" && asF.starting_at
+      ? asF.starting_at
+      : typeof startFromNested === "string" && startFromNested
+        ? startFromNested
+        : undefined;
+  const status =
+    typeof asF.status === "string" && asF.status.trim()
+      ? asF.status.trim()
+      : undefined;
+  const live = asF.live;
+  if (!starting_at && !status && live == null) return null;
+  return { id, starting_at, status, live } as SmFixture;
+}
+
+/**
  * One match: merge livescores + fixture, persist, optional lineup/balls/toss, recompute points.
  * `previousDbStatus` must match the row in DB before this update (for live → in_review).
  */
@@ -361,15 +391,25 @@ export async function runMatchPipeline(
     if (!isSportmonksFixtureId(id)) continue;
     if (!inPromoteWindow(String(row.start_time ?? ""), now)) continue;
 
-    let shouldLive = nowMap.has(id);
-    if (!shouldLive) {
+    const merged = nowMap.get(id);
+    const fromNow = smFixtureFromLivescoreNow(id, merged);
+    let source: SmFixture | null = null;
+    let usedLivescoreForLive = false;
+    let metaLoaded: SmFixture | null = null;
+
+    if (fromNow) {
+      if (mapMatchStatusFromSmFixture(fromNow) === "live") {
+        source = fromNow;
+        usedLivescoreForLive = true;
+      }
+    } else {
       try {
         const meta = await fetchFixtureMetaRaw(id);
         if (meta) {
-          const asF = meta as Partial<SmFixture>;
-          if (asF.starting_at) {
-            const m = mapMatchStatusFromSmFixture({ ...asF, id } as SmFixture);
-            shouldLive = m === "live";
+          const asF = { ...(meta as Partial<SmFixture>), id } as SmFixture;
+          metaLoaded = asF;
+          if (mapMatchStatusFromSmFixture(asF) === "live") {
+            source = asF;
           }
         }
       } catch {
@@ -378,47 +418,34 @@ export async function runMatchPipeline(
       }
     }
 
-    if (shouldLive) {
-      try {
-        const merged = nowMap.get(id);
-        const smSt =
-          merged && typeof merged.status === "string" ? merged.status.trim() : null;
-        const smNote =
-          merged && typeof merged === "object"
-            ? smFixtureNoteFromPayload(
-                (merged as Record<string, unknown>).note,
-              )
-            : null;
-        if (merged && typeof merged === "object") {
-          const nested = merged.fixture;
-          const startFromNested =
-            nested && typeof nested === "object"
-              ? (nested as { starting_at?: string }).starting_at
-              : undefined;
-          const asF = merged as Partial<SmFixture>;
-          const startingAt = asF.starting_at ?? startFromNested;
-          if (startingAt) {
-            await supabase
-              .from("matches")
-              .update({
-                status: "live",
-                ...(smSt ? { sm_fixture_status: smSt } : {}),
-                ...(smNote ? { sm_fixture_note: smNote } : {}),
-              })
-              .eq("id", id);
-            promote.promoted += 1;
-            continue;
-          }
-        }
-        const meta = await fetchFixtureMetaRaw(id);
-        if (meta) {
-          await upsertSingleSmFixture(supabase, { ...meta, id } as SmFixture);
-          await supabase.from("matches").update({ status: "live" }).eq("id", id);
-          promote.promoted += 1;
-        }
-      } catch {
-        promote.errors += 1;
+    if (!source) continue;
+
+    try {
+      if (!usedLivescoreForLive && metaLoaded) {
+        await upsertSingleSmFixture(supabase, metaLoaded);
       }
+
+      const smSt =
+        source.status?.trim() ||
+        (merged && typeof merged.status === "string" ? merged.status.trim() : null);
+      const smNote =
+        smFixtureNoteFromPayload(
+          merged && typeof merged === "object"
+            ? (merged as Record<string, unknown>).note
+            : null,
+        ) ?? smFixtureNoteFromPayload(source.note);
+
+      await supabase
+        .from("matches")
+        .update({
+          status: "live",
+          ...(smSt ? { sm_fixture_status: smSt } : {}),
+          ...(smNote ? { sm_fixture_note: smNote } : {}),
+        })
+        .eq("id", id);
+      promote.promoted += 1;
+    } catch {
+      promote.errors += 1;
     }
   }
 

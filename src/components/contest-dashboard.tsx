@@ -286,7 +286,7 @@ export function ContestDashboard({
                         balance={walletBalance}
                         label="Join"
                         disabled={rosterLocked}
-                        disabledReason="Team lock is on — you cannot join new contests this close to start."
+                        disabledReason="Team lock is on — you cannot join new contests after the match goes live."
                       />
                     </div>
                   ) : null

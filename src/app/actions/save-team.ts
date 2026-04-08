@@ -21,6 +21,7 @@ function mapRpcError(msg: string): string {
     return "This contest is full — no spots left.";
   }
   if (m.includes("deadline")) return "Team lock deadline has passed.";
+  if (m.includes("finished")) return "This match has finished — teams can’t be changed.";
   if (m.includes("not authenticated")) return "Sign in again to save your team.";
   if (
     m.includes("duplicate key") ||

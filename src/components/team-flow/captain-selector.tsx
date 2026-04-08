@@ -46,7 +46,7 @@ export function CaptainSelector({
   const selectedA = selected.filter((p) => p.team === teamA).length;
   const selectedB = selected.filter((p) => p.team === teamB).length;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const rosterLocked = isTeamEditLocked(match.status);
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
@@ -84,7 +84,7 @@ export function CaptainSelector({
 
       {rosterLocked ? (
         <p className="text-zinc-600 px-2 text-center text-xs dark:text-zinc-400">
-          Team lock is on (1 minute before start). Captain changes cannot be saved after the deadline.
+          Team lock is on (match is live). Captain changes cannot be saved after the deadline.
         </p>
       ) : null}
 
@@ -92,7 +92,7 @@ export function CaptainSelector({
         <LineupConflictBanner
           count={lineupConflictSelected}
           editHref={`${base}/squad`}
-          matchStartIso={match.start_time}
+          matchStatus={match.status}
         />
       ) : null}
 

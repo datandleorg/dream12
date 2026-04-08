@@ -211,8 +211,7 @@ export default async function MyContestsPage() {
       const matchStatusKey = matchStatus.toLowerCase();
       const canEditTeam = matchStatusKey === "upcoming";
       const prizesSettled = c.prizes_settled_at != null && c.prizes_settled_at !== "";
-      const startIso = m?.start_time ? String(m.start_time) : "";
-      const rosterLockedForHost = isTeamEditLocked(startIso);
+      const rosterLockedForHost = isTeamEditLocked(matchStatus);
       const createdBy = c.created_by ?? null;
       const canDeleteAsHost =
         !prizesSettled &&

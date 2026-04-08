@@ -119,7 +119,7 @@ export function SquadPicker({
 
   const rc = roleCounts(players);
 
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const rosterLocked = isTeamEditLocked(match.status);
 
   const filtered = useMemo(
     () => players.filter((p) => mapRowToBuilderPlayer(p).role === roleTab),
@@ -186,7 +186,7 @@ export function SquadPicker({
 
         {rosterLocked ? (
           <p className="text-zinc-600 px-2 pt-1 text-center text-xs dark:text-zinc-400">
-            Team lock is on (1 minute before start). You can review picks, but
+            Team lock is on (match is live). You can review picks, but
             changes cannot be saved.
           </p>
         ) : null}
@@ -195,7 +195,7 @@ export function SquadPicker({
           <div className="px-1 pt-2">
             <LineupConflictBanner
               count={lineupConflictSelected}
-              matchStartIso={match.start_time}
+              matchStatus={match.status}
             />
           </div>
         ) : null}

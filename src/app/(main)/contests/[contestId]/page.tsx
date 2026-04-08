@@ -89,7 +89,7 @@ export default async function ContestLeaderboardPage({
   const statusKey = String(matchRow?.status ?? "upcoming").toLowerCase();
   const matchJoinBlocked =
     statusKey === "completed" || statusKey === "in_review";
-  const rosterLocked = isTeamEditLocked(matchStartIso);
+  const rosterLocked = isTeamEditLocked(matchRow?.status);
   const isCreatorDraft = isCreatorDraftContest(contestVisibility, user?.id);
 
   let walletBalance = 0;
