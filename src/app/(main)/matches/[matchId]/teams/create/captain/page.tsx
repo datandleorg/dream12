@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
 import { CaptainSelector } from "@/components/team-flow/captain-selector";
+import { redirectIfSavedTeamEditLocked } from "@/lib/fantasy/saved-team-edit-server";
 import { loadSavedTeamFlowData } from "@/lib/saved-team-flow-data";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export default async function CreateSavedTeamCaptainPage({
   if (!Number.isFinite(matchId)) notFound();
 
   const data = await loadSavedTeamFlowData(matchId, { type: "create" });
+  redirectIfSavedTeamEditLocked(matchId, data.match.status);
   const savedFlow = { basePath: `/matches/${matchId}/teams/create` };
 
   return (

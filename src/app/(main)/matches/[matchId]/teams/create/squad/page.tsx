@@ -6,6 +6,7 @@ import {
   type TeamFlowPlayerRow,
 } from "@/lib/team-flow-data";
 import { loadSavedTeamFlowData } from "@/lib/saved-team-flow-data";
+import { redirectIfSavedTeamEditLocked } from "@/lib/fantasy/saved-team-edit-server";
 import {
   isSportmonksFixtureId,
   syncPlayersForMatch,
@@ -31,6 +32,7 @@ export default async function CreateSavedTeamSquadPage({
     freshStr === "1" || freshStr === "true";
 
   let data = await loadSavedTeamFlowData(matchId, { type: "create" });
+  redirectIfSavedTeamEditLocked(matchId, data.match.status);
 
   if (!data.players.length && isSportmonksFixtureId(matchId)) {
     await syncPlayersForMatch(matchId);

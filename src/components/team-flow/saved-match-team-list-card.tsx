@@ -31,6 +31,8 @@ type SavedMatchTeamListCardProps = {
   embedded?: boolean;
   /** Pick-team flow: title is not a link; no squad shortcuts */
   pickSelectorRow?: boolean;
+  /** My teams: match not upcoming — no squad/edit links (status-based lock). */
+  editLocked?: boolean;
 };
 
 /**
@@ -47,30 +49,43 @@ export function SavedMatchTeamListCard({
   primaryAction,
   embedded = false,
   pickSelectorRow = false,
+  editLocked = false,
 }: SavedMatchTeamListCardProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const capAv = playerAvatarUrl(t.captain.photo_url, t.captain.name);
   const vcAv = playerAvatarUrl(t.viceCaptain.photo_url, t.viceCaptain.name);
 
   function makePrimaryFooter() {
-    if (primaryAction === "edit") {
+    if (primaryAction !== "edit") return null;
+    if (editLocked) {
       return (
-        <Link
-          href={`/matches/${matchId}/teams/${t.id}/squad`}
+        <span
           className={cn(
             buttonVariants({ variant: "secondary", size: "sm" }),
-            "inline-flex min-h-9 w-full items-center justify-center sm:w-auto",
+            "inline-flex min-h-9 w-full cursor-not-allowed items-center justify-center opacity-60 sm:w-auto",
           )}
+          title="Team lock is on — you can’t edit saved teams for this match."
         >
-          Edit team
-        </Link>
+          Edit team (locked)
+        </span>
       );
     }
-    return null;
+    return (
+      <Link
+        href={`/matches/${matchId}/teams/${t.id}/squad`}
+        className={cn(
+          buttonVariants({ variant: "secondary", size: "sm" }),
+          "inline-flex min-h-9 w-full items-center justify-center sm:w-auto",
+        )}
+      >
+        Edit team
+      </Link>
+    );
   }
 
   const showPrimaryFooter = primaryAction !== "none";
-  const modalFooter = showPrimaryFooter ? makePrimaryFooter() : null;
+  const modalFooter =
+    showPrimaryFooter && !editLocked ? makePrimaryFooter() : null;
 
   return (
     <Card
@@ -82,7 +97,7 @@ export function SavedMatchTeamListCard({
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
         <div>
           <CardTitle className="text-base">
-            {pickSelectorRow ? (
+            {pickSelectorRow || (primaryAction === "edit" && editLocked) ? (
               <span>Team {t.slot}</span>
             ) : (
               <Link

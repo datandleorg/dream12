@@ -267,18 +267,8 @@ export default async function MatchDetailPage({
             </Link>
           ) : null}
         </div>
-        {user && isUpcoming ? (
-          rosterLocked ? (
-            <span
-              className={cn(
-                buttonVariants({ variant: "secondary" }),
-                "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:w-auto",
-              )}
-              title="Team lock is on — new contests cannot be created after the match goes live."
-            >
-              Create contest (locked)
-            </span>
-          ) : (
+        {user ? (
+          isUpcoming ? (
             <Link
               href={`/matches/${matchId}/create-contest`}
               className={cn(
@@ -288,6 +278,22 @@ export default async function MatchDetailPage({
             >
               Create contest
             </Link>
+          ) : (
+            <span
+              className={cn(
+                buttonVariants({ variant: "secondary" }),
+                "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:w-auto",
+              )}
+              title={
+                isLive
+                  ? "The match is live — new contests can’t be created."
+                  : isCompleted
+                    ? "This match is over — new contests can’t be created."
+                    : "New contests can’t be created for this match right now."
+              }
+            >
+              Create contest (locked)
+            </span>
           )
         ) : null}
       </div>
@@ -340,12 +346,18 @@ export default async function MatchDetailPage({
                         <span className="block text-xs">
                           <span className="text-muted-foreground">Your squad </span>
                           {myEntryTeam.slot != null && myEntryTeam.templateId ? (
-                            <Link
-                              href={`/matches/${matchId}/teams/${myEntryTeam.templateId}/squad`}
-                              className="font-medium text-foreground underline-offset-2 hover:underline"
-                            >
-                              Team {myEntryTeam.slot}
-                            </Link>
+                            !rosterLocked ? (
+                              <Link
+                                href={`/matches/${matchId}/teams/${myEntryTeam.templateId}/squad`}
+                                className="font-medium text-foreground underline-offset-2 hover:underline"
+                              >
+                                Team {myEntryTeam.slot}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-foreground">
+                                Team {myEntryTeam.slot}
+                              </span>
+                            )
                           ) : (
                             <span className="font-medium text-foreground">Contest XI</span>
                           )}

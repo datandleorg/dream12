@@ -61,12 +61,18 @@ function ContestCard({ row }: { row: MyContestListRow }) {
             <span className="text-muted-foreground">Your squad </span>
             {row.savedMatchTeamSlot != null && row.sourceSavedMatchTeamId ? (
               <>
-                <Link
-                  href={`/matches/${row.matchId}/teams/${row.sourceSavedMatchTeamId}/squad`}
-                  className="font-semibold text-foreground underline-offset-2 hover:underline"
-                >
-                  Team {row.savedMatchTeamSlot}
-                </Link>
+                {row.canEditTeam ? (
+                  <Link
+                    href={`/matches/${row.matchId}/teams/${row.sourceSavedMatchTeamId}/squad`}
+                    className="font-semibold text-foreground underline-offset-2 hover:underline"
+                  >
+                    Team {row.savedMatchTeamSlot}
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-foreground">
+                    Team {row.savedMatchTeamSlot}
+                  </span>
+                )}
                 <span className="text-muted-foreground"> · My teams</span>
               </>
             ) : (

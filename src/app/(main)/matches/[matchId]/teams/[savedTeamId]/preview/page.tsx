@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
 import { SavedMatchTeamPreview } from "@/components/team-flow/saved-match-team-preview";
+import { redirectIfSavedTeamEditLocked } from "@/lib/fantasy/saved-team-edit-server";
 import { loadSavedTeamFlowData } from "@/lib/saved-team-flow-data";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function EditSavedTeamPreviewPage({
     type: "edit",
     savedTeamId,
   });
+  redirectIfSavedTeamEditLocked(matchId, data.match.status);
 
   return (
     <div className="py-2">

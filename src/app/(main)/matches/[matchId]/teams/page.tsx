@@ -94,6 +94,7 @@ export default async function MatchTeamsPage({
                 pitchTeamB={pitchTeamB}
                 aShort={aShort}
                 bShort={bShort}
+                editLocked={locked}
                 headerEnd={
                   !locked ? (
                     <DeleteSavedTeamButton matchId={matchId} savedTeamId={t.id} />

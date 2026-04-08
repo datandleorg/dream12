@@ -181,7 +181,7 @@ export function ContestDashboard({
   const liveSt = String(live.status).toLowerCase();
   const matchCompleted = liveSt === "completed" || liveSt === "in_review";
   const opponentTeamPreviewLocked = liveSt === "upcoming";
-  const showSquadLink = userHasTeamInContest && liveSt !== "live";
+  const showSquadLink = userHasTeamInContest && !rosterLocked;
 
   const myTeamId = useMemo(() => {
     if (!currentUserId || !userHasTeamInContest) return null;
@@ -324,12 +324,18 @@ export function ContestDashboard({
             <p className="text-sm">
               <span className="text-muted-foreground">Your squad </span>
               {myEntryTeamSummary.kind === "saved" ? (
-                <Link
-                  href={`/matches/${myEntryTeamSummary.matchId}/teams/${myEntryTeamSummary.savedTeamId}/squad`}
-                  className="font-medium text-foreground underline-offset-2 hover:underline"
-                >
-                  Team {myEntryTeamSummary.slot}
-                </Link>
+                !rosterLocked ? (
+                  <Link
+                    href={`/matches/${myEntryTeamSummary.matchId}/teams/${myEntryTeamSummary.savedTeamId}/squad`}
+                    className="font-medium text-foreground underline-offset-2 hover:underline"
+                  >
+                    Team {myEntryTeamSummary.slot}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-foreground">
+                    Team {myEntryTeamSummary.slot}
+                  </span>
+                )
               ) : (
                 <span className="font-medium text-foreground">Contest XI</span>
               )}

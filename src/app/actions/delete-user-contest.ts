@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isMatchUpcomingForUserContests } from "@/lib/fantasy/team-lock";
 
 export type DeleteUserContestResult =
   | { ok: true; matchId: number }
@@ -28,6 +29,9 @@ function mapRpcError(msg: string): string {
   if (m.includes("finished")) return "This match has finished — this contest can’t be deleted.";
   if (m.includes("deadline") || m.includes("lock")) return "Team lock has passed — this contest can’t be deleted.";
   if (m.includes("match not found")) return "Match not found. Refresh and try again.";
+  if (m.includes("not open for contest") || m.includes("contest changes")) {
+    return "Contests can’t be changed after the match has started or finished.";
+  }
   return msg;
 }
 
@@ -37,6 +41,30 @@ export async function deleteUserContestAction(contestId: string): Promise<Delete
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
+
+  const { data: contestRow } = await supabase
+    .from("contests")
+    .select("match_id")
+    .eq("id", contestId)
+    .maybeSingle();
+  if (!contestRow?.match_id) {
+    return { ok: false, message: "This contest no longer exists." };
+  }
+  const { data: matchRow } = await supabase
+    .from("matches")
+    .select("status")
+    .eq("id", contestRow.match_id as number)
+    .maybeSingle();
+  if (!matchRow) {
+    return { ok: false, message: "Match not found. Refresh and try again." };
+  }
+  if (!isMatchUpcomingForUserContests(matchRow.status as string)) {
+    return {
+      ok: false,
+      message:
+        "You can’t delete a contest after the match has started or finished.",
+    };
+  }
 
   const { data, error } = await supabase.rpc("delete_user_contest", {
     p_contest_id: contestId,
