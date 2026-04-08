@@ -18,7 +18,7 @@ export function smFixtureToneHeadlineClass(tone: SmFixtureStatusUiTone): string 
     case "completed":
       return "text-zinc-700 dark:text-zinc-300";
     case "break":
-      return "text-amber-800 dark:text-amber-200";
+      return "text-muted-foreground";
     default:
       return "text-muted-foreground";
   }
@@ -33,7 +33,7 @@ function toneBadgeClass(tone: SmFixtureStatusUiTone): string {
     case "completed":
       return "border-zinc-400/50 bg-zinc-100 text-zinc-800 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100";
     case "break":
-      return "border-amber-500/40 bg-amber-500/10 text-amber-950 dark:bg-amber-500/15 dark:text-amber-100";
+      return "border-muted-foreground/30 bg-muted/60 text-foreground/90";
     default:
       return "border-muted-foreground/30 bg-muted/60 text-foreground/90";
   }

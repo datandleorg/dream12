@@ -224,6 +224,7 @@ export function savedTeamBuildPath(
 export async function loadSavedTeamFlowData(
   matchId: number,
   mode: { type: "create" } | { type: "edit"; savedTeamId: string },
+  options?: { skipSportmonksRefresh?: boolean },
 ) {
   const supabase = await createClient();
   const {
@@ -231,7 +232,10 @@ export async function loadSavedTeamFlowData(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  if (isSportmonksFixtureId(matchId)) {
+  if (
+    isSportmonksFixtureId(matchId) &&
+    !options?.skipSportmonksRefresh
+  ) {
     await refreshMatchFromSportmonks(matchId);
   }
 

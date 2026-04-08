@@ -124,7 +124,7 @@ function venueStageLabels(
 export async function loadTeamFlowData(
   matchId: number,
   contestId: string,
-  options?: { resetContestDraft?: boolean },
+  options?: { resetContestDraft?: boolean; skipSportmonksRefresh?: boolean },
 ) {
   const supabase = await createClient();
   const {
@@ -132,7 +132,10 @@ export async function loadTeamFlowData(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  if (isSportmonksFixtureId(matchId)) {
+  if (
+    isSportmonksFixtureId(matchId) &&
+    !options?.skipSportmonksRefresh
+  ) {
     await refreshMatchFromSportmonks(matchId);
   }
 
