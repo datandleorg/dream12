@@ -4,8 +4,10 @@ import { smFixtureNoteFromPayload, sportmonksToken } from "@/lib/sportmonks/clie
 import { fetchFixtureMetaRaw } from "@/lib/sportmonks/fixture-scoreboard";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 
-const HORIZON_MS = 24 * 60 * 60 * 1000;
-const MAX_PER_RUN = 40;
+/** UTC window for hourly schedule refresh and Daily Contest auto-creation (keep in sync). */
+export const TODAY_SCHEDULE_PAST_MS = 2 * 60 * 60 * 1000;
+export const TODAY_SCHEDULE_FUTURE_MS = 24 * 60 * 60 * 1000;
+export const TODAY_SCHEDULE_MATCH_LIMIT = 40;
 
 export type TodayScheduleMonitorResult = {
   checked: number;
@@ -26,8 +28,8 @@ export async function runTodayScheduleMonitor(
   }
 
   const now = Date.now();
-  const horizon = new Date(now + HORIZON_MS).toISOString();
-  const from = new Date(now - 2 * 60 * 60 * 1000).toISOString();
+  const horizon = new Date(now + TODAY_SCHEDULE_FUTURE_MS).toISOString();
+  const from = new Date(now - TODAY_SCHEDULE_PAST_MS).toISOString();
 
   const { data: rows } = await supabase
     .from("matches")
@@ -35,7 +37,7 @@ export async function runTodayScheduleMonitor(
     .gte("start_time", from)
     .lte("start_time", horizon)
     .order("start_time", { ascending: true })
-    .limit(MAX_PER_RUN);
+    .limit(TODAY_SCHEDULE_MATCH_LIMIT);
 
   let checked = 0;
   let updated = 0;

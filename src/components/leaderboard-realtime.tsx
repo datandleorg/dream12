@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { prizeAmountForRank } from "@/lib/contest-prize";
+import {
+  compareLeaderboardRows,
+  contestTieMetasForSortedLeaderboard,
+  projectedPrizeInrForTiedRow,
+} from "@/lib/contest-prize";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +16,8 @@ export type Row = {
   total_points: number;
   username: string | null;
   avatar_url: string | null;
+  /** ISO join/created time for tie ordering (matches settlement). */
+  created_at?: string | null;
 };
 
 /** Fixed locale + TZ so SSR and browser match (avoids hydration mismatch). */
@@ -59,8 +65,13 @@ export function LeaderboardRealtime({
   const [flash, setFlash] = useState<Record<string, "up" | "down">>({});
 
   const sorted = useMemo(
-    () => [...rows].sort((a, b) => b.total_points - a.total_points),
+    () => [...rows].sort(compareLeaderboardRows),
     [rows],
+  );
+
+  const tieMetas = useMemo(
+    () => contestTieMetasForSortedLeaderboard(sorted),
+    [sorted],
   );
 
   useEffect(() => {
@@ -124,6 +135,7 @@ export function LeaderboardRealtime({
                 total_points: pts,
                 username,
                 avatar_url,
+                created_at: old?.created_at ?? null,
               },
             ];
           });
@@ -152,11 +164,12 @@ export function LeaderboardRealtime({
       </div>
       <ol className="space-y-0 divide-y divide-border rounded-xl border bg-card">
         {sorted.map((r, i) => {
-          const rank = i + 1;
+          const meta = tieMetas[i]!;
+          const rank = meta.competitionRank;
           const won = prizesSettled ? payoutByTeamId[r.id] : undefined;
           const projected =
             !prizesSettled && prizeBreakup != null
-              ? prizeAmountForRank(prizeBreakup, rank)
+              ? projectedPrizeInrForTiedRow(prizeBreakup, meta)
               : 0;
           const rowInteractive =
             Boolean(onRowSelect && currentUserId) &&

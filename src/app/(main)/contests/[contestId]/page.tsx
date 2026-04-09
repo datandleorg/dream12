@@ -19,6 +19,10 @@ import {
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
 import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
+import {
+  compareLeaderboardRows,
+  contestTieMetasForSortedLeaderboard,
+} from "@/lib/contest-prize";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -125,7 +129,7 @@ export default async function ContestLeaderboardPage({
 
   const { data: teams } = await supabase
     .from("user_teams")
-    .select("id,user_id,total_points")
+    .select("id,user_id,total_points,created_at")
     .eq("contest_id", contestId)
     .not("entry_fee_paid_at", "is", null);
 
@@ -154,17 +158,22 @@ export default async function ContestLeaderboardPage({
       total_points: Number(t.total_points),
       username: pr?.username ?? null,
       avatar_url: pr?.avatar_url ?? null,
+      created_at: (t.created_at as string | null | undefined) ?? null,
     };
   });
 
-  const sortedForRank = [...initialRows].sort((a, b) => b.total_points - a.total_points);
+  const sortedForRank = [...initialRows].sort(compareLeaderboardRows);
+  const rankMetas = contestTieMetasForSortedLeaderboard(sortedForRank);
   const myIndex =
     user && userHasTeamInContest
       ? sortedForRank.findIndex((r) => r.user_id === user.id)
       : -1;
   const myStandings =
     myIndex >= 0
-      ? { rank: myIndex + 1, points: sortedForRank[myIndex]!.total_points }
+      ? {
+          rank: rankMetas[myIndex]!.competitionRank,
+          points: sortedForRank[myIndex]!.total_points,
+        }
       : null;
 
   const prizeSlabs: ContestPrizeSlab[] = Array.isArray(contest.prize_breakup)
@@ -187,7 +196,9 @@ export default async function ContestLeaderboardPage({
       .from("contest_payouts")
       .select("user_team_id, user_id, rank, amount_inr")
       .eq("contest_id", contestId)
-      .order("rank", { ascending: true });
+      .order("rank", { ascending: true })
+      .order("amount_inr", { ascending: false })
+      .order("user_team_id", { ascending: true });
 
     const payoutUserIds = [...new Set((payouts ?? []).map((p) => p.user_id))];
     const { data: payoutProfiles } = await supabase

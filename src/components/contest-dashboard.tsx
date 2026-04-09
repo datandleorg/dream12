@@ -405,6 +405,9 @@ export function ContestDashboard({
               <p className="text-muted-foreground mb-2 text-xs font-semibold uppercase tracking-wide">
                 Paid winners
               </p>
+              <p className="text-muted-foreground mb-2 text-[11px] leading-snug">
+                Same points share a rank; prize money for those ranks is pooled and split evenly.
+              </p>
               <ul className="divide-border divide-y rounded-xl border bg-card">
                 {payoutRows.map((p) => (
                   <li
