@@ -75,7 +75,7 @@ export function AdminCreateUserForm({
               required
               className="min-h-11"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onValueChange={(v) => setEmail(v)}
               disabled={authAdminBlocked}
             />
           </div>
@@ -86,7 +86,7 @@ export function AdminCreateUserForm({
               required
               className="min-h-11"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onValueChange={(v) => setUsername(v)}
               disabled={authAdminBlocked}
             />
           </div>
@@ -99,7 +99,7 @@ export function AdminCreateUserForm({
               minLength={8}
               className="min-h-11"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onValueChange={(v) => setPassword(v)}
               disabled={authAdminBlocked}
             />
             <p className="text-muted-foreground text-xs leading-relaxed">{PASSWORD_RULES_HINT}</p>

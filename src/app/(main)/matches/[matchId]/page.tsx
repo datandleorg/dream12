@@ -23,6 +23,9 @@ import { MatchDetailLiveSection } from "@/components/match-detail-live-section";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { venueStageLabels } from "@/lib/match-venue-stage";
+import { contestTeamBuildPath } from "@/lib/team-flow-data";
+import { DeleteContestButton } from "@/components/delete-contest-button";
+import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
 
 export default async function MatchDetailPage({
   params,
@@ -45,7 +48,7 @@ export default async function MatchDetailPage({
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status,fixture_scoreboard_raw",
+      "id,name,start_time,status,tournament_name,team_a,team_b,match_format,venue_id,stage_id,live_snapshot,live_snapshot_at,sm_fixture_status,sm_fixture_note,fixture_scoreboard_raw,localteam_id,visitorteam_id,toss_winner_team_id,toss_decision",
     )
     .eq("id", matchId)
     .single();
@@ -96,7 +99,7 @@ export default async function MatchDetailPage({
   const { data: contestsRaw } = await supabase
     .from("contests")
     .select(
-      "id,name,entry_fee,prize_pool,max_participants,created_by,creator_joined_at",
+      "id,name,entry_fee,prize_pool,max_participants,created_by,creator_joined_at,prizes_settled_at",
     )
     .eq("match_id", matchId);
 
@@ -122,16 +125,69 @@ export default async function MatchDetailPage({
 
   const filledByContest = new Map<string, number>();
   const joinedContestIds = new Set<string>();
+  const myTeamResumeHrefByContest = new Map<string, string>();
+  const myEntryTeamByContest = new Map<
+    string,
+    { templateId: string | null; slot: number | null }
+  >();
   if (contestIds.length) {
     const { data: teamRows } = await supabase
       .from("user_teams")
-      .select("contest_id,user_id")
+      .select("contest_id,user_id,entry_fee_paid_at")
       .in("contest_id", contestIds);
     for (const r of teamRows ?? []) {
       const id = r.contest_id as string;
-      filledByContest.set(id, (filledByContest.get(id) ?? 0) + 1);
+      if (r.entry_fee_paid_at != null) {
+        filledByContest.set(id, (filledByContest.get(id) ?? 0) + 1);
+      }
       if (user && r.user_id === user.id) {
         joinedContestIds.add(id);
+      }
+    }
+
+    if (user) {
+      const { data: myRows } = await supabase
+        .from("user_teams")
+        .select("id,contest_id,captain_id,vice_captain_id,source_saved_match_team_id")
+        .eq("user_id", user.id)
+        .in("contest_id", contestIds);
+      const slotByTemplateId = await mapSavedTemplateIdsToSlots(
+        supabase,
+        user.id,
+        (myRows ?? []).map((r) => r.source_saved_match_team_id as string | null),
+      );
+      for (const t of myRows ?? []) {
+        const cid = t.contest_id as string;
+        const tid = t.source_saved_match_team_id as string | null;
+        const slot = tid ? (slotByTemplateId.get(tid) ?? null) : null;
+        myEntryTeamByContest.set(cid, { templateId: tid, slot });
+      }
+      const myTeamIds = (myRows ?? []).map((t) => t.id as string);
+      if (myTeamIds.length) {
+        const { data: rosterRows } = await supabase
+          .from("team_roster")
+          .select("team_id")
+          .in("team_id", myTeamIds);
+        const rosterCountByTeamId = new Map<string, number>();
+        for (const rr of rosterRows ?? []) {
+          const tid = rr.team_id as string;
+          rosterCountByTeamId.set(tid, (rosterCountByTeamId.get(tid) ?? 0) + 1);
+        }
+        for (const t of myRows ?? []) {
+          const tid = t.id as string;
+          const cid = t.contest_id as string;
+          myTeamResumeHrefByContest.set(
+            cid,
+            contestTeamBuildPath(
+              matchId,
+              cid,
+              rosterCountByTeamId.get(tid) ?? 0,
+              (t.captain_id as string) ?? null,
+              (t.vice_captain_id as string) ?? null,
+              { startAtSquad: true },
+            ),
+          );
+        }
       }
     }
   }
@@ -141,7 +197,7 @@ export default async function MatchDetailPage({
       ? `${match.team_a} vs ${match.team_b}`
       : match.name;
 
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const rosterLocked = isTeamEditLocked(matchRow.status);
 
   return (
     <div className="space-y-4 py-4">
@@ -156,19 +212,34 @@ export default async function MatchDetailPage({
           live_snapshot_at={matchRow.live_snapshot_at as string | null}
           status={String(matchRow.status)}
           sm_fixture_status={matchRow.sm_fixture_status as string | null}
+          sm_fixture_note={matchRow.sm_fixture_note as string | null}
           fixture_scoreboard_raw={matchRow.fixture_scoreboard_raw}
+          teamA={match.team_a ?? null}
+          teamB={match.team_b ?? null}
+          localteamId={
+            matchRow.localteam_id != null ? Number(matchRow.localteam_id) : null
+          }
+          visitorteamId={
+            matchRow.visitorteam_id != null
+              ? Number(matchRow.visitorteam_id)
+              : null
+          }
+          tossWinnerTeamId={
+            matchRow.toss_winner_team_id != null
+              ? Number(matchRow.toss_winner_team_id)
+              : null
+          }
+          tossDecision={
+            typeof matchRow.toss_decision === "string"
+              ? matchRow.toss_decision
+              : null
+          }
         />
         {venueLine ? (
           <p className="text-muted-foreground mt-1 text-sm">{venueLine}</p>
         ) : null}
         {stageLine ? (
           <p className="text-muted-foreground mt-0.5 text-xs">{stageLine}</p>
-        ) : null}
-        {isUpcoming && rosterLocked ? (
-          <p className="text-muted-foreground mt-2 text-xs">
-            Team picks are locked (1 minute before start). You can still open contests if you
-            already joined.
-          </p>
         ) : null}
       </div>
 
@@ -184,19 +255,20 @@ export default async function MatchDetailPage({
           >
             Live score
           </Link>
-        </div>
-        {user && isUpcoming ? (
-          rosterLocked ? (
-            <span
+          {user ? (
+            <Link
+              href={`/matches/${matchId}/teams`}
               className={cn(
-                buttonVariants({ variant: "secondary" }),
-                "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:w-auto",
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "inline-flex min-h-10 w-full items-center justify-center sm:w-auto",
               )}
-              title="Team lock is on — new contests cannot be created this close to start."
             >
-              Create contest (locked)
-            </span>
-          ) : (
+              My teams
+            </Link>
+          ) : null}
+        </div>
+        {user ? (
+          isUpcoming ? (
             <Link
               href={`/matches/${matchId}/create-contest`}
               className={cn(
@@ -206,6 +278,22 @@ export default async function MatchDetailPage({
             >
               Create contest
             </Link>
+          ) : (
+            <span
+              className={cn(
+                buttonVariants({ variant: "secondary" }),
+                "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:w-auto",
+              )}
+              title={
+                isLive
+                  ? "The match is live — new contests can’t be created."
+                  : isCompleted
+                    ? "This match is over — new contests can’t be created."
+                    : "New contests can’t be created for this match right now."
+              }
+            >
+              Create contest (locked)
+            </span>
           )
         ) : null}
       </div>
@@ -220,6 +308,17 @@ export default async function MatchDetailPage({
           {contests.map((c) => {
             const filled = filledByContest.get(c.id) ?? 0;
             const lineupConflict = lineupConflictsByContest.get(c.id) ?? 0;
+            const prizesSettled = Boolean(c.prizes_settled_at);
+            const canDeleteAsHost =
+              Boolean(user) &&
+              !prizesSettled &&
+              !rosterLocked &&
+              c.created_by != null &&
+              c.created_by === user!.id;
+            const myEntryTeam =
+              user && joinedContestIds.has(c.id)
+                ? myEntryTeamByContest.get(c.id)
+                : undefined;
             return (
               <li key={c.id}>
                 <Card>
@@ -237,10 +336,36 @@ export default async function MatchDetailPage({
                         </Badge>
                       ) : null}
                     </CardTitle>
-                    <CardDescription>
-                      Entry ₹{Number(c.entry_fee)} · Pool ₹
-                      {Number(c.prize_pool)} · {filled}/
-                      {c.max_participants} joined
+                    <CardDescription className="space-y-1">
+                      <span>
+                        Entry ₹{Number(c.entry_fee)} · Pool ₹
+                        {Number(c.prize_pool)} · {filled}/
+                        {c.max_participants} joined
+                      </span>
+                      {myEntryTeam ? (
+                        <span className="block text-xs">
+                          <span className="text-muted-foreground">Your squad </span>
+                          {myEntryTeam.slot != null && myEntryTeam.templateId ? (
+                            !rosterLocked ? (
+                              <Link
+                                href={`/matches/${matchId}/teams/${myEntryTeam.templateId}/squad`}
+                                className="font-medium text-foreground underline-offset-2 hover:underline"
+                              >
+                                Team {myEntryTeam.slot}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-foreground">
+                                Team {myEntryTeam.slot}
+                              </span>
+                            )
+                          ) : (
+                            <span className="font-medium text-foreground">Contest XI</span>
+                          )}
+                          {myEntryTeam.slot != null && myEntryTeam.templateId ? (
+                            <span className="text-muted-foreground"> · My teams</span>
+                          ) : null}
+                        </span>
+                      ) : null}
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -274,7 +399,10 @@ export default async function MatchDetailPage({
                             </span>
                           ) : (
                             <Link
-                              href={`/matches/${matchId}/contests/${c.id}/squad`}
+                              href={
+                                myTeamResumeHrefByContest.get(c.id) ??
+                                `/matches/${matchId}/contests/${c.id}/pick-team`
+                              }
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
                                 "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
@@ -286,13 +414,13 @@ export default async function MatchDetailPage({
                         ) : joinedContestIds.has(c.id) ? (
                           !isLive ? (
                             <Link
-                              href={`/matches/${matchId}/contests/${c.id}/squad`}
+                              href={`/matches/${matchId}/contests/${c.id}/pick-team`}
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
                                 "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
                               )}
                             >
-                              My team
+                              Edit team
                             </Link>
                           ) : null
                         ) : (
@@ -303,7 +431,7 @@ export default async function MatchDetailPage({
                             balance={balance}
                             label="Join"
                             disabled={rosterLocked}
-                            disabledReason="Team lock is on — you cannot join new contests this close to start."
+                            disabledReason="Team lock is on — you cannot join new contests after the match goes live."
                           />
                         )
                       ) : (
@@ -317,6 +445,17 @@ export default async function MatchDetailPage({
                           Sign in to join
                         </Link>
                       )
+                    ) : null}
+                    {canDeleteAsHost ? (
+                      <DeleteContestButton
+                        contestId={c.id}
+                        contestTitle={c.name?.trim() || "Contest"}
+                        entryFee={Number(c.entry_fee)}
+                        matchId={matchId}
+                        paidParticipantsCount={filled}
+                        fullWidth
+                        className="sm:flex-1"
+                      />
                     ) : null}
                   </CardFooter>
                 </Card>

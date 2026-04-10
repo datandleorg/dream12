@@ -95,6 +95,15 @@ export interface SmFixture {
   toss_won_team_id?: number;
   elected?: string;
   tosswon?: unknown;
+  /** Human-readable detail from SportMonks (e.g. weather), optional on fixture root */
+  note?: string | null;
+}
+
+/** Trimmed non-empty `fixture.note` for DB `sm_fixture_note`, or null. */
+export function smFixtureNoteFromPayload(note: unknown): string | null {
+  if (typeof note !== "string") return null;
+  const t = note.trim();
+  return t ? t : null;
 }
 
 /** Include strings shared by list sync, lineup sync, and on-demand detail fetch */

@@ -73,7 +73,7 @@ export default function AdminLoginPage() {
     <div className="relative flex w-full flex-col items-center gap-8 py-6">
       <LoadingOverlay show={loading} label="Signing in…" />
       <div className="flex flex-col items-center gap-3">
-        <BrandLogo variant="hero" />
+        <BrandLogo variant="hero" heroMax="sm" />
         <div className="text-center">
           <p className="text-primary font-display text-2xl tracking-[0.2em] uppercase">Admin</p>
           <p className="text-muted-foreground text-xs font-medium tracking-[0.2em] uppercase">
@@ -88,7 +88,7 @@ export default function AdminLoginPage() {
           <CardDescription>Only accounts with admin access can continue.</CardDescription>
         </CardHeader>
         <form onSubmit={onSubmit}>
-          <CardContent className="grid gap-4">
+          <CardContent className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="admin-email">Email</Label>
               <Input
@@ -98,7 +98,7 @@ export default function AdminLoginPage() {
                 required
                 className="min-h-11"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onValueChange={(v) => setEmail(v)}
               />
             </div>
             <div className="grid gap-2">
@@ -110,7 +110,7 @@ export default function AdminLoginPage() {
                 required
                 className="min-h-11"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onValueChange={(v) => setPassword(v)}
               />
             </div>
           </CardContent>

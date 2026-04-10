@@ -1,18 +1,10 @@
 /**
- * Squad rules (Dream11-style; max 7 from one franchise per product spec).
+ * Squad rules: credit cap, franchise cap, XI size. Role is for UI/grouping only.
  */
 export const SQUAD_SIZE = 11;
 export const MAX_CREDITS = 100;
-export const MAX_PLAYERS_SAME_FRANCHISE = 7;
+export const MAX_PLAYERS_SAME_FRANCHISE = 8;
 
-/** Min / max count per role in the XI */
-export const ROLE_LIMITS = {
-  WK: { min: 1, max: 8 },
-  BAT: { min: 3, max: 6 },
-  AR: { min: 1, max: 4 },
-  BOWL: { min: 3, max: 6 },
-} as const;
-
-export type RoleKey = keyof typeof ROLE_LIMITS;
+export type RoleKey = "WK" | "BAT" | "AR" | "BOWL";
 
 export const ROLE_ORDER: RoleKey[] = ["WK", "BAT", "AR", "BOWL"];

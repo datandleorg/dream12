@@ -2,31 +2,15 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isContestVisibleToUser } from "@/lib/contest-visibility";
-import { extractLiveStatsByPlayer } from "@/lib/extract-live-stats-by-player";
-import { extractScoreboardRawToLiveMap } from "@/lib/extract-scoreboard-raw-to-live-map";
-import { mergeLiveStatsFromStoredSnapshot } from "@/lib/live-stats-from-snapshot";
 import {
-  teamPointsBreakdown,
-  type TeamBreakdownLine,
-  type TeamBreakdownRosterRow,
-} from "@/lib/live-scoring";
-import { MAX_CREDITS } from "@/lib/fantasy/rules";
-import {
-  fetchFixtureScoreboardRaw,
-  fetchLivescoresNowByFixtureId,
-} from "@/lib/sportmonks/fixture-scoreboard";
+  buildBreakdownOk,
+  buildLiveMapForMatch,
+  matchTeamLabels,
+  parseContestUserTeam,
+} from "@/lib/contest-team-breakdown-core";
+import type { ContestTeamPitchPayload } from "@/lib/contest-team-breakdown-core";
 import { canViewOthersContestTeamPreview } from "@/lib/opponent-team-preview-policy";
-import { mapRowToBuilderPlayer, type BuilderPlayer } from "@/stores/team-builder";
-
-export type ContestTeamPitchPayload = {
-  teamA: string;
-  teamB: string;
-  selected: BuilderPlayer[];
-  captainId: string;
-  viceCaptainId: string;
-  fantasyPointsByPlayerId: Record<string, number>;
-  creditsLeft: number;
-};
+import type { TeamBreakdownLine } from "@/lib/live-scoring";
 
 export type ContestTeamBreakdownResult =
   | {
@@ -43,6 +27,7 @@ export async function getContestTeamBreakdown(input: {
   contestId: string;
   userTeamId: string;
 }): Promise<ContestTeamBreakdownResult> {
+  try {
   const supabase = await createClient();
   const {
     data: { user },
@@ -81,6 +66,7 @@ export async function getContestTeamBreakdown(input: {
     )
     .eq("id", input.userTeamId)
     .eq("contest_id", input.contestId)
+    .not("entry_fee_paid_at", "is", null)
     .maybeSingle();
 
   if (teamErr || !team) {
@@ -131,153 +117,23 @@ export async function getContestTeamBreakdown(input: {
     };
   }
 
-  const cap = team.captain_id as string | null;
-  const vc = team.vice_captain_id as string | null;
-  if (!cap || !vc) {
-    return { ok: false, message: "Team is incomplete." };
+  const parsed = parseContestUserTeam(team);
+  if ("error" in parsed) {
+    return { ok: false, message: parsed.error };
   }
 
-  const rosterJoin = team.team_roster as unknown;
-  const rows = Array.isArray(rosterJoin) ? rosterJoin : [];
-  const roster: TeamBreakdownRosterRow[] = [];
-  for (const r of rows) {
-    if (!r || typeof r !== "object") continue;
-    const row = r as {
-      player_id?: string;
-      players?: unknown;
-    };
-    const pid = row.player_id;
-    if (!pid) continue;
-    const p = row.players;
-    const pl =
-      p && typeof p === "object" && !Array.isArray(p)
-        ? (p as {
-            name?: string;
-            team?: string;
-            role?: string;
-            sportmonks_id?: number | null;
-            in_playing_xi?: boolean | null;
-            credit_value?: number | string | null;
-            season_points?: number | null;
-            selection_pct?: number | null;
-            played_last_match?: boolean | null;
-            photo_url?: string | null;
-          })
-        : null;
-    roster.push({
-      player_id: String(pid),
-      sportmonks_id: pl?.sportmonks_id ?? null,
-      role: pl?.role ?? "BAT",
-      in_playing_xi: pl?.in_playing_xi ?? null,
-      player_name: pl?.name?.trim() || "Player",
-      team_label: pl?.team?.trim() || "—",
-    });
-  }
-
-  const matchName = matchMeta?.name?.trim() ?? "";
-  const parts = matchName.split(/\s+vs\s+/i);
-  const teamA =
-    matchMeta?.team_a?.trim() || parts[0]?.trim() || "Team A";
-  const teamB =
-    matchMeta?.team_b?.trim() || parts[1]?.trim() || "Team B";
-
+  const { teamA, teamB } = matchTeamLabels(matchMeta);
   const matchId = Number(team.match_id);
-  let liveMap = extractScoreboardRawToLiveMap(matchMeta?.fixture_scoreboard_raw);
-
-  if (Object.keys(liveMap).length === 0) {
-    const rawFixture = await fetchFixtureScoreboardRaw(matchId);
-    const livescoresByFixture = await fetchLivescoresNowByFixtureId();
-    const rawNow = livescoresByFixture.get(matchId);
-    const mergedRaw: Record<string, unknown> =
-      rawFixture && rawNow
-        ? ({ ...rawNow, ...rawFixture } as Record<string, unknown>)
-        : ((rawFixture ?? rawNow) as Record<string, unknown> | null) ?? {};
-    const apiLiveMap = extractLiveStatsByPlayer(mergedRaw);
-    liveMap = mergeLiveStatsFromStoredSnapshot(
-      matchMeta?.live_snapshot,
-      roster,
-      apiLiveMap,
-    );
-  }
-
-  const statsAvailable = Object.keys(liveMap).length > 0;
-
-  const { lines, computedTotal } = teamPointsBreakdown(
-    roster,
-    String(cap),
-    String(vc),
-    liveMap,
+  const { liveMap, statsAvailable } = await buildLiveMapForMatch(
+    matchMeta,
+    matchId,
+    parsed.roster,
   );
-  const storedTotal = Math.round(Number(team.total_points) * 100) / 100;
 
-  const selected: BuilderPlayer[] = [];
-  let creditsUsed = 0;
-  for (const r of rows) {
-    if (!r || typeof r !== "object") continue;
-    const row = r as { player_id?: string; players?: unknown };
-    const pid = row.player_id;
-    if (!pid) continue;
-    const p = row.players;
-    const pl =
-      p && typeof p === "object" && !Array.isArray(p)
-        ? (p as {
-            name?: string;
-            team?: string;
-            role?: string;
-            credit_value?: number | string | null;
-            season_points?: number | null;
-            selection_pct?: number | null;
-            played_last_match?: boolean | null;
-            photo_url?: string | null;
-            in_playing_xi?: boolean | null;
-          })
-        : null;
-    if (!pl?.name) continue;
-    const bp = mapRowToBuilderPlayer({
-      id: String(pid),
-      name: pl.name,
-      team: pl.team ?? "—",
-      role: pl.role ?? "BAT",
-      credit_value: Number(pl.credit_value ?? 0),
-      season_points: pl.season_points ?? 0,
-      selection_pct: pl.selection_pct ?? null,
-      played_last_match: pl.played_last_match ?? null,
-      photo_url: pl.photo_url ?? null,
-      in_playing_xi: pl.in_playing_xi ?? null,
-    });
-    selected.push(bp);
-    creditsUsed += bp.credit_value;
+  const ok = buildBreakdownOk(parsed, liveMap, teamA, teamB, statsAvailable);
+  return { ok: true, ...ok };
+  } catch (e) {
+    console.error("[getContestTeamBreakdown]", e);
+    return { ok: false, message: "Unable to load team breakdown. Try again." };
   }
-
-  const creditsLeft = Math.round((MAX_CREDITS - creditsUsed) * 10) / 10;
-
-  const pitchPoints: Record<string, number> = {};
-  for (const p of selected) {
-    const idKey = String(p.id);
-    const line =
-      lines.find((l) => String(l.player_id) === idKey) ??
-      lines.find(
-        (l) =>
-          l.player_name.trim() === p.name.trim() &&
-          l.team_label.trim() === p.team.trim(),
-      );
-    pitchPoints[idKey] = line?.points ?? 0;
-  }
-
-  return {
-    ok: true,
-    lines,
-    computedTotal,
-    storedTotal,
-    statsAvailable,
-    pitch: {
-      teamA,
-      teamB,
-      selected,
-      captainId: String(cap),
-      viceCaptainId: String(vc),
-      fantasyPointsByPlayerId: pitchPoints,
-      creditsLeft,
-    },
-  };
 }

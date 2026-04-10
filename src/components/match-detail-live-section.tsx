@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { MatchShortScore } from "@/components/match-short-score";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
 import { MatchStatusBadge } from "@/components/match-status-badge";
+import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
 import {
   isSnapshotShortLinePlaceholder,
@@ -20,8 +22,15 @@ export function MatchDetailLiveSection({
   live_snapshot_at,
   status: initialStatus,
   sm_fixture_status,
+  sm_fixture_note,
   fixture_scoreboard_raw,
   initialParsedSnapshot,
+  teamA,
+  teamB,
+  localteamId,
+  visitorteamId,
+  tossWinnerTeamId: initialTossWinnerTeamId,
+  tossDecision: initialTossDecision,
 }: {
   matchId: number;
   title: string;
@@ -32,18 +41,29 @@ export function MatchDetailLiveSection({
   live_snapshot_at: string | null;
   status: string;
   sm_fixture_status: string | null;
+  sm_fixture_note?: string | null;
   fixture_scoreboard_raw?: unknown;
   initialParsedSnapshot?: LiveSnapshot | null;
+  teamA: string | null;
+  teamB: string | null;
+  localteamId: number | null;
+  visitorteamId: number | null;
+  tossWinnerTeamId: number | null;
+  tossDecision: string | null;
 }) {
-  const { snapshot, status } = useMatchLiveRow({
-    matchId,
-    live_snapshot,
-    live_snapshot_at,
-    status: initialStatus,
-    sm_fixture_status,
-    fixture_scoreboard_raw,
-    initialParsedSnapshot,
-  });
+  const { snapshot, status, smFixtureStatus, smFixtureNote, tossWinnerTeamId, tossDecision } =
+    useMatchLiveRow({
+      matchId,
+      live_snapshot,
+      live_snapshot_at,
+      status: initialStatus,
+      sm_fixture_status,
+      sm_fixture_note: sm_fixture_note ?? null,
+      fixture_scoreboard_raw,
+      initialParsedSnapshot,
+      toss_winner_team_id: initialTossWinnerTeamId,
+      toss_decision: initialTossDecision,
+    });
 
   const statusKey = String(status).toLowerCase();
   const isLive = statusKey === "live";
@@ -60,7 +80,7 @@ export function MatchDetailLiveSection({
           ) : null}
           <h1 className="text-2xl font-semibold leading-tight">{title}</h1>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex max-w-[min(100%,18rem)] flex-col items-end gap-1">
           <MatchStatusBadge status={String(status)} />
           {matchFormat ? (
             <Badge variant="outline" className="font-mono text-[10px]">
@@ -69,12 +89,26 @@ export function MatchDetailLiveSection({
           ) : null}
         </div>
       </div>
+      <FixtureSmStatusLine
+        label={smFixtureStatus}
+        note={smFixtureNote}
+        className="mt-2"
+      />
       <p className="text-muted-foreground mt-1 text-sm">
         {new Date(startIso).toLocaleString(undefined, {
           dateStyle: "full",
           timeStyle: "short",
         })}
       </p>
+      <MatchTossLines
+        teamA={teamA}
+        teamB={teamB}
+        localteamId={localteamId}
+        visitorteamId={visitorteamId}
+        tossWinnerTeamId={tossWinnerTeamId}
+        tossDecision={tossDecision}
+        className="mt-2"
+      />
       {!isSnapshotShortLinePlaceholder(snapshot) ? (
         <MatchShortScore snapshot={snapshot} className="mt-1" />
       ) : null}

@@ -70,7 +70,7 @@ export function ProfilePasswordForm({
                 autoComplete="current-password"
                 className="min-h-11"
                 value={current}
-                onChange={(e) => setCurrent(e.target.value)}
+                onValueChange={(v) => setCurrent(v)}
                 disabled={loading}
               />
             </div>
@@ -82,7 +82,7 @@ export function ProfilePasswordForm({
                 autoComplete="new-password"
                 className="min-h-11"
                 value={next}
-                onChange={(e) => setNext(e.target.value)}
+                onValueChange={(v) => setNext(v)}
                 disabled={loading}
               />
             </div>
@@ -94,7 +94,7 @@ export function ProfilePasswordForm({
                 autoComplete="new-password"
                 className="min-h-11"
                 value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
+                onValueChange={(v) => setConfirm(v)}
                 disabled={loading}
               />
             </div>

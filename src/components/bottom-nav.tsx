@@ -34,8 +34,8 @@ export function BottomNav() {
                 className={cn(
                   "tap-app flex min-h-11 min-w-11 flex-col items-center justify-center gap-0.5 rounded-lg py-2 text-xs font-medium transition-colors",
                   active
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "text-primary active:bg-primary/12"
+                    : "text-muted-foreground hover:text-foreground active:bg-muted/60 dark:active:bg-muted/45",
                 )}
               >
                 <Icon className="size-6 shrink-0" aria-hidden />

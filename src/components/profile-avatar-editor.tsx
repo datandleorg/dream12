@@ -9,9 +9,11 @@ import {
 } from "@/app/actions/profile-avatar";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
+import { compressProfileAvatarForUpload } from "@/lib/profile-avatar-compress";
 import {
   MAX_PROFILE_AVATAR_BYTES,
   PROFILE_AVATAR_CONTENT_TYPES,
+  PROFILE_AVATAR_OUTPUT_CONTENT_TYPE,
 } from "@/lib/profile-avatar-limits";
 
 export function ProfileAvatarEditor({
@@ -34,27 +36,35 @@ export function ProfileAvatarEditor({
       toast.error("Use JPEG, PNG, or WebP.");
       return;
     }
-    if (file.size > MAX_PROFILE_AVATAR_BYTES) {
-      toast.error("Image must be 2 MB or smaller.");
-      return;
-    }
 
     setBusy(true);
     try {
-      const up = await requestProfileAvatarUpload(file.type);
+      let blob: Blob;
+      try {
+        blob = await compressProfileAvatarForUpload(file);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not process image.");
+        return;
+      }
+      if (blob.size > MAX_PROFILE_AVATAR_BYTES) {
+        toast.error("Compressed image is still too large. Try another photo.");
+        return;
+      }
+
+      const up = await requestProfileAvatarUpload(PROFILE_AVATAR_OUTPUT_CONTENT_TYPE);
       if (!up.ok) {
         toast.error(up.message);
         return;
       }
-      if (file.size > up.maxBytes) {
-        toast.error("Image must be 2 MB or smaller.");
+      if (blob.size > up.maxBytes) {
+        toast.error("Compressed image exceeds upload limit.");
         return;
       }
       let put: Response;
       try {
         put = await fetch(up.uploadUrl, {
           method: "PUT",
-          body: file,
+          body: blob,
           headers: up.headers,
         });
       } catch {
@@ -101,7 +111,8 @@ export function ProfileAvatarEditor({
           {busy ? "Uploading…" : "Change photo"}
         </Button>
         <p className="text-muted-foreground max-w-xs text-xs">
-          JPEG, PNG, or WebP · max 2 MB. Shown on leaderboards and contest previews.
+          JPEG, PNG, or WebP · up to 10 MB (compressed to ≤ 2 MB). Shown on leaderboards and contest
+          previews.
         </p>
       </div>
     </div>

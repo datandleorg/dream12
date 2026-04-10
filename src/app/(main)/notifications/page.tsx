@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { NotificationsList, type NotificationRow } from "@/components/notifications-list";
+import { NotificationsList } from "@/components/notifications-list";
+import { notificationRowFromDb } from "@/lib/notifications";
 
 export default async function NotificationsPage() {
   const supabase = await createClient();
@@ -9,15 +10,7 @@ export default async function NotificationsPage() {
     .order("created_at", { ascending: false })
     .limit(100);
 
-  const initial: NotificationRow[] = (rows ?? []).map((r) => ({
-    id: r.id as string,
-    type: r.type as string,
-    title: r.title as string,
-    body: r.body as string,
-    payload: (r.payload as Record<string, unknown> | null) ?? null,
-    read_at: (r.read_at as string | null) ?? null,
-    created_at: r.created_at as string,
-  }));
+  const initial = (rows ?? []).map(notificationRowFromDb);
 
   return (
     <div className="space-y-4 py-2">

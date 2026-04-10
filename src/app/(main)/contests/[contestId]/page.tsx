@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Row } from "@/components/leaderboard-realtime";
 import {
   ContestDashboard,
+  type ContestEntryTeamSummary,
   type ContestPayoutDisplayRow,
   type ContestPrizeSlab,
 } from "@/components/contest-dashboard";
@@ -16,6 +17,12 @@ import {
   isCreatorDraftContest,
 } from "@/lib/contest-visibility";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { contestTeamBuildPath } from "@/lib/team-flow-data";
+import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
+import {
+  compareLeaderboardRows,
+  contestTieMetasForSortedLeaderboard,
+} from "@/lib/contest-prize";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -47,21 +54,54 @@ export default async function ContestLeaderboardPage({
   const invitePublic = isContestVisibleToUser(contestVisibility, null);
 
   let userHasTeamInContest = false;
+  const matchId = Number(contest.match_id);
+  /** Dream11-style: choose a saved match team or build new until a contest row exists. */
+  let squadHref = `/matches/${matchId}/contests/${contestId}/pick-team`;
+  let myEntryTeamSummary: ContestEntryTeamSummary | null = null;
   if (user) {
     const { data: myTeamRow } = await supabase
       .from("user_teams")
-      .select("id")
+      .select("id,captain_id,vice_captain_id,source_saved_match_team_id")
       .eq("contest_id", contestId)
       .eq("user_id", user.id)
       .maybeSingle();
     userHasTeamInContest = Boolean(myTeamRow);
+    if (myTeamRow?.id) {
+      const { count } = await supabase
+        .from("team_roster")
+        .select("*", { count: "exact", head: true })
+        .eq("team_id", myTeamRow.id);
+      squadHref = contestTeamBuildPath(
+        matchId,
+        contestId,
+        count ?? 0,
+        (myTeamRow.captain_id as string) ?? null,
+        (myTeamRow.vice_captain_id as string) ?? null,
+        { startAtSquad: true },
+      );
+      const src = myTeamRow.source_saved_match_team_id as string | null;
+      if (src) {
+        const slotMap = await mapSavedTemplateIdsToSlots(supabase, user.id, [src]);
+        const slot = slotMap.get(src);
+        if (slot != null) {
+          myEntryTeamSummary = {
+            kind: "saved",
+            matchId,
+            slot,
+            savedTeamId: src,
+          };
+        } else {
+          myEntryTeamSummary = { kind: "contest_only" };
+        }
+      } else {
+        myEntryTeamSummary = { kind: "contest_only" };
+      }
+    }
   }
-
-  const matchId = Number(contest.match_id);
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,status,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,live_snapshot,live_snapshot_at,sm_fixture_status,fixture_scoreboard_raw",
+      "id,name,start_time,status,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,live_snapshot,live_snapshot_at,sm_fixture_status,sm_fixture_note,fixture_scoreboard_raw,localteam_id,visitorteam_id,toss_winner_team_id,toss_decision",
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -74,7 +114,7 @@ export default async function ContestLeaderboardPage({
   const statusKey = String(matchRow?.status ?? "upcoming").toLowerCase();
   const matchJoinBlocked =
     statusKey === "completed" || statusKey === "in_review";
-  const rosterLocked = isTeamEditLocked(matchStartIso);
+  const rosterLocked = isTeamEditLocked(matchRow?.status);
   const isCreatorDraft = isCreatorDraftContest(contestVisibility, user?.id);
 
   let walletBalance = 0;
@@ -89,8 +129,9 @@ export default async function ContestLeaderboardPage({
 
   const { data: teams } = await supabase
     .from("user_teams")
-    .select("id,user_id,total_points")
-    .eq("contest_id", contestId);
+    .select("id,user_id,total_points,created_at")
+    .eq("contest_id", contestId)
+    .not("entry_fee_paid_at", "is", null);
 
   const userIds = [...new Set((teams ?? []).map((t) => t.user_id))];
   const { data: profiles } = await supabase
@@ -117,17 +158,22 @@ export default async function ContestLeaderboardPage({
       total_points: Number(t.total_points),
       username: pr?.username ?? null,
       avatar_url: pr?.avatar_url ?? null,
+      created_at: (t.created_at as string | null | undefined) ?? null,
     };
   });
 
-  const sortedForRank = [...initialRows].sort((a, b) => b.total_points - a.total_points);
+  const sortedForRank = [...initialRows].sort(compareLeaderboardRows);
+  const rankMetas = contestTieMetasForSortedLeaderboard(sortedForRank);
   const myIndex =
     user && userHasTeamInContest
       ? sortedForRank.findIndex((r) => r.user_id === user.id)
       : -1;
   const myStandings =
     myIndex >= 0
-      ? { rank: myIndex + 1, points: sortedForRank[myIndex]!.total_points }
+      ? {
+          rank: rankMetas[myIndex]!.competitionRank,
+          points: sortedForRank[myIndex]!.total_points,
+        }
       : null;
 
   const prizeSlabs: ContestPrizeSlab[] = Array.isArray(contest.prize_breakup)
@@ -150,7 +196,9 @@ export default async function ContestLeaderboardPage({
       .from("contest_payouts")
       .select("user_team_id, user_id, rank, amount_inr")
       .eq("contest_id", contestId)
-      .order("rank", { ascending: true });
+      .order("rank", { ascending: true })
+      .order("amount_inr", { ascending: false })
+      .order("user_team_id", { ascending: true });
 
     const payoutUserIds = [...new Set((payouts ?? []).map((p) => p.user_id))];
     const { data: payoutProfiles } = await supabase
@@ -191,8 +239,6 @@ export default async function ContestLeaderboardPage({
     contest.name?.trim() ||
     (matchRow ? `Contest · ${matchSubtitle}` : "Contest");
 
-  const squadHref = `/matches/${contest.match_id}/contests/${contestId}/squad`;
-
   const matchCard: HomeMatchCardModel = {
     id: matchId,
     name: String(matchRow?.name ?? "Match"),
@@ -208,6 +254,20 @@ export default async function ContestLeaderboardPage({
     fixture_scoreboard_raw: matchRow?.fixture_scoreboard_raw,
     sm_fixture_status: matchRow?.sm_fixture_status as string | null,
     entry_fee: Number(contest.entry_fee ?? 0),
+    localteam_id:
+      matchRow?.localteam_id != null ? Number(matchRow.localteam_id) : null,
+    visitorteam_id:
+      matchRow?.visitorteam_id != null
+        ? Number(matchRow.visitorteam_id)
+        : null,
+    toss_winner_team_id:
+      matchRow?.toss_winner_team_id != null
+        ? Number(matchRow.toss_winner_team_id)
+        : null,
+    toss_decision:
+      typeof matchRow?.toss_decision === "string"
+        ? matchRow.toss_decision
+        : null,
   };
 
   return (
@@ -236,6 +296,7 @@ export default async function ContestLeaderboardPage({
       myStandings={myStandings}
       squadHref={squadHref}
       pointsUpdatedAt={pointsUpdatedAt}
+      myEntryTeamSummary={myEntryTeamSummary}
     />
   );
 }

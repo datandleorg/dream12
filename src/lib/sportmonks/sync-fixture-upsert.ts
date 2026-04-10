@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SmFixture, SmStageInclude, SmVenueInclude } from "./client";
+import { smFixtureNoteFromPayload } from "./client";
 import { mapMatchStatusFromSmFixture, smFixtureStatusLabel } from "./match-status-from-sm";
 
 export { mapMatchStatusFromSmFixture } from "./match-status-from-sm";
@@ -54,6 +55,7 @@ export type MatchUpsertRow = {
   start_time: string;
   status: "upcoming" | "live" | "completed" | "in_review";
   sm_fixture_status: string | null;
+  sm_fixture_note: string | null;
   tournament_name: string | null;
   team_a: string | null;
   team_b: string | null;
@@ -185,6 +187,7 @@ export function smFixtureToMatchRow(f: SmFixture): MatchUpsertRow | null {
     start_time: f.starting_at,
     status: mapMatchStatusFromSmFixture(f),
     sm_fixture_status: smFixtureStatusLabel(f),
+    sm_fixture_note: smFixtureNoteFromPayload(f.note),
     tournament_name: f.league?.name?.trim() || null,
     team_a: f.localteam?.name?.trim() || null,
     team_b: f.visitorteam?.name?.trim() || null,

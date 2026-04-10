@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSerwist } from "@serwist/turbopack";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -26,11 +27,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/favicon.ico",
-        destination: "/brand-logo.png",
+        destination: "/icons/icon-192.png",
         permanent: false,
       },
     ];
   },
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

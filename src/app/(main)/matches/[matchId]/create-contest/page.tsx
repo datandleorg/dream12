@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CreateContestWizard } from "@/components/create-contest-wizard";
-import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { platformFeeFractionFromEnv } from "@/lib/fantasy/prize-slabs";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
@@ -30,7 +29,9 @@ export default async function CreateContestPage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id,name,start_time,status,tournament_name,team_a,team_b")
+    .select(
+      "id,name,start_time,status,tournament_name,team_a,team_b,localteam_id,visitorteam_id,toss_winner_team_id,toss_decision",
+    )
     .eq("id", matchId)
     .single();
 
@@ -38,10 +39,6 @@ export default async function CreateContestPage({
 
   const statusKey = String(match.status).toLowerCase();
   if (statusKey !== "upcoming") {
-    redirect(`/matches/${matchId}`);
-  }
-
-  if (isTeamEditLocked(match.start_time)) {
     redirect(`/matches/${matchId}`);
   }
 
@@ -67,6 +64,22 @@ export default async function CreateContestPage({
         startIso={match.start_time}
         defaultContestName={defaultName}
         platformFeeFraction={platformFeeFraction}
+        teamA={match.team_a ?? null}
+        teamB={match.team_b ?? null}
+        localteamId={
+          match.localteam_id != null ? Number(match.localteam_id) : null
+        }
+        visitorteamId={
+          match.visitorteam_id != null ? Number(match.visitorteam_id) : null
+        }
+        tossWinnerTeamId={
+          match.toss_winner_team_id != null
+            ? Number(match.toss_winner_team_id)
+            : null
+        }
+        tossDecision={
+          typeof match.toss_decision === "string" ? match.toss_decision : null
+        }
       />
       <p className="text-muted-foreground mt-4 px-1 text-center text-xs">
         After continuing you must pick your XI and save — your contest stays private until then.{" "}

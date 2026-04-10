@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { RefreshCw, UserPlus } from "lucide-react";
 import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
-import { PullToRefresh } from "@/components/pull-to-refresh";
 import { ContestTeamPreviewSheet } from "@/components/contest-team-preview-sheet";
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -13,6 +13,7 @@ import {
 } from "@/components/home-upcoming-card";
 import { JoinContestButton } from "@/components/join-contest-button";
 import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +40,10 @@ export type ContestPrizeSlab = {
   amount: number;
 };
 
+export type ContestEntryTeamSummary =
+  | { kind: "saved"; matchId: number; slot: number; savedTeamId: string }
+  | { kind: "contest_only" };
+
 export function ContestDashboard({
   contestId,
   contestTitle,
@@ -64,6 +69,7 @@ export function ContestDashboard({
   myStandings,
   squadHref,
   pointsUpdatedAt,
+  myEntryTeamSummary,
 }: {
   contestId: string;
   contestTitle: string;
@@ -91,7 +97,9 @@ export function ContestDashboard({
   myStandings: { rank: number; points: number } | null;
   squadHref: string;
   pointsUpdatedAt: string | null;
+  myEntryTeamSummary: ContestEntryTeamSummary | null;
 }) {
+  const router = useRouter();
   const [preview, setPreview] = useState<{
     teamId: string;
     username: string | null;
@@ -99,7 +107,17 @@ export function ContestDashboard({
   } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pageRefreshNonce, setPageRefreshNonce] = useState(0);
+  const [pageRefreshing, setPageRefreshing] = useState(false);
   const [whatsappShareHref, setWhatsappShareHref] = useState<string | null>(null);
+
+  const refreshPage = useCallback(() => {
+    setPageRefreshing(true);
+    router.refresh();
+    window.setTimeout(() => {
+      setPageRefreshNonce((n) => n + 1);
+      setPageRefreshing(false);
+    }, 750);
+  }, [router]);
 
   const live = useMatchLiveRow({
     matchId: matchCard.id,
@@ -107,8 +125,11 @@ export function ContestDashboard({
     live_snapshot_at: pointsUpdatedAt,
     status: matchCard.status,
     sm_fixture_status: matchCard.sm_fixture_status ?? null,
+    sm_fixture_note: matchCard.sm_fixture_note ?? null,
     fixture_scoreboard_raw: matchCard.fixture_scoreboard_raw,
     initialParsedSnapshot: liveSnapshot,
+    toss_winner_team_id: matchCard.toss_winner_team_id ?? null,
+    toss_decision: matchCard.toss_decision ?? null,
   });
 
   const matchCardLive = useMemo(
@@ -117,8 +138,21 @@ export function ContestDashboard({
       status: live.status,
       live_snapshot: live.snapshot as unknown,
       sm_fixture_status: live.smFixtureStatus,
+      sm_fixture_note: live.smFixtureNote,
+      fixture_scoreboard_raw: live.fixtureScoreboardRaw,
+      toss_winner_team_id: live.tossWinnerTeamId,
+      toss_decision: live.tossDecision,
     }),
-    [matchCard, live.status, live.snapshot, live.smFixtureStatus],
+    [
+      matchCard,
+      live.status,
+      live.snapshot,
+      live.smFixtureStatus,
+      live.smFixtureNote,
+      live.fixtureScoreboardRaw,
+      live.tossWinnerTeamId,
+      live.tossDecision,
+    ],
   );
 
   useEffect(() => {
@@ -147,7 +181,15 @@ export function ContestDashboard({
   const liveSt = String(live.status).toLowerCase();
   const matchCompleted = liveSt === "completed" || liveSt === "in_review";
   const opponentTeamPreviewLocked = liveSt === "upcoming";
-  const showSquadLink = userHasTeamInContest && liveSt !== "live";
+  const showSquadLink = userHasTeamInContest && !rosterLocked;
+
+  const myTeamId = useMemo(() => {
+    if (!currentUserId || !userHasTeamInContest) return null;
+    return initialRows.find((r) => r.user_id === currentUserId)?.id ?? null;
+  }, [initialRows, currentUserId, userHasTeamInContest]);
+
+  const leaderboardCompareHint =
+    !opponentTeamPreviewLocked && userHasTeamInContest && myTeamId;
 
   const openPreview = (row: Row) => {
     if (!currentUserId) return;
@@ -168,10 +210,12 @@ export function ContestDashboard({
   return (
     <>
         <div className="space-y-4 py-2">
-          <div className="flex items-start justify-between gap-2">
-            <h1 className="text-lg font-semibold leading-tight sm:text-xl">
-              {contestTitle}
-            </h1>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h1 className="text-lg font-semibold leading-tight sm:text-xl">
+                {contestTitle}
+              </h1>
+            </div>
             <div className="flex max-w-[min(100%,14rem)] shrink-0 flex-col items-end gap-1.5 sm:max-w-none">
               <div className="flex flex-wrap items-center justify-end gap-2">
                 {invitePublic && whatsappShareHref ? (
@@ -248,20 +292,20 @@ export function ContestDashboard({
                         balance={walletBalance}
                         label="Join"
                         disabled={rosterLocked}
-                        disabledReason="Team lock is on — you cannot join new contests this close to start."
+                        disabledReason="Team lock is on — you cannot join new contests after the match goes live."
                       />
                     </div>
                   ) : null
                 ) : null}
                 {showSquadLink ? (
                   <Link
-                    href={squadHref}
+                    href={`/matches/${matchCard.id}/contests/${contestId}/pick-team`}
                     className={cn(
                       buttonVariants({ variant: "outline", size: "sm" }),
                       "inline-flex min-h-10 shrink-0 items-center justify-center",
                     )}
                   >
-                    My team
+                    Edit team
                   </Link>
                 ) : null}
               </div>
@@ -275,6 +319,31 @@ export function ContestDashboard({
           </div>
 
           <HomeUpcomingCard match={matchCardLive} linkHref={false} variant="contest" />
+
+          {userHasTeamInContest && myEntryTeamSummary ? (
+            <p className="text-sm">
+              <span className="text-muted-foreground">Your squad </span>
+              {myEntryTeamSummary.kind === "saved" ? (
+                !rosterLocked ? (
+                  <Link
+                    href={`/matches/${myEntryTeamSummary.matchId}/teams/${myEntryTeamSummary.savedTeamId}/squad`}
+                    className="font-medium text-foreground underline-offset-2 hover:underline"
+                  >
+                    Team {myEntryTeamSummary.slot}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-foreground">
+                    Team {myEntryTeamSummary.slot}
+                  </span>
+                )
+              ) : (
+                <span className="font-medium text-foreground">Contest XI</span>
+              )}
+              {myEntryTeamSummary.kind === "saved" ? (
+                <span className="text-muted-foreground"> · My teams</span>
+              ) : null}
+            </p>
+          ) : null}
 
           {myStandings ? (
             <p className="border-primary/30 bg-primary/5 rounded-xl border px-3 py-2 text-sm font-medium tabular-nums">
@@ -336,6 +405,9 @@ export function ContestDashboard({
               <p className="text-muted-foreground mb-2 text-xs font-semibold uppercase tracking-wide">
                 Paid winners
               </p>
+              <p className="text-muted-foreground mb-2 text-[11px] leading-snug">
+                Same points share a rank; prize money for those ranks is pooled and split evenly.
+              </p>
               <ul className="divide-border divide-y rounded-xl border bg-card">
                 {payoutRows.map((p) => (
                   <li
@@ -373,6 +445,11 @@ export function ContestDashboard({
               live.
             </p>
           ) : null}
+          {leaderboardCompareHint && currentUserId ? (
+            <p className="text-muted-foreground mb-2 text-xs">
+              Tap another contestant to compare teams (your picks vs theirs).
+            </p>
+          ) : null}
           {!initialRows.length ? (
             <p className="text-muted-foreground text-sm">No teams yet.</p>
           ) : (
@@ -404,6 +481,16 @@ export function ContestDashboard({
             fixtureScoreboardRaw={live.fixtureScoreboardRaw}
             defaultTab="scorecard"
             isCompleted={matchCompleted}
+            tossSummary={
+              <MatchTossLines
+                teamA={matchCard.team_a ?? null}
+                teamB={matchCard.team_b ?? null}
+                localteamId={matchCard.localteam_id ?? null}
+                visitorteamId={matchCard.visitorteam_id ?? null}
+                tossWinnerTeamId={live.tossWinnerTeamId}
+                tossDecision={live.tossDecision}
+              />
+            }
           />
         </TabsContent>
 
@@ -419,6 +506,7 @@ export function ContestDashboard({
         key={preview?.teamId ?? "closed"}
         contestId={contestId}
         userTeamId={preview?.teamId ?? null}
+        compareWithTeamId={leaderboardCompareHint ? myTeamId : null}
         open={sheetOpen}
         onOpenChange={(o) => {
           setSheetOpen(o);

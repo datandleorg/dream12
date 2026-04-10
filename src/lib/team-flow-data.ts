@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { SQUAD_SIZE } from "@/lib/fantasy/rules";
 import { countRosterNotInPlayingXi } from "@/lib/lineup-conflict";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
@@ -23,6 +24,8 @@ export type TeamFlowMatchRow = {
   id: number;
   name: string;
   start_time: string;
+  /** DB `matches.status` — team lock when not `upcoming` */
+  status: string;
   tournament_name: string | null;
   team_a: string | null;
   team_b: string | null;
@@ -32,6 +35,10 @@ export type TeamFlowMatchRow = {
   match_format: string | null;
   venue_label: string | null;
   stage_label: string | null;
+  localteam_id: number | null;
+  visitorteam_id: number | null;
+  toss_winner_team_id: number | null;
+  toss_decision: string | null;
 };
 
 export type TeamFlowContestSummary = {
@@ -46,6 +53,36 @@ const PLAYERS_SELECT =
   "id,sportmonks_id,name,team,role,credit_value,season_points,selection_pct,played_last_match,photo_url,in_playing_xi" as const;
 
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
+
+export type ContestTeamBuildPathOptions = {
+  /**
+   * Resume / "My team" / edit: always open the squad picker first instead of
+   * deep-linking to captain or preview when the XI is already complete.
+   */
+  startAtSquad?: boolean;
+};
+
+/** Deep link for this user’s progress: squad vs captain vs preview. */
+export function contestTeamBuildPath(
+  matchId: number,
+  contestId: string,
+  rosterPlayerCount: number,
+  captainId: string | null,
+  viceCaptainId: string | null,
+  options?: ContestTeamBuildPathOptions,
+): string {
+  const base = `/matches/${matchId}/contests/${contestId}`;
+  if (options?.startAtSquad) {
+    return `${base}/squad`;
+  }
+  const capVcOk =
+    Boolean(captainId) &&
+    Boolean(viceCaptainId) &&
+    captainId !== viceCaptainId;
+  if (rosterPlayerCount === SQUAD_SIZE && !capVcOk) return `${base}/captain`;
+  if (rosterPlayerCount === SQUAD_SIZE && capVcOk) return `${base}/preview`;
+  return `${base}/squad`;
+}
 
 async function loadPlayersForMatch(
   supabase: ServerSupabase,
@@ -84,21 +121,60 @@ function venueStageLabels(
   return { venue_label, stage_label };
 }
 
-export async function loadTeamFlowData(matchId: number, contestId: string) {
+export async function loadTeamFlowData(
+  matchId: number,
+  contestId: string,
+  options?: { resetContestDraft?: boolean; skipSportmonksRefresh?: boolean },
+) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  if (isSportmonksFixtureId(matchId)) {
+  if (
+    isSportmonksFixtureId(matchId) &&
+    !options?.skipSportmonksRefresh
+  ) {
     await refreshMatchFromSportmonks(matchId);
+  }
+
+  if (options?.resetContestDraft) {
+    const { data: draftTeam } = await supabase
+      .from("user_teams")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("contest_id", contestId)
+      .maybeSingle();
+
+    if (draftTeam?.id) {
+      const tid = draftTeam.id as string;
+      const { error: rosterErr } = await supabase
+        .from("team_roster")
+        .delete()
+        .eq("team_id", tid);
+      if (rosterErr) {
+        console.error("reset contest draft roster:", rosterErr.message);
+      }
+      const { error: teamErr } = await supabase
+        .from("user_teams")
+        .update({
+          captain_id: null,
+          vice_captain_id: null,
+          source_saved_match_team_id: null,
+        })
+        .eq("id", tid)
+        .eq("user_id", user.id);
+      if (teamErr) {
+        console.error("reset contest draft user_teams:", teamErr.message);
+      }
+    }
   }
 
   const { data: matchRaw } = await supabase
     .from("matches")
     .select(
-      "id,name,start_time,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id,venue_id,stage_id,match_format",
+      "id,name,start_time,status,tournament_name,team_a,team_b,team_a_logo_url,team_b_logo_url,season_id,venue_id,stage_id,match_format,localteam_id,visitorteam_id,toss_winner_team_id,toss_decision",
     )
     .eq("id", matchId)
     .single();
@@ -129,6 +205,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
         id: Number(matchRaw.id),
         name: matchRaw.name,
         start_time: matchRaw.start_time,
+        status: String(matchRaw.status ?? "upcoming"),
         tournament_name: matchRaw.tournament_name ?? null,
         team_a: matchRaw.team_a ?? null,
         team_b: matchRaw.team_b ?? null,
@@ -138,6 +215,20 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
         match_format: matchRaw.match_format ?? null,
         venue_label,
         stage_label,
+        localteam_id:
+          matchRaw.localteam_id != null ? Number(matchRaw.localteam_id) : null,
+        visitorteam_id:
+          matchRaw.visitorteam_id != null
+            ? Number(matchRaw.visitorteam_id)
+            : null,
+        toss_winner_team_id:
+          matchRaw.toss_winner_team_id != null
+            ? Number(matchRaw.toss_winner_team_id)
+            : null,
+        toss_decision:
+          typeof matchRaw.toss_decision === "string"
+            ? matchRaw.toss_decision
+            : null,
       }
     : null;
 
@@ -153,7 +244,7 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
 
   const { data: team } = await supabase
     .from("user_teams")
-    .select("id,captain_id,vice_captain_id")
+    .select("id,captain_id,vice_captain_id,entry_fee_paid_at")
     .eq("user_id", user.id)
     .eq("contest_id", contestId)
     .maybeSingle();
@@ -180,15 +271,26 @@ export async function loadTeamFlowData(matchId: number, contestId: string) {
     prize_pool: Number(contest.prize_pool ?? 0),
   };
 
+  const initialCaptainId = (team?.captain_id as string) ?? null;
+  const initialViceId = (team?.vice_captain_id as string) ?? null;
+
   return {
     user,
     match,
     contest: contestSummary,
     hasExistingTeam: Boolean(team?.id),
+    hasPaidEntry: team?.entry_fee_paid_at != null,
     players,
     initialRoster,
-    initialCaptainId: (team?.captain_id as string) ?? null,
-    initialViceId: (team?.vice_captain_id as string) ?? null,
+    initialCaptainId,
+    initialViceId,
     lineupConflictCount,
+    teamBuildPath: contestTeamBuildPath(
+      matchId,
+      contestId,
+      initialRoster.length,
+      initialCaptainId,
+      initialViceId,
+    ),
   };
 }

@@ -21,10 +21,12 @@ export function CaptainSelector({
   matchId,
   contestId,
   match,
+  savedFlow,
 }: {
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
+  savedFlow?: { basePath: string };
 }) {
   const router = useRouter();
   const selected = useTeamBuilderStore((s) => s.selected);
@@ -33,7 +35,8 @@ export function CaptainSelector({
   const setCaptain = useTeamBuilderStore((s) => s.setCaptain);
   const setViceCaptain = useTeamBuilderStore((s) => s.setViceCaptain);
 
-  const base = `/matches/${matchId}/contests/${contestId}`;
+  const base =
+    savedFlow?.basePath ?? `/matches/${matchId}/contests/${contestId}`;
   const teamA = match.team_a?.trim() || "Team A";
   const teamB = match.team_b?.trim() || "Team B";
   const title =
@@ -46,7 +49,7 @@ export function CaptainSelector({
   const selectedA = selected.filter((p) => p.team === teamA).length;
   const selectedB = selected.filter((p) => p.team === teamB).length;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const rosterLocked = isTeamEditLocked(match.status);
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
@@ -54,7 +57,9 @@ export function CaptainSelector({
     }
   }, [selected.length, router, base]);
 
-  const canContinue = Boolean(captainId && viceCaptainId && captainId !== viceCaptainId);
+  const canContinue = Boolean(
+    captainId && viceCaptainId && captainId !== viceCaptainId,
+  );
 
   return (
     <div className="flex flex-col gap-3 pb-28">
@@ -69,11 +74,20 @@ export function CaptainSelector({
         picked={selected.length}
         squadSize={SQUAD_SIZE}
         creditsLeft={creditsLeft}
+        liveToss={{
+          matchId,
+          teamA,
+          teamB,
+          localteamId: match.localteam_id,
+          visitorteamId: match.visitorteam_id,
+          tossWinnerTeamId: match.toss_winner_team_id,
+          tossDecision: match.toss_decision,
+        }}
       />
 
       {rosterLocked ? (
         <p className="text-zinc-600 px-2 text-center text-xs dark:text-zinc-400">
-          Team lock is on (1 minute before start). Captain changes cannot be saved after the deadline.
+          Team lock is on (match is live). Captain changes cannot be saved after the deadline.
         </p>
       ) : null}
 
@@ -81,7 +95,7 @@ export function CaptainSelector({
         <LineupConflictBanner
           count={lineupConflictSelected}
           editHref={`${base}/squad`}
-          matchStartIso={match.start_time}
+          matchStatus={match.status}
         />
       ) : null}
 
@@ -96,7 +110,7 @@ export function CaptainSelector({
       </Link>
 
       <p className="text-muted-foreground text-sm">
-        Captain earns 2× points · Vice-captain 1.5×
+        Captain earns 2× points · Vice-captain 1.5×. Choose two different players.
       </p>
 
       <div className="space-y-2">
@@ -166,8 +180,8 @@ export function CaptainSelector({
         })}
       </div>
 
-      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">
-        <div className="flex flex-col gap-2">
+      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2" style={{ bottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex flex-col gap-2"> 
           <Button
             type="button"
             variant="secondary"

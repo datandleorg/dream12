@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   mapRowToBuilderPlayer,
   mergeBuilderPlayersWithPool,
+  normalizeCaptainVicePair,
   useTeamBuilderStore,
 } from "@/stores/team-builder";
 import type { TeamFlowPlayerRow } from "@/lib/team-flow-data";
@@ -16,6 +17,11 @@ export function HydrateTeamFlow({
   initialViceId,
   /** Squad step: clear client state when DB has no team (new contest / switch contest). Captain & preview: keep in-session picks until first save. */
   resetWhenNoSavedTeam = true,
+  /**
+   * From `?fresh=1` on match-level create squad: clear any stale Zustand XI for this flow key
+   * before normal hydration (same store id as a previous create session).
+   */
+  forceEmptyClientSession = false,
 }: {
   contestId: string;
   players: TeamFlowPlayerRow[];
@@ -23,11 +29,13 @@ export function HydrateTeamFlow({
   initialCaptainId: string | null;
   initialViceId: string | null;
   resetWhenNoSavedTeam?: boolean;
+  forceEmptyClientSession?: boolean;
 }) {
   const reset = useTeamBuilderStore((s) => s.reset);
   const setCaptain = useTeamBuilderStore((s) => s.setCaptain);
   const setViceCaptain = useTeamBuilderStore((s) => s.setViceCaptain);
   const setTeamFlowContestId = useTeamBuilderStore((s) => s.setTeamFlowContestId);
+  const forcedEmptyRef = useRef(false);
 
   const xiSig = players
     .map((p) => `${p.id}:${p.in_playing_xi === true ? "t" : p.in_playing_xi === false ? "f" : "n"}`)
@@ -45,6 +53,14 @@ export function HydrateTeamFlow({
       .map((id) => players.find((p) => p.id === id))
       .filter(Boolean) as TeamFlowPlayerRow[];
 
+    if (forceEmptyClientSession && !forcedEmptyRef.current) {
+      forcedEmptyRef.current = true;
+      reset();
+      setCaptain(null);
+      setViceCaptain(null);
+      setTeamFlowContestId(contestId);
+    }
+
     const store = useTeamBuilderStore.getState();
     const { teamFlowContestId, captainId, viceCaptainId, selected: currentSelected } = store;
 
@@ -52,8 +68,12 @@ export function HydrateTeamFlow({
     if (teamFlowContestId !== contestId) {
       if (pre.length) {
         reset(pre.map(mapRowToBuilderPlayer));
-        setCaptain(initialCaptainId);
-        setViceCaptain(initialViceId);
+        const { captainId: c, viceCaptainId: v } = normalizeCaptainVicePair(
+          initialCaptainId,
+          initialViceId,
+        );
+        setCaptain(c);
+        setViceCaptain(v);
       } else {
         reset();
         setCaptain(null);
@@ -68,20 +88,28 @@ export function HydrateTeamFlow({
       const merged = mergeBuilderPlayersWithPool(currentSelected, players);
       const ids = new Set(merged.map((p) => p.id));
       reset(merged);
-      setCaptain(captainId && ids.has(captainId) ? captainId : null);
-      setViceCaptain(viceCaptainId && ids.has(viceCaptainId) ? viceCaptainId : null);
+      const { captainId: c, viceCaptainId: v } = normalizeCaptainVicePair(
+        captainId && ids.has(captainId) ? captainId : null,
+        viceCaptainId && ids.has(viceCaptainId) ? viceCaptainId : null,
+      );
+      setCaptain(c);
+      setViceCaptain(v);
       return;
     }
 
     if (pre.length) {
       reset(pre.map(mapRowToBuilderPlayer));
-      setCaptain(initialCaptainId);
-      setViceCaptain(initialViceId);
+      const { captainId: c, viceCaptainId: v } = normalizeCaptainVicePair(
+        initialCaptainId,
+        initialViceId,
+      );
+      setCaptain(c);
+      setViceCaptain(v);
     } else if (resetWhenNoSavedTeam) {
       reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate from server snapshot per contest/team
-  }, [hydrateKey, resetWhenNoSavedTeam]);
+  }, [hydrateKey, resetWhenNoSavedTeam, forceEmptyClientSession, contestId]);
 
   return null;
 }

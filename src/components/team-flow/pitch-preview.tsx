@@ -27,20 +27,23 @@ import { TeamFieldPreview } from "@/components/team-flow/team-field-preview";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { countSelectedNotInPlayingXi } from "@/lib/lineup-conflict";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
+import { useMatchTossLive } from "@/lib/hooks/use-match-toss-live";
 
 export function PitchPreview({
   matchId,
   contestId,
   match,
   contest,
-  hasExistingTeam,
+  hasPaidEntry,
 }: {
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
   contest: TeamFlowContestSummary;
-  hasExistingTeam: boolean;
+  /** True after wallet debit / free join confirmed (not merely XI draft saved). */
+  hasPaidEntry: boolean;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -60,10 +63,16 @@ export function PitchPreview({
   const creditsUsed = selected.reduce((s, p) => s + p.credit_value, 0);
   const creditsLeft = MAX_CREDITS - creditsUsed;
   const lineupConflictSelected = countSelectedNotInPlayingXi(selected);
-  const rosterLocked = isTeamEditLocked(match.start_time);
+  const rosterLocked = isTeamEditLocked(match.status);
+
+  const { tossWinnerTeamId, tossDecision } = useMatchTossLive(matchId, {
+    toss_winner_team_id: match.toss_winner_team_id,
+    toss_decision: match.toss_decision,
+  });
   const picksRemaining = SQUAD_SIZE - selected.length;
-  const capVcReady =
-    Boolean(captainId && viceCaptainId && captainId !== viceCaptainId);
+  const capVcReady = Boolean(
+    captainId && viceCaptainId && captainId !== viceCaptainId,
+  );
   const canSaveTeam =
     selected.length === SQUAD_SIZE && capVcReady && !rosterLocked;
 
@@ -81,7 +90,14 @@ export function PitchPreview({
   }, [selected.length, captainId, viceCaptainId, router, base]);
 
   async function onSave() {
-    if (selected.length !== SQUAD_SIZE || !captainId || !viceCaptainId) return;
+    if (
+      selected.length !== SQUAD_SIZE ||
+      !captainId ||
+      !viceCaptainId ||
+      captainId === viceCaptainId
+    ) {
+      return;
+    }
     setSaving(true);
     const res = await saveTeamAction({
       contestId,
@@ -105,7 +121,7 @@ export function PitchPreview({
   const fee = contest.entry_fee;
   const feeLine =
     fee > 0
-      ? `Entry fee ₹${fee.toFixed(0)} will be deducted from your wallet on first join only.`
+      ? `Entry fee ₹${fee.toFixed(0)} will be deducted from your wallet when you confirm below.`
       : "This contest is free to join.";
 
   return (
@@ -141,11 +157,20 @@ export function PitchPreview({
         {match.stage_label ? (
           <p className="mt-0.5 text-xs">{match.stage_label}</p>
         ) : null}
+        <MatchTossLines
+          teamA={match.team_a}
+          teamB={match.team_b}
+          localteamId={match.localteam_id}
+          visitorteamId={match.visitorteam_id}
+          tossWinnerTeamId={tossWinnerTeamId}
+          tossDecision={tossDecision}
+          className="mt-2 border-t border-border/50 pt-2"
+        />
       </div>
 
       {rosterLocked ? (
         <p className="text-zinc-600 px-1 text-center text-xs dark:text-zinc-400">
-          Team lock is on (1 minute before start). Saving or updating your team is no longer allowed.
+          Team lock is on (match is live). Saving or updating your team is no longer allowed.
         </p>
       ) : null}
 
@@ -153,7 +178,7 @@ export function PitchPreview({
         <LineupConflictBanner
           count={lineupConflictSelected}
           editHref={`${base}/squad`}
-          matchStartIso={match.start_time}
+          matchStatus={match.status}
         />
       ) : null}
 
@@ -212,11 +237,11 @@ export function PitchPreview({
         <DialogContent showCloseButton className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {hasExistingTeam ? "Update team?" : "Join contest?"}
+              {hasPaidEntry ? "Update team?" : "Join contest?"}
             </DialogTitle>
             <DialogDescription className="space-y-2">
               <span className="block">
-                {hasExistingTeam ? (
+                {hasPaidEntry ? (
                   <>
                     Save changes to <strong className="text-foreground">{contestLabel}</strong> for{" "}
                     <strong className="text-foreground">{title}</strong>? You will not be charged the entry
@@ -229,7 +254,7 @@ export function PitchPreview({
                   </>
                 )}
               </span>
-              {!hasExistingTeam ? <span className="block">{feeLine}</span> : null}
+              {!hasPaidEntry ? <span className="block">{feeLine}</span> : null}
               <span className="block text-xs">
                 Prize pool up to ₹{contest.prize_pool.toLocaleString("en-IN")}.
               </span>
@@ -251,7 +276,7 @@ export function PitchPreview({
               disabled={saving}
               onClick={() => void onSave()}
             >
-              {saving ? "Saving…" : hasExistingTeam ? "Save changes" : "Confirm & join"}
+              {saving ? "Saving…" : hasPaidEntry ? "Save changes" : "Confirm & join"}
             </Button>
           </DialogFooter>
         </DialogContent>

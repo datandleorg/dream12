@@ -1,70 +1,54 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
-import { SquadPicker } from "@/components/team-flow/squad-picker";
+import { SquadFlowPageShell } from "@/components/team-flow/squad-flow-page-shell";
+import { StripFreshSearchParam } from "@/components/team-flow/strip-fresh-search-param";
+import { loadTeamFlowData } from "@/lib/team-flow-data";
 import {
-  fetchPlayersForMatch,
-  loadTeamFlowData,
-} from "@/lib/team-flow-data";
-import {
-  isSportmonksFixtureId,
-  syncPlayersForMatch,
-} from "@/lib/sportmonks/sync";
+  ensurePlayersForMatch,
+  truthySearchParam,
+} from "@/lib/fantasy/squad-page-server";
 
 /** Always read fresh `players.role` from DB after sync (no static cache of squad pool). */
 export const dynamic = "force-dynamic";
 
 export default async function ContestSquadPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ matchId: string; contestId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { matchId: mid, contestId } = await params;
   const matchId = Number(mid);
   if (!Number.isFinite(matchId)) notFound();
 
-  let data = await loadTeamFlowData(matchId, contestId);
+  const sp = (await searchParams) ?? {};
+  const buildFresh = truthySearchParam(sp, "fresh");
 
-  if (
-    !data.players.length &&
-    isSportmonksFixtureId(matchId)
-  ) {
-    await syncPlayersForMatch(matchId);
-    const players = await fetchPlayersForMatch(matchId);
-    data = { ...data, players };
-  }
-
-  if (!data.players.length) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col py-4">
-        <HydrateTeamFlow
-          contestId={contestId}
-          players={data.players}
-          initialRoster={data.initialRoster}
-          initialCaptainId={data.initialCaptainId}
-          initialViceId={data.initialViceId}
-        />
-        <p className="text-muted-foreground text-sm">
-          No players in the pool yet for this match. Run sync or check SportMonks data.
-        </p>
-      </div>
-    );
-  }
+  let data = await loadTeamFlowData(matchId, contestId, {
+    resetContestDraft: buildFresh,
+    skipSportmonksRefresh: true,
+  });
+  const players = await ensurePlayersForMatch(matchId, data.players);
+  data = { ...data, players };
 
   return (
-    <div className="flex min-h-[calc(100dvh-8rem)] flex-1 flex-col py-2">
-      <HydrateTeamFlow
+    <>
+      {buildFresh ? (
+        <Suspense fallback={null}>
+          <StripFreshSearchParam />
+        </Suspense>
+      ) : null}
+      <SquadFlowPageShell
         contestId={contestId}
         players={data.players}
         initialRoster={data.initialRoster}
         initialCaptainId={data.initialCaptainId}
         initialViceId={data.initialViceId}
-      />
-      <SquadPicker
-        matchId={matchId}
-        contestId={contestId}
         match={data.match}
-        players={data.players}
+        matchId={matchId}
+        emptyPoolMessage="No players in the pool yet for this match. Run sync or check SportMonks data."
       />
-    </div>
+    </>
   );
 }

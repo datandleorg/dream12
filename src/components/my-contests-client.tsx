@@ -11,13 +11,19 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MatchStatusBadge } from "@/components/match-status-badge";
 import { cn } from "@/lib/utils";
+import { DeleteContestButton } from "@/components/delete-contest-button";
 
 export type MyContestListRow = {
   userTeamId: string;
   contestId: string;
   contestTitle: string;
   matchId: number;
+  /** Linked My teams template when the contest entry was created from a saved XI. */
+  sourceSavedMatchTeamId: string | null;
+  savedMatchTeamSlot: number | null;
   matchVersus: string;
+  /** Toss + batting first when known (server-computed). */
+  tossSummaryLine: string | null;
   startTimeLabel: string;
   matchStatus: string;
   tournamentName: string | null;
@@ -29,6 +35,9 @@ export type MyContestListRow = {
   /** null when contest not settled; 0 when settled but no payout row */
   amountWonInr: number | null;
   canEditTeam: boolean;
+  /** Host can delete before lock (same rules as match page). */
+  canDeleteAsHost: boolean;
+  paidParticipantsCount: number;
 };
 
 function ContestCard({ row }: { row: MyContestListRow }) {
@@ -41,10 +50,35 @@ function ContestCard({ row }: { row: MyContestListRow }) {
         </div>
         <div className="text-muted-foreground space-y-1 text-sm">
           <p className="font-medium text-foreground">{row.matchVersus}</p>
+          {row.tossSummaryLine ? (
+            <p className="text-xs leading-snug">{row.tossSummaryLine}</p>
+          ) : null}
           {row.tournamentName ? (
             <p className="text-xs">{row.tournamentName}</p>
           ) : null}
           <p className="text-xs tabular-nums">{row.startTimeLabel}</p>
+          <p className="text-xs">
+            <span className="text-muted-foreground">Your squad </span>
+            {row.savedMatchTeamSlot != null && row.sourceSavedMatchTeamId ? (
+              <>
+                {row.canEditTeam ? (
+                  <Link
+                    href={`/matches/${row.matchId}/teams/${row.sourceSavedMatchTeamId}/squad`}
+                    className="font-semibold text-foreground underline-offset-2 hover:underline"
+                  >
+                    Team {row.savedMatchTeamSlot}
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-foreground">
+                    Team {row.savedMatchTeamSlot}
+                  </span>
+                )}
+                <span className="text-muted-foreground"> · My teams</span>
+              </>
+            ) : (
+              <span className="font-semibold text-foreground">Contest XI</span>
+            )}
+          </p>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm tabular-nums">
           <span>
@@ -76,26 +110,39 @@ function ContestCard({ row }: { row: MyContestListRow }) {
             <span className="text-muted-foreground font-normal">Winnings pending settlement</span>
           )}
         </CardDescription>
-        <div className="flex gap-2 pt-1">
-          <Link
-            href={`/contests/${row.contestId}`}
-            className={cn(
-              buttonVariants({ variant: "secondary" }),
-              "inline-flex min-h-11 flex-1 items-center justify-center",
-            )}
-          >
-            Leaderboard
-          </Link>
-          {row.canEditTeam ? (
+        <div className="flex flex-col gap-2 pt-1">
+          <div className="flex gap-2">
             <Link
-              href={`/matches/${row.matchId}/contests/${row.contestId}/squad`}
+              href={`/contests/${row.contestId}`}
               className={cn(
-                buttonVariants({ variant: "default" }),
+                buttonVariants({ variant: "secondary" }),
                 "inline-flex min-h-11 flex-1 items-center justify-center",
               )}
             >
-              Edit team
+              Leaderboard
             </Link>
+            {row.canEditTeam ? (
+              <Link
+                href={`/matches/${row.matchId}/contests/${row.contestId}/pick-team`}
+                className={cn(
+                  buttonVariants({ variant: "default" }),
+                  "inline-flex min-h-11 flex-1 items-center justify-center",
+                )}
+              >
+                Edit team
+              </Link>
+            ) : null}
+          </div>
+          {row.canDeleteAsHost ? (
+            <DeleteContestButton
+              contestId={row.contestId}
+              contestTitle={row.contestTitle}
+              entryFee={row.entryFee}
+              matchId={row.matchId}
+              paidParticipantsCount={row.paidParticipantsCount}
+              redirectToMatchAfterDelete
+              fullWidth
+            />
           ) : null}
         </div>
       </CardHeader>

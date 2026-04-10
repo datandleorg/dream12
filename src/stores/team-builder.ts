@@ -70,6 +70,17 @@ export function mapRowToBuilderPlayer(row: {
   };
 }
 
+/** If DB or legacy state had the same id for both, keep captain and clear VC. */
+export function normalizeCaptainVicePair(
+  captainId: string | null,
+  viceCaptainId: string | null,
+): { captainId: string | null; viceCaptainId: string | null } {
+  if (captainId && viceCaptainId && captainId === viceCaptainId) {
+    return { captainId, viceCaptainId: null };
+  }
+  return { captainId, viceCaptainId };
+}
+
 /** Refresh builder rows from the server player pool (order preserved). */
 export function mergeBuilderPlayersWithPool(
   selected: BuilderPlayer[],
@@ -122,8 +133,17 @@ export const useTeamBuilderStore = create<State>((set) => ({
     });
     return rejection != null ? { ok: false, message: rejection } : { ok: true };
   },
-  setCaptain: (id) => set({ captainId: id }),
-  setViceCaptain: (id) => set({ viceCaptainId: id }),
+  setCaptain: (id) =>
+    set((s) => ({
+      captainId: id,
+      viceCaptainId:
+        id != null && s.viceCaptainId === id ? null : s.viceCaptainId,
+    })),
+  setViceCaptain: (id) =>
+    set((s) => ({
+      viceCaptainId: id,
+      captainId: id != null && s.captainId === id ? null : s.captainId,
+    })),
   setRoleTab: (roleTab) => set({ roleTab }),
   setTeamFlowContestId: (teamFlowContestId) => set({ teamFlowContestId }),
   reset: (preselected) =>

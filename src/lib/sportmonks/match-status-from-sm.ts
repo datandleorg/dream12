@@ -125,3 +125,92 @@ export function resolveDbStatusAfterLiveTick(
   }
   return { status: "upcoming", setMatchFinishedAt: false };
 }
+
+/** Readable chip label for common SM abbreviations; `null` if no mapping. */
+export function smFixtureStatusDisplayLabel(
+  raw: string | null | undefined,
+): string | null {
+  const original = raw?.trim() || "";
+  if (!original) return null;
+  const s = norm(original);
+  if (s === "int." || s === "int" || s.includes("interrupt")) {
+    return "Interrupted";
+  }
+  if (s.includes("aban") || s.includes("abandon")) {
+    return "Abandoned";
+  }
+  if (s.includes("delayed")) {
+    return "Delayed";
+  }
+  if (s.includes("cancl") || s.includes("cancel")) {
+    return "Cancelled";
+  }
+  return null;
+}
+
+/** UI hint for coloring SportMonks `fixture.status` chips (substring rules aligned with mapping above). */
+export type SmFixtureStatusUiTone =
+  | "cancelled"
+  | "completed"
+  | "break"
+  | "interrupted"
+  | "delayed"
+  | "live"
+  | "upcoming";
+
+export function smFixtureStatusUiTone(
+  raw: string | null | undefined,
+): SmFixtureStatusUiTone {
+  const s = norm(raw ?? "");
+  if (!s) return "upcoming";
+  if (
+    s.includes("cancl") ||
+    s.includes("cancel") ||
+    s.includes("aban") ||
+    s.includes("abandon")
+  ) {
+    return "cancelled";
+  }
+  if (s.includes("finished") || s.includes("completed")) {
+    return "completed";
+  }
+  if (
+    s.includes("tea break") ||
+    s === "tea" ||
+    s.includes("lunch") ||
+    s.includes("dinner") ||
+    s.includes("innings break")
+  ) {
+    return "break";
+  }
+  if (s === "int." || s === "int" || s.includes("interrupt")) {
+    return "interrupted";
+  }
+  if (s.includes("delayed")) {
+    return "delayed";
+  }
+  if (isUpcomingStatus(s)) {
+    return "upcoming";
+  }
+  if (isLiveStatus(s)) {
+    return "live";
+  }
+  return "upcoming";
+}
+
+/**
+ * Match cards (home / contest): center shows "Match in progress" when SM tone is in-play;
+ * otherwise only `sm_fixture_note` when set — status stays on the fixture badge only.
+ */
+export function matchCardLiveCenterLine(
+  smFixtureStatus: string | null | undefined,
+  smFixtureNote: string | null | undefined,
+): { text: string; tone: SmFixtureStatusUiTone } | null {
+  const tone = smFixtureStatusUiTone(smFixtureStatus);
+  const note = smFixtureNote?.trim() || null;
+  if (tone === "live") {
+    return { text: "Match in progress", tone: "live" };
+  }
+  if (note) return { text: note, tone };
+  return null;
+}

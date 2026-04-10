@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
 import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
 import { MatchStatusBadge } from "@/components/match-status-badge";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
 import type { LiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
@@ -17,8 +18,15 @@ export function MatchLivePageClient({
   live_snapshot_at,
   status: initialStatus,
   sm_fixture_status,
+  sm_fixture_note,
   fixture_scoreboard_raw,
   initialParsedSnapshot,
+  teamA,
+  teamB,
+  localteamId,
+  visitorteamId,
+  tossWinnerTeamId: initialTossWinnerTeamId,
+  tossDecision: initialTossDecision,
 }: {
   matchId: number;
   tournamentName: string | null;
@@ -27,17 +35,35 @@ export function MatchLivePageClient({
   live_snapshot_at: string | null;
   status: string;
   sm_fixture_status: string | null;
+  sm_fixture_note?: string | null;
   fixture_scoreboard_raw?: unknown;
   initialParsedSnapshot: LiveSnapshot;
+  teamA: string | null;
+  teamB: string | null;
+  localteamId: number | null;
+  visitorteamId: number | null;
+  tossWinnerTeamId: number | null;
+  tossDecision: string | null;
 }) {
-  const { snapshot, status, smFixtureStatus, fixtureScoreboardRaw } = useMatchLiveRow({
+  const {
+    snapshot,
+    status,
+    smFixtureStatus,
+    smFixtureNote,
+    fixtureScoreboardRaw,
+    tossWinnerTeamId,
+    tossDecision,
+  } = useMatchLiveRow({
     matchId,
     live_snapshot,
     live_snapshot_at,
     status: initialStatus,
     sm_fixture_status,
+    sm_fixture_note: sm_fixture_note ?? null,
     fixture_scoreboard_raw,
     initialParsedSnapshot,
+    toss_winner_team_id: initialTossWinnerTeamId,
+    toss_decision: initialTossDecision,
   });
 
   const st = String(status).toLowerCase();
@@ -56,8 +82,17 @@ export function MatchLivePageClient({
             <h1 className="text-xl font-semibold leading-tight">Live score</h1>
             <MatchStatusBadge status={String(status)} />
           </div>
-          <FixtureSmStatusLine label={smFixtureStatus} />
+          <FixtureSmStatusLine label={smFixtureStatus} note={smFixtureNote} />
           <p className="text-muted-foreground mt-1 text-sm">{subtitle}</p>
+          <MatchTossLines
+            teamA={teamA}
+            teamB={teamB}
+            localteamId={localteamId}
+            visitorteamId={visitorteamId}
+            tossWinnerTeamId={tossWinnerTeamId}
+            tossDecision={tossDecision}
+            className="mt-2 text-xs"
+          />
         </div>
         <Link
           href={`/matches/${matchId}`}

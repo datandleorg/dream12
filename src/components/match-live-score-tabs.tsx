@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -384,6 +384,7 @@ export function MatchLiveScoreTabs({
   className,
   defaultTab = "summary",
   isCompleted = false,
+  tossSummary,
 }: {
   snapshot: LiveSnapshot;
   /** Authoritative batting/bowling trees from DB; when present, scorecard uses them for dismissal detail. */
@@ -393,6 +394,8 @@ export function MatchLiveScoreTabs({
   defaultTab?: "summary" | "scorecard";
   /** Affects summary copy only; scorecard stays available for finished matches. */
   isCompleted?: boolean;
+  /** Toss / batting first; shown above tabs when provided. */
+  tossSummary?: ReactNode;
 }) {
   const rawJson =
     fixtureScoreboardRaw != null && typeof fixtureScoreboardRaw === "object"
@@ -409,6 +412,7 @@ export function MatchLiveScoreTabs({
 
   return (
     <Tabs defaultValue={defaultTab} className={cn("w-full", className)}>
+      {tossSummary ? <div className="mb-1">{tossSummary}</div> : null}
       <TabsList variant="line" className="mb-3 w-full justify-start gap-1">
         <TabsTrigger value="summary">Summary</TabsTrigger>
         <TabsTrigger value="scorecard">Scorecard</TabsTrigger>

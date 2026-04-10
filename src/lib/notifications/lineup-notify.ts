@@ -17,7 +17,8 @@ export async function notifyLineupPublishedOnce(matchId: number): Promise<void> 
   const { data: teams } = await supabase
     .from("user_teams")
     .select("user_id")
-    .eq("match_id", matchId);
+    .eq("match_id", matchId)
+    .not("entry_fee_paid_at", "is", null);
 
   const userIds = [...new Set((teams ?? []).map((t) => t.user_id as string))];
   if (!userIds.length) {

@@ -4,23 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { hrefFromPayload, type NotificationRow } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 
-export type NotificationRow = {
-  id: string;
-  type: string;
-  title: string;
-  body: string;
-  payload: Record<string, unknown> | null;
-  read_at: string | null;
-  created_at: string;
-};
-
-function hrefFromPayload(payload: Record<string, unknown> | null): string | null {
-  if (!payload || typeof payload.href !== "string") return null;
-  const h = payload.href.trim();
-  return h.startsWith("/") ? h : null;
-}
+export type { NotificationRow };
 
 export function NotificationsList({ initial }: { initial: NotificationRow[] }) {
   const router = useRouter();

@@ -6,6 +6,7 @@ import {
 } from "@/lib/extract-scoreboard-raw-to-live-map";
 import { pickScoreboardRaw } from "@/lib/pick-scoreboard-raw";
 import type { SmFixture } from "@/lib/sportmonks/client";
+import { smFixtureNoteFromPayload } from "@/lib/sportmonks/client";
 import { sportmonksToken } from "@/lib/sportmonks/client";
 import {
   fetchFixtureMetaRaw,
@@ -26,6 +27,24 @@ import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { updateUserTeamsPointsForMatch } from "@/lib/update-user-teams-for-match";
 
 export const MAX_MATCHES_PER_RUN = 25;
+
+/**
+ * Fixture IDs to exclude from the automated live pipeline (cron `/api/cron/live-match-tick`).
+ * Comma- or whitespace-separated positive integers. Does not apply to admin
+ * `POST /api/admin/sync-match` with a single `matchId` (manual tick still runs).
+ */
+function livePipelineSkipMatchIds(): Set<number> {
+  const raw = process.env.LIVE_MATCH_TICK_SKIP_MATCH_IDS?.trim();
+  if (!raw) return new Set();
+  const out = new Set<number>();
+  for (const part of raw.split(/[\s,]+/)) {
+    const t = part.trim();
+    if (!t) continue;
+    const n = Number(t);
+    if (Number.isFinite(n) && n > 0) out.add(Math.trunc(n));
+  }
+  return out;
+}
 
 /** Minimum time between applying `lineup` from the live fixture payload (per match). */
 const LINEUP_SYNC_MIN_MS = 3 * 60 * 1000;
@@ -76,6 +95,36 @@ function isDbMatchStatus(s: string): s is DbMatchStatus {
     s === "completed" ||
     s === "in_review"
   );
+}
+
+/**
+ * Build a minimal `SmFixture` from a livescores "now" row so `mapMatchStatusFromSmFixture`
+ * can classify (e.g. Delayed → upcoming). Returns null if there is nothing to map.
+ */
+function smFixtureFromLivescoreNow(
+  id: number,
+  merged: Record<string, unknown> | undefined,
+): SmFixture | null {
+  if (!merged || typeof merged !== "object") return null;
+  const nested = merged.fixture;
+  const startFromNested =
+    nested && typeof nested === "object" && nested !== null
+      ? (nested as { starting_at?: string }).starting_at
+      : undefined;
+  const asF = merged as Partial<SmFixture>;
+  const starting_at =
+    typeof asF.starting_at === "string" && asF.starting_at
+      ? asF.starting_at
+      : typeof startFromNested === "string" && startFromNested
+        ? startFromNested
+        : undefined;
+  const status =
+    typeof asF.status === "string" && asF.status.trim()
+      ? asF.status.trim()
+      : undefined;
+  const live = asF.live;
+  if (!starting_at && !status && live == null) return null;
+  return { id, starting_at, status, live } as SmFixture;
 }
 
 /**
@@ -131,6 +180,10 @@ export async function runLiveMatchTickForMatch(
     const st = merged.status;
     if (typeof st === "string" && st.trim()) {
       payload.sm_fixture_status = st.trim();
+    }
+    const notePersist = smFixtureNoteFromPayload(merged.note);
+    if (notePersist) {
+      payload.sm_fixture_note = notePersist;
     }
 
     const asF = merged as Partial<SmFixture>;
@@ -226,6 +279,8 @@ export type MatchPipelineResult = {
     errors: number;
     ids: number[];
   };
+  /** Fixture IDs bypassed this run (env `LIVE_MATCH_TICK_SKIP_MATCH_IDS`). */
+  pipelineSkippedMatchIds?: number[];
   note?: string;
 };
 
@@ -278,6 +333,9 @@ export async function runMatchPipeline(
     };
   }
 
+  const skipMatchIds = livePipelineSkipMatchIds();
+  const pipelineSkipped = new Set<number>();
+
   const now = Date.now();
   let nowMap: Map<number, Record<string, unknown>> = new Map();
   try {
@@ -297,6 +355,10 @@ export async function runMatchPipeline(
   for (const row of upcomingPrematch ?? []) {
     const id = Number(row.id);
     if (!isSportmonksFixtureId(id)) continue;
+    if (skipMatchIds.has(id)) {
+      pipelineSkipped.add(id);
+      continue;
+    }
     const start = String(row.start_time ?? "");
     const tossAt = row.toss_recorded_at as string | null;
     const inWindow = inPrematchWindow(start, now) || tossAt != null;
@@ -354,17 +416,31 @@ export async function runMatchPipeline(
   for (const row of upcomingPromote ?? []) {
     const id = Number(row.id);
     if (!isSportmonksFixtureId(id)) continue;
+    if (skipMatchIds.has(id)) {
+      pipelineSkipped.add(id);
+      continue;
+    }
     if (!inPromoteWindow(String(row.start_time ?? ""), now)) continue;
 
-    let shouldLive = nowMap.has(id);
-    if (!shouldLive) {
+    const merged = nowMap.get(id);
+    const fromNow = smFixtureFromLivescoreNow(id, merged);
+    let source: SmFixture | null = null;
+    let usedLivescoreForLive = false;
+    let metaLoaded: SmFixture | null = null;
+
+    if (fromNow) {
+      if (mapMatchStatusFromSmFixture(fromNow) === "live") {
+        source = fromNow;
+        usedLivescoreForLive = true;
+      }
+    } else {
       try {
         const meta = await fetchFixtureMetaRaw(id);
         if (meta) {
-          const asF = meta as Partial<SmFixture>;
-          if (asF.starting_at) {
-            const m = mapMatchStatusFromSmFixture({ ...asF, id } as SmFixture);
-            shouldLive = m === "live";
+          const asF = { ...(meta as Partial<SmFixture>), id } as SmFixture;
+          metaLoaded = asF;
+          if (mapMatchStatusFromSmFixture(asF) === "live") {
+            source = asF;
           }
         }
       } catch {
@@ -373,40 +449,34 @@ export async function runMatchPipeline(
       }
     }
 
-    if (shouldLive) {
-      try {
-        const merged = nowMap.get(id);
-        const smSt =
-          merged && typeof merged.status === "string" ? merged.status.trim() : null;
-        if (merged && typeof merged === "object") {
-          const nested = merged.fixture;
-          const startFromNested =
-            nested && typeof nested === "object"
-              ? (nested as { starting_at?: string }).starting_at
-              : undefined;
-          const asF = merged as Partial<SmFixture>;
-          const startingAt = asF.starting_at ?? startFromNested;
-          if (startingAt) {
-            await supabase
-              .from("matches")
-              .update({
-                status: "live",
-                ...(smSt ? { sm_fixture_status: smSt } : {}),
-              })
-              .eq("id", id);
-            promote.promoted += 1;
-            continue;
-          }
-        }
-        const meta = await fetchFixtureMetaRaw(id);
-        if (meta) {
-          await upsertSingleSmFixture(supabase, { ...meta, id } as SmFixture);
-          await supabase.from("matches").update({ status: "live" }).eq("id", id);
-          promote.promoted += 1;
-        }
-      } catch {
-        promote.errors += 1;
+    if (!source) continue;
+
+    try {
+      if (!usedLivescoreForLive && metaLoaded) {
+        await upsertSingleSmFixture(supabase, metaLoaded);
       }
+
+      const smSt =
+        source.status?.trim() ||
+        (merged && typeof merged.status === "string" ? merged.status.trim() : null);
+      const smNote =
+        smFixtureNoteFromPayload(
+          merged && typeof merged === "object"
+            ? (merged as Record<string, unknown>).note
+            : null,
+        ) ?? smFixtureNoteFromPayload(source.note);
+
+      await supabase
+        .from("matches")
+        .update({
+          status: "live",
+          ...(smSt ? { sm_fixture_status: smSt } : {}),
+          ...(smNote ? { sm_fixture_note: smNote } : {}),
+        })
+        .eq("id", id);
+      promote.promoted += 1;
+    } catch {
+      promote.errors += 1;
     }
   }
 
@@ -420,7 +490,14 @@ export async function runMatchPipeline(
   const rows = liveRows ?? [];
   const ids = rows
     .map((r) => Number(r.id))
-    .filter((id) => Number.isFinite(id) && isSportmonksFixtureId(id));
+    .filter((id) => {
+      if (!Number.isFinite(id) || !isSportmonksFixtureId(id)) return false;
+      if (skipMatchIds.has(id)) {
+        pipelineSkipped.add(id);
+        return false;
+      }
+      return true;
+    });
 
   liveTicks.ids = ids;
 
@@ -444,7 +521,11 @@ export async function runMatchPipeline(
     }
   }
 
-  return { prematch, promote, liveTicks };
+  const out: MatchPipelineResult = { prematch, promote, liveTicks };
+  if (pipelineSkipped.size > 0) {
+    out.pipelineSkippedMatchIds = [...pipelineSkipped].sort((a, b) => a - b);
+  }
+  return out;
 }
 
 /**

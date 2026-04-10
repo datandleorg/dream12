@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
 const nav = [
+  { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/pay-in-requests", label: "Pay-in" },
   { href: "/admin/pay-out-requests", label: "Pay-out" },
   { href: "/admin/users", label: "Users" },

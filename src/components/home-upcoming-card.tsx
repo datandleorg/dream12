@@ -8,6 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  FixtureSmStatusLine,
+  smFixtureToneHeadlineClass,
+} from "@/components/fixture-sm-status-line";
+import { matchCardLiveCenterLine } from "@/lib/sportmonks/match-status-from-sm";
+import { MatchTossLines } from "@/components/match-toss-lines";
 import { MatchShortScore } from "@/components/match-short-score";
 import { MatchStatusBadge } from "@/components/match-status-badge";
 import {
@@ -34,12 +40,17 @@ export type HomeMatchCardModel = {
   live_snapshot?: unknown;
   fixture_scoreboard_raw?: unknown;
   sm_fixture_status?: string | null;
+  sm_fixture_note?: string | null;
   entry_fee?: number;
   /** Resolved on the home list from `sm_venues` */
   venue_line?: string | null;
   /** Resolved on the home list from `sm_stages` */
   stage_line?: string | null;
   match_format?: string | null;
+  localteam_id?: number | null;
+  visitorteam_id?: number | null;
+  toss_winner_team_id?: number | null;
+  toss_decision?: string | null;
 };
 
 function TeamOrb({
@@ -404,6 +415,8 @@ function LiveScoreBand({
   teamALogo,
   teamBLogo,
   liveSnap,
+  smFixtureStatus,
+  smFixtureNote,
   isContestVariant,
   maxPrizePool,
   entryFee,
@@ -414,11 +427,17 @@ function LiveScoreBand({
   teamALogo: string | null;
   teamBLogo: string | null;
   liveSnap: LiveSnapshot | null;
+  smFixtureStatus: string | null | undefined;
+  smFixtureNote: string | null | undefined;
   isContestVariant: boolean;
   maxPrizePool: number;
   entryFee?: number;
   tapHint: string | null;
 }) {
+  const centerLine = matchCardLiveCenterLine(
+    smFixtureStatus,
+    smFixtureNote,
+  );
   return (
     <div className="px-6 pb-3">
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(6.5rem,10rem)_minmax(0,1fr)] items-start gap-x-2">
@@ -426,9 +445,17 @@ function LiveScoreBand({
           <TeamOrb label={teamA} logoUrl={teamALogo} showCaption={false} />
         </div>
         <div className="flex min-w-0 flex-col items-center gap-1.5 px-0.5 text-center">
-          <span className="font-medium text-emerald-700 tabular-nums dark:text-emerald-400 text-xs">
-            Match in progress
-          </span>
+          {centerLine ? (
+            <span
+              className={cn(
+                "min-w-0 max-w-full font-medium text-xs leading-snug",
+                smFixtureToneHeadlineClass(centerLine.tone),
+                centerLine.tone === "live" && "tabular-nums",
+              )}
+            >
+              {centerLine.text}
+            </span>
+          ) : null}
           <MatchShortScore
             snapshot={liveSnap}
             className="text-foreground/90 text-sm font-medium"
@@ -546,6 +573,22 @@ export function HomeUpcomingCard({
           </CardTitle>
           <MatchStatusBadge status={match.status} className="shrink-0" />
         </div>
+        <MatchTossLines
+          teamA={match.team_a ?? null}
+          teamB={match.team_b ?? null}
+          localteamId={match.localteam_id ?? null}
+          visitorteamId={match.visitorteam_id ?? null}
+          tossWinnerTeamId={match.toss_winner_team_id ?? null}
+          tossDecision={match.toss_decision ?? null}
+          className="pt-1 text-xs"
+        />
+        <FixtureSmStatusLine
+          label={match.sm_fixture_status}
+          note={match.sm_fixture_note}
+          compact
+          className="pt-1"
+          showNote={!isLive}
+        />
         {isCompleted ? (
           <>
             <CardDescription className="block w-full pt-1 pb-0 text-center">
@@ -598,6 +641,8 @@ export function HomeUpcomingCard({
               teamALogo={match.team_a_logo_url}
               teamBLogo={match.team_b_logo_url}
               liveSnap={liveSnap}
+              smFixtureStatus={match.sm_fixture_status}
+              smFixtureNote={match.sm_fixture_note}
               isContestVariant={isContestVariant}
               maxPrizePool={match.max_prize_pool}
               entryFee={match.entry_fee}

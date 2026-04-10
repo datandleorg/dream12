@@ -1,7 +1,6 @@
 import {
   MAX_CREDITS,
   MAX_PLAYERS_SAME_FRANCHISE,
-  ROLE_LIMITS,
   SQUAD_SIZE,
   type RoleKey,
 } from "./rules";
@@ -29,9 +28,8 @@ function pick(
 }
 
 /**
- * Whether adding `candidate` to `selected` keeps the squad within Dream11-style
- * credit, franchise, role max, and “still room for required mins” constraints.
- * Does not apply when removing a player (caller should skip).
+ * Whether adding `candidate` to `selected` stays within squad size, credit cap,
+ * and franchise cap. Does not apply when removing a player (caller should skip).
  */
 export function canAddPlayerToSquad(
   selected: PickPlayer[],
@@ -64,48 +62,11 @@ export function canAddPlayerToSquad(
     }
   }
 
-  const roleCounts: Record<RoleKey, number> = {
-    WK: 0,
-    BAT: 0,
-    AR: 0,
-    BOWL: 0,
-  };
-  for (const p of next) {
-    roleCounts[p.role] += 1;
-  }
-
-  for (const role of Object.keys(ROLE_LIMITS) as RoleKey[]) {
-    const { max } = ROLE_LIMITS[role];
-    if (roleCounts[role] > max) {
-      return {
-        ok: false,
-        message: `At most ${max} ${role} — remove one or pick another role.`,
-      };
-    }
-  }
-
-  const slotsLeft = SQUAD_SIZE - next.length;
-  let minSlotsNeeded = 0;
-  for (const role of Object.keys(ROLE_LIMITS) as RoleKey[]) {
-    const { min } = ROLE_LIMITS[role];
-    const c = roleCounts[role];
-    if (c < min) minSlotsNeeded += min - c;
-  }
-  if (minSlotsNeeded > slotsLeft) {
-    return {
-      ok: false,
-      message: "Not enough spots left for required WK/BAT/AR/BOWL minimums — adjust your picks.",
-    };
-  }
-
   return { ok: true };
 }
 
-export function validateSquad(
-  selected: PickPlayer[],
-  captainId: string | null,
-  viceCaptainId: string | null,
-): SquadValidation {
+/** XI size, duplicates, credits, franchise — used before captain/vice step. */
+export function validateSquadRosterOnly(selected: PickPlayer[]): SquadValidation {
   if (selected.length !== SQUAD_SIZE) {
     return { ok: false, message: `Pick exactly ${SQUAD_SIZE} players.` };
   }
@@ -113,16 +74,6 @@ export function validateSquad(
   const ids = new Set(selected.map((p) => p.id));
   if (ids.size !== selected.length) {
     return { ok: false, message: "Duplicate players in squad." };
-  }
-
-  if (!captainId || !viceCaptainId) {
-    return { ok: false, message: "Select captain and vice-captain." };
-  }
-  if (captainId === viceCaptainId) {
-    return { ok: false, message: "Captain and vice-captain must differ." };
-  }
-  if (!ids.has(captainId) || !ids.has(viceCaptainId)) {
-    return { ok: false, message: "C/VC must be from your XI." };
   }
 
   const totalCredits = selected.reduce((s, p) => s + p.credit_value, 0);
@@ -146,25 +97,26 @@ export function validateSquad(
     }
   }
 
-  const roleCounts: Record<RoleKey, number> = {
-    WK: 0,
-    BAT: 0,
-    AR: 0,
-    BOWL: 0,
-  };
-  for (const p of selected) {
-    roleCounts[p.role] += 1;
-  }
+  return { ok: true };
+}
 
-  for (const role of Object.keys(ROLE_LIMITS) as RoleKey[]) {
-    const { min, max } = ROLE_LIMITS[role];
-    const c = roleCounts[role];
-    if (c < min || c > max) {
-      return {
-        ok: false,
-        message: `Need ${min}–${max} ${role} players (you have ${c}).`,
-      };
-    }
+export function validateSquad(
+  selected: PickPlayer[],
+  captainId: string | null,
+  viceCaptainId: string | null,
+): SquadValidation {
+  const roster = validateSquadRosterOnly(selected);
+  if (!roster.ok) return roster;
+
+  if (!captainId || !viceCaptainId) {
+    return { ok: false, message: "Select captain and vice-captain." };
+  }
+  if (captainId === viceCaptainId) {
+    return { ok: false, message: "Captain and vice-captain must be two different players." };
+  }
+  const ids = new Set(selected.map((p) => p.id));
+  if (!ids.has(captainId) || !ids.has(viceCaptainId)) {
+    return { ok: false, message: "C/VC must be from your XI." };
   }
 
   return { ok: true };

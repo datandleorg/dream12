@@ -11,6 +11,7 @@ import {
   roundMoney,
   sumSlabAmounts,
 } from "@/lib/fantasy/prize-slabs";
+import { isMatchUpcomingForUserContests } from "@/lib/fantasy/team-lock";
 
 export type CreateContestResult =
   | { ok: true; contestId: string }
@@ -20,6 +21,10 @@ function mapRpcError(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes("not authenticated")) return "Sign in again to create a contest.";
   if (m.includes("deadline")) return "Team lock deadline has passed for this match.";
+  if (m.includes("finished")) return "This match has finished — new contests can’t be created.";
+  if (m.includes("not open for contest") || m.includes("contest changes")) {
+    return "New contests can’t be created after the match has started or finished.";
+  }
   if (m.includes("prize slab")) return "Invalid prize breakdown. Refresh and try again.";
   if (m.includes("sum")) return "Prize slabs must match the prize pool.";
   if (m.includes("spots")) return "Choose a valid number of spots (2–10000).";
@@ -41,6 +46,22 @@ export async function createContestAction(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Not signed in." };
+
+  const { data: matchRow } = await supabase
+    .from("matches")
+    .select("status")
+    .eq("id", input.matchId)
+    .maybeSingle();
+  if (!matchRow) {
+    return { ok: false, message: "Match not found." };
+  }
+  if (!isMatchUpcomingForUserContests(matchRow.status as string)) {
+    return {
+      ok: false,
+      message:
+        "New contests can’t be created after the match has started or finished.",
+    };
+  }
 
   if (!ALLOWED_WINNER_COUNTS.includes(input.winnerCount as (typeof ALLOWED_WINNER_COUNTS)[number])) {
     return { ok: false, message: "Invalid winner count." };

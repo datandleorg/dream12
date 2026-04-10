@@ -11,7 +11,10 @@ import {
   MyContestsClient,
   type MyContestListRow,
 } from "@/components/my-contests-client";
+import { formatMatchTossSummary } from "@/lib/match-toss-summary";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { cn } from "@/lib/utils";
+import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
 
 const START_LABEL = new Intl.DateTimeFormat("en-GB", {
   weekday: "short",
@@ -38,6 +41,7 @@ type ContestNested = {
   entry_fee: number;
   prize_pool: number;
   prizes_settled_at: string | null;
+  created_by: string | null;
   matches: {
     name: string;
     status?: string | null;
@@ -45,6 +49,10 @@ type ContestNested = {
     tournament_name?: string | null;
     team_a?: string | null;
     team_b?: string | null;
+    localteam_id?: number | string | null;
+    visitorteam_id?: number | string | null;
+    toss_winner_team_id?: number | string | null;
+    toss_decision?: string | null;
   } | null;
 } | null;
 
@@ -89,6 +97,10 @@ export default async function MyContestsPage() {
       id,
       total_points,
       contest_id,
+      entry_fee_paid_at,
+      captain_id,
+      vice_captain_id,
+      source_saved_match_team_id,
       contests (
         id,
         name,
@@ -96,18 +108,29 @@ export default async function MyContestsPage() {
         entry_fee,
         prize_pool,
         prizes_settled_at,
+        created_by,
         matches (
           name,
           status,
           start_time,
           tournament_name,
           team_a,
-          team_b
+          team_b,
+          localteam_id,
+          visitorteam_id,
+          toss_winner_team_id,
+          toss_decision
         )
       )
     `,
     )
     .eq("user_id", user.id);
+
+  const slotByTemplateId = await mapSavedTemplateIdsToSlots(
+    supabase,
+    user.id,
+    (teams ?? []).map((t) => t.source_saved_match_team_id as string | null),
+  );
 
   const contestIds = [
     ...new Set(
@@ -119,14 +142,25 @@ export default async function MyContestsPage() {
 
   let rankByContest = new Map<string, number>();
   const payoutByUserTeam = new Map<string, number>();
+  let paidCountByContest = new Map<string, number>();
 
   if (contestIds.length > 0) {
     const { data: allInContests } = await supabase
       .from("user_teams")
-      .select("contest_id, user_id, total_points")
+      .select("contest_id, user_id, total_points, entry_fee_paid_at")
       .in("contest_id", contestIds);
 
-    rankByContest = buildRankByContestId(allInContests ?? [], user.id);
+    const paidInContests = (allInContests ?? []).filter(
+      (t) => t.entry_fee_paid_at != null,
+    );
+    rankByContest = buildRankByContestId(paidInContests, user.id);
+
+    const counts = new Map<string, number>();
+    for (const t of paidInContests) {
+      const cid = t.contest_id as string;
+      counts.set(cid, (counts.get(cid) ?? 0) + 1);
+    }
+    paidCountByContest = counts;
 
     const { data: payouts } = await supabase
       .from("contest_payouts")
@@ -150,11 +184,40 @@ export default async function MyContestsPage() {
       const teamB = m?.team_b ?? null;
       const matchVersus =
         teamA && teamB ? `${teamA} vs ${teamB}` : matchName;
+      const tossBits = formatMatchTossSummary({
+        team_a: teamA,
+        team_b: teamB,
+        localteam_id:
+          m?.localteam_id != null ? Number(m.localteam_id) : null,
+        visitorteam_id:
+          m?.visitorteam_id != null ? Number(m.visitorteam_id) : null,
+        toss_winner_team_id:
+          m?.toss_winner_team_id != null
+            ? Number(m.toss_winner_team_id)
+            : null,
+        toss_decision:
+          typeof m?.toss_decision === "string" ? m.toss_decision : null,
+      });
+      const tossSummaryLine = [tossBits.tossLine, tossBits.battingFirstLine]
+        .filter(Boolean)
+        .join(" · ");
       const matchStatus = String(m?.status ?? "").trim() || "upcoming";
       const matchStatusKey = matchStatus.toLowerCase();
       const canEditTeam = matchStatusKey === "upcoming";
       const prizesSettled = c.prizes_settled_at != null && c.prizes_settled_at !== "";
+      const rosterLockedForHost = isTeamEditLocked(matchStatus);
+      const createdBy = c.created_by ?? null;
+      const canDeleteAsHost =
+        !prizesSettled &&
+        !rosterLockedForHost &&
+        createdBy != null &&
+        createdBy === user.id;
+      const paidParticipantsCount = paidCountByContest.get(c.id) ?? 0;
       const userTeamId = t.id as string;
+      const sourceSavedId = t.source_saved_match_team_id as string | null;
+      const savedMatchTeamSlot = sourceSavedId
+        ? (slotByTemplateId.get(sourceSavedId) ?? null)
+        : null;
       const rank = rankByContest.get(c.id) ?? 0;
       const amountWonInr = prizesSettled
         ? (payoutByUserTeam.get(userTeamId) ?? 0)
@@ -165,7 +228,10 @@ export default async function MyContestsPage() {
         contestId: c.id,
         contestTitle: c.name?.trim() || `Contest · ${matchName}`,
         matchId: Number(c.match_id),
+        sourceSavedMatchTeamId: sourceSavedId,
+        savedMatchTeamSlot,
         matchVersus,
+        tossSummaryLine: tossSummaryLine || null,
         startTimeLabel: formatStartUtc(m?.start_time ?? undefined),
         matchStatus,
         tournamentName: m?.tournament_name ?? null,
@@ -176,6 +242,8 @@ export default async function MyContestsPage() {
         rank,
         amountWonInr,
         canEditTeam,
+        canDeleteAsHost,
+        paidParticipantsCount,
       };
       return row;
     })

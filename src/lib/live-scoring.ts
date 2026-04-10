@@ -48,6 +48,46 @@ function roleToKind(role: string): PlayerKind {
 
 const XI_BONUS = 4;
 
+/** Live maps from JSON/API may use numeric strings; coercing avoids NaN totals and broken RSC serialization. */
+function statNum(v: unknown, fallback = 0): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
+function statBool(v: unknown): boolean {
+  if (v === true) return true;
+  if (v === false) return false;
+  if (v === "true" || v === 1) return true;
+  return false;
+}
+
+function normalizedStatsFromLiveRaw(
+  raw: Partial<NormalizedPlayerStats>,
+): NormalizedPlayerStats {
+  return {
+    runs: statNum(raw.runs),
+    ballsFaced: statNum(raw.ballsFaced),
+    fours: statNum(raw.fours),
+    sixes: statNum(raw.sixes),
+    isDismissed: statBool(raw.isDismissed),
+    wickets: statNum(raw.wickets),
+    bowledLbwDismissals:
+      raw.bowledLbwDismissals != null ? statNum(raw.bowledLbwDismissals) : undefined,
+    oversBowled: statNum(raw.oversBowled),
+    runsConceded: statNum(raw.runsConceded),
+    maidens: statNum(raw.maidens),
+    catches: statNum(raw.catches),
+    stumpings: statNum(raw.stumpings),
+    runOutDirect: raw.runOutDirect != null ? statNum(raw.runOutDirect) : undefined,
+    runOutIndirect: raw.runOutIndirect != null ? statNum(raw.runOutIndirect) : undefined,
+    runOuts: statNum(raw.runOuts),
+  };
+}
+
 /**
  * Sum fantasy points for a saved XI using live stats keyed by Sportmonks player id.
  * Captain / vice apply to each player's (performance + starting XI bonus) subtotal.
@@ -64,23 +104,7 @@ export function aggregateTeamPoints(
     const key = String(row.sportmonks_id);
     const raw = liveBySportmonksId[key] ?? {};
     const kind = roleToKind(row.role);
-    const stats: NormalizedPlayerStats = {
-      runs: raw.runs ?? 0,
-      ballsFaced: raw.ballsFaced ?? 0,
-      fours: raw.fours ?? 0,
-      sixes: raw.sixes ?? 0,
-      isDismissed: raw.isDismissed ?? false,
-      wickets: raw.wickets ?? 0,
-      bowledLbwDismissals: raw.bowledLbwDismissals,
-      oversBowled: raw.oversBowled ?? 0,
-      runsConceded: raw.runsConceded ?? 0,
-      maidens: raw.maidens ?? 0,
-      catches: raw.catches ?? 0,
-      stumpings: raw.stumpings ?? 0,
-      runOutDirect: raw.runOutDirect,
-      runOutIndirect: raw.runOutIndirect,
-      runOuts: raw.runOuts ?? 0,
-    };
+    const stats = normalizedStatsFromLiveRaw(raw);
     const perf = pointsForPlayer(kind, stats);
     const xi = row.in_playing_xi === true ? XI_BONUS : 0;
     const playerTotal = perf + xi;
@@ -89,9 +113,10 @@ export function aggregateTeamPoints(
       row.player_id === captainPlayerId,
       row.player_id === viceCaptainPlayerId,
     );
-    total += mult;
+    total += Number.isFinite(mult) ? mult : 0;
   }
-  return Math.round(total * 100) / 100;
+  const t = Math.round(total * 100) / 100;
+  return Number.isFinite(t) ? t : 0;
 }
 
 /**
@@ -135,34 +160,20 @@ export function teamPointsBreakdown(
     const raw = liveBySportmonksId[key] ?? {};
     const missingStats = !hasLiveMap;
     const kind = roleToKind(row.role);
-    const stats: NormalizedPlayerStats = {
-      runs: raw.runs ?? 0,
-      ballsFaced: raw.ballsFaced ?? 0,
-      fours: raw.fours ?? 0,
-      sixes: raw.sixes ?? 0,
-      isDismissed: raw.isDismissed ?? false,
-      wickets: raw.wickets ?? 0,
-      bowledLbwDismissals: raw.bowledLbwDismissals,
-      oversBowled: raw.oversBowled ?? 0,
-      runsConceded: raw.runsConceded ?? 0,
-      maidens: raw.maidens ?? 0,
-      catches: raw.catches ?? 0,
-      stumpings: raw.stumpings ?? 0,
-      runOutDirect: raw.runOutDirect,
-      runOutIndirect: raw.runOutIndirect,
-      runOuts: raw.runOuts ?? 0,
-    };
+    const stats = normalizedStatsFromLiveRaw(raw);
     const perf = pointsForPlayer(kind, stats);
     const playerTotal = perf + xi;
     const pts = applyCaptainMultipliers(playerTotal, isCap, isVc);
-    computedTotal += pts;
+    const safePts = Number.isFinite(pts) ? Math.round(pts * 100) / 100 : 0;
+    const safePerf = Number.isFinite(perf) ? Math.round(perf * 100) / 100 : 0;
+    computedTotal += safePts;
     lines.push({
       player_id: row.player_id,
       player_name: row.player_name,
       team_label: row.team_label,
       role: row.role,
-      points: Math.round(pts * 100) / 100,
-      perf_points: Math.round(perf * 100) / 100,
+      points: safePts,
+      perf_points: safePerf,
       xi_bonus: xi,
       is_captain: isCap,
       is_vice_captain: isVc,
@@ -171,8 +182,9 @@ export function teamPointsBreakdown(
     });
   }
 
+  const totalRounded = Math.round(computedTotal * 100) / 100;
   return {
     lines,
-    computedTotal: Math.round(computedTotal * 100) / 100,
+    computedTotal: Number.isFinite(totalRounded) ? totalRounded : 0,
   };
 }

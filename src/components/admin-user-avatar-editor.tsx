@@ -11,9 +11,11 @@ import {
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { compressProfileAvatarForUpload } from "@/lib/profile-avatar-compress";
 import {
   MAX_PROFILE_AVATAR_BYTES,
   PROFILE_AVATAR_CONTENT_TYPES,
+  PROFILE_AVATAR_OUTPUT_CONTENT_TYPE,
 } from "@/lib/profile-avatar-limits";
 
 export function AdminUserAvatarEditor({
@@ -44,32 +46,41 @@ export function AdminUserAvatarEditor({
       toast.error("Use JPEG, PNG, or WebP.");
       return;
     }
-    if (file.size > MAX_PROFILE_AVATAR_BYTES) {
-      toast.error("Image must be 2 MB or smaller.");
-      return;
-    }
 
     setBusy(true);
     try {
-      const up = await adminRequestProfileAvatarUpload(userId, file.type);
+      let blob: Blob;
+      try {
+        blob = await compressProfileAvatarForUpload(file);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not process image.");
+        return;
+      }
+      if (blob.size > MAX_PROFILE_AVATAR_BYTES) {
+        toast.error("Compressed image is still too large. Try another photo.");
+        return;
+      }
+
+      const up = await adminRequestProfileAvatarUpload(userId, PROFILE_AVATAR_OUTPUT_CONTENT_TYPE);
       if (!up.ok) {
         toast.error(up.message);
         return;
       }
-      if (file.size > up.maxBytes) {
-        toast.error("Image must be 2 MB or smaller.");
+      if (blob.size > up.maxBytes) {
+        toast.error("Compressed image exceeds upload limit.");
         return;
       }
       let put: Response;
       try {
         put = await fetch(up.uploadUrl, {
           method: "PUT",
-          body: file,
+          body: blob,
           headers: up.headers,
         });
       } catch {
+        const origin = window.location.origin;
         toast.error(
-          "Upload was blocked (often CORS). In DigitalOcean Spaces → Settings → CORS, allow PUT from this site’s origin.",
+          `Upload was blocked (often CORS). In DigitalOcean Spaces → Settings → CORS, allow PUT from this origin (must match exactly): ${origin}. See docs/digitalocean-deployment.md.`,
         );
         return;
       }
@@ -153,8 +164,8 @@ export function AdminUserAvatarEditor({
             ) : null}
           </div>
           <p className="text-muted-foreground text-xs leading-relaxed">
-            Same storage as user self-service uploads (JPEG, PNG, WebP · max 2 MB). Shown on leaderboards and
-            contest previews.
+            Same storage as user uploads: JPEG, PNG, or WebP · up to 10 MB (compressed to ≤ 2 MB). Each upload
+            uses a new URL so browsers cache safely. Shown on leaderboards and contest previews.
           </p>
         </div>
       </div>

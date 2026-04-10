@@ -14,6 +14,7 @@ export type MatchLiveRowArgs = {
   live_snapshot_at: string | null;
   status: string;
   sm_fixture_status: string | null;
+  sm_fixture_note?: string | null;
   /** Persisted scoreboard fragment; kept in sync for rich scorecard (nested wicket/bowler rows). */
   fixture_scoreboard_raw?: unknown;
   /**
@@ -21,7 +22,20 @@ export type MatchLiveRowArgs = {
    * use this for the first paint; DB + realtime remain the source of truth after.
    */
   initialParsedSnapshot?: LiveSnapshot | null;
+  toss_winner_team_id?: number | null;
+  toss_decision?: string | null;
 };
+
+function numOrNull(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && /^\d+$/.test(v)) return Number(v);
+  return null;
+}
+
+function strOrNull(v: unknown): string | null {
+  if (typeof v === "string" && v.trim()) return v.trim();
+  return null;
+}
 
 function snapshotFromInitial(args: MatchLiveRowArgs): LiveSnapshot {
   if (args.initialParsedSnapshot) return args.initialParsedSnapshot;
@@ -38,7 +52,10 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
   liveSnapshotAt: string | null;
   status: string;
   smFixtureStatus: string | null;
+  smFixtureNote: string | null;
   fixtureScoreboardRaw: unknown;
+  tossWinnerTeamId: number | null;
+  tossDecision: string | null;
 } {
   const { matchId } = args;
 
@@ -52,8 +69,17 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
   const [smFixtureStatus, setSmFixtureStatus] = useState<string | null>(
     args.sm_fixture_status,
   );
+  const [smFixtureNote, setSmFixtureNote] = useState<string | null>(
+    args.sm_fixture_note ?? null,
+  );
   const [fixtureScoreboardRaw, setFixtureScoreboardRaw] = useState<unknown>(
     () => args.fixture_scoreboard_raw,
+  );
+  const [tossWinnerTeamId, setTossWinnerTeamId] = useState<number | null>(
+    args.toss_winner_team_id ?? null,
+  );
+  const [tossDecision, setTossDecision] = useState<string | null>(
+    args.toss_decision ?? null,
   );
 
   useEffect(() => {
@@ -61,14 +87,20 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
     setLiveSnapshotAt(args.live_snapshot_at);
     setStatus(args.status);
     setSmFixtureStatus(args.sm_fixture_status);
+    setSmFixtureNote(args.sm_fixture_note ?? null);
     setFixtureScoreboardRaw(args.fixture_scoreboard_raw);
+    setTossWinnerTeamId(args.toss_winner_team_id ?? null);
+    setTossDecision(args.toss_decision ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when navigating to another match or new SSR payload
   }, [
     matchId,
     args.live_snapshot_at,
     args.status,
     args.sm_fixture_status,
+    args.sm_fixture_note,
     args.initialParsedSnapshot,
+    args.toss_winner_team_id,
+    args.toss_decision,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     typeof args.live_snapshot === "object" && args.live_snapshot !== null
       ? JSON.stringify(args.live_snapshot)
@@ -117,8 +149,23 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
               setSmFixtureStatus(null);
             }
           }
+          if ("sm_fixture_note" in row) {
+            if (typeof row.sm_fixture_note === "string") {
+              setSmFixtureNote(row.sm_fixture_note);
+            } else if (row.sm_fixture_note === null) {
+              setSmFixtureNote(null);
+            }
+          }
           if ("fixture_scoreboard_raw" in row) {
             setFixtureScoreboardRaw(row.fixture_scoreboard_raw);
+          }
+          if ("toss_winner_team_id" in row) {
+            const n = numOrNull(row.toss_winner_team_id);
+            setTossWinnerTeamId(n);
+          }
+          if ("toss_decision" in row) {
+            const s = strOrNull(row.toss_decision);
+            setTossDecision(s);
           }
         },
       )
@@ -137,7 +184,7 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
         const { data, error } = await supabase
           .from("matches")
           .select(
-            "live_snapshot,live_snapshot_at,status,sm_fixture_status,fixture_scoreboard_raw",
+            "live_snapshot,live_snapshot_at,status,sm_fixture_status,sm_fixture_note,fixture_scoreboard_raw,toss_winner_team_id,toss_decision",
           )
           .eq("id", matchId)
           .maybeSingle();
@@ -165,8 +212,22 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
               : null,
           );
         }
+        if (
+          typeof d.sm_fixture_note === "string" ||
+          d.sm_fixture_note === null
+        ) {
+          setSmFixtureNote(
+            typeof d.sm_fixture_note === "string" ? d.sm_fixture_note : null,
+          );
+        }
         if ("fixture_scoreboard_raw" in d) {
           setFixtureScoreboardRaw(d.fixture_scoreboard_raw);
+        }
+        if ("toss_winner_team_id" in d) {
+          setTossWinnerTeamId(numOrNull(d.toss_winner_team_id));
+        }
+        if ("toss_decision" in d) {
+          setTossDecision(strOrNull(d.toss_decision));
         }
       })();
     };
@@ -174,5 +235,14 @@ export function useMatchLiveRow(args: MatchLiveRowArgs): {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [matchId]);
 
-  return { snapshot, liveSnapshotAt, status, smFixtureStatus, fixtureScoreboardRaw };
+  return {
+    snapshot,
+    liveSnapshotAt,
+    status,
+    smFixtureStatus,
+    smFixtureNote,
+    fixtureScoreboardRaw,
+    tossWinnerTeamId,
+    tossDecision,
+  };
 }

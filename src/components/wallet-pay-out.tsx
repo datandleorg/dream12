@@ -94,7 +94,7 @@ export function WalletPayOutSection({
             min="0"
             className="min-h-11"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onValueChange={(v) => setAmount(v)}
             required
           />
         </div>
@@ -104,7 +104,7 @@ export function WalletPayOutSection({
             id="payout-upi"
             className="min-h-11"
             value={payeeUpi}
-            onChange={(e) => setPayeeUpi(e.target.value)}
+            onValueChange={(v) => setPayeeUpi(v)}
             placeholder="you@paytm"
             autoComplete="off"
             required
@@ -116,7 +116,7 @@ export function WalletPayOutSection({
             id="payout-note"
             className="min-h-11"
             value={userNote}
-            onChange={(e) => setUserNote(e.target.value)}
+            onValueChange={(v) => setUserNote(v)}
           />
         </div>
         <Button type="submit" className="min-h-11 w-full" disabled={loading}>

@@ -19,6 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { LoadingOverlay } from "@/components/loading-overlay";
+import { MatchTossLines } from "@/components/match-toss-lines";
+import { useMatchTossLive } from "@/lib/hooks/use-match-toss-live";
 
 const ENTRY_CHIPS = [25, 50, 75];
 
@@ -40,14 +42,30 @@ export function CreateContestWizard({
   defaultContestName,
   /** From server so preview matches create-contest server action (client-inlined env can be stale). */
   platformFeeFraction,
+  teamA,
+  teamB,
+  localteamId,
+  visitorteamId,
+  tossWinnerTeamId: initialTossWinnerTeamId,
+  tossDecision: initialTossDecision,
 }: {
   matchId: number;
   matchTitle: string;
   startIso: string;
   defaultContestName: string;
   platformFeeFraction: number;
+  teamA: string | null;
+  teamB: string | null;
+  localteamId: number | null;
+  visitorteamId: number | null;
+  tossWinnerTeamId: number | null;
+  tossDecision: string | null;
 }) {
   const router = useRouter();
+  const { tossWinnerTeamId, tossDecision } = useMatchTossLive(matchId, {
+    toss_winner_team_id: initialTossWinnerTeamId,
+    toss_decision: initialTossDecision,
+  });
   const [name, setName] = useState(defaultContestName);
   const [entryStr, setEntryStr] = useState("10");
   const [spotsStr, setSpotsStr] = useState("10");
@@ -85,7 +103,7 @@ export function CreateContestWizard({
       toast.error(res.message);
       return;
     }
-    router.push(`/matches/${matchId}/contests/${res.contestId}/squad`);
+    router.push(`/matches/${matchId}/contests/${res.contestId}/pick-team`);
     router.refresh();
   }
 
@@ -110,6 +128,15 @@ export function CreateContestWizard({
         <p className="text-muted-foreground mt-1 text-center text-xs">
           Starts {new Date(startIso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
         </p>
+        <MatchTossLines
+          teamA={teamA}
+          teamB={teamB}
+          localteamId={localteamId}
+          visitorteamId={visitorteamId}
+          tossWinnerTeamId={tossWinnerTeamId}
+          tossDecision={tossDecision}
+          className="mt-2 text-center text-xs"
+        />
         <p className="text-muted-foreground mt-2 text-center text-[11px] leading-relaxed">
           After you create this contest, you&apos;ll pick a team from the same pool as
           joiners: official squads for the match, with playing XI marks once lineups sync.
@@ -123,7 +150,7 @@ export function CreateContestWizard({
         <Input
           id="cc-name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onValueChange={(v) => setName(v)}
           className="min-h-11 border-0 bg-transparent shadow-none focus-visible:ring-0"
           placeholder="Contest name"
         />
@@ -139,7 +166,7 @@ export function CreateContestWizard({
             id="cc-entry"
             inputMode="decimal"
             value={entryStr}
-            onChange={(e) => setEntryStr(e.target.value.replace(/[^\d.]/g, ""))}
+            onValueChange={(v) => setEntryStr(v.replace(/[^\d.]/g, ""))}
             className="min-h-12 text-lg font-semibold tabular-nums"
             placeholder="₹"
           />
@@ -165,7 +192,7 @@ export function CreateContestWizard({
             id="cc-spots"
             inputMode="numeric"
             value={spotsStr}
-            onChange={(e) => setSpotsStr(e.target.value.replace(/\D/g, ""))}
+            onValueChange={(v) => setSpotsStr(v.replace(/\D/g, ""))}
             className="min-h-12 text-lg font-semibold tabular-nums"
           />
         </div>
@@ -238,8 +265,9 @@ export function CreateContestWizard({
 
       <div className="bg-primary/10 border-primary/25 text-primary-foreground/90 rounded-lg border px-3 py-2 text-center text-xs">
         This is a <strong className="text-foreground">Flexible Contest</strong> — it can run without every spot
-        filled. The prize pool and breakup are recalculated from actual entries when the match settles (min. two
-        teams; otherwise the contest is void and fees refunded).
+        filled. After join closes when the match goes live, a scheduled job updates the displayed prize pool
+        and breakup to match actual entries; final payouts still run when the match settles (min. two teams;
+        otherwise the contest is void and fees refunded).
       </div>
 
       <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">

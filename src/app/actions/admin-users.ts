@@ -6,6 +6,7 @@ import type { ProfileAvatarUploadResult } from "@/app/actions/profile-avatar";
 import { requireAdminService, requireAdminSession } from "@/lib/admin-server";
 import { MAX_PROFILE_AVATAR_BYTES } from "@/lib/profile-avatar-limits";
 import {
+  avatarUploadRequestHeaders,
   extensionForContentType,
   isAvatarUrlAllowedForUser,
   presignAvatarPut,
@@ -147,7 +148,8 @@ export async function adminRequestProfileAvatarUpload(
   if (!r.ok) return { ok: false, message: r.message };
   const ext = extensionForContentType(contentType);
   if (!ext) return { ok: false, message: "Use JPEG, PNG, or WebP." };
-  const objectKey = `avatars/${targetUserId}/${randomUUID()}.${ext}`;
+  const version = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const objectKey = `avatars/${targetUserId}/${version}.${ext}`;
   try {
     const { uploadUrl, publicUrl } = await presignAvatarPut({
       contentType: contentType.trim(),
@@ -157,7 +159,7 @@ export async function adminRequestProfileAvatarUpload(
       ok: true,
       uploadUrl,
       publicUrl,
-      headers: { "Content-Type": contentType.trim() },
+      headers: avatarUploadRequestHeaders(contentType.trim()),
       maxBytes: MAX_PROFILE_AVATAR_BYTES,
     };
   } catch (e) {
