@@ -18,7 +18,7 @@ export const DAILY_AUTO_CONTEST_NAME = "Daily Contest 50Rs";
 
 export const DAILY_AUTO_CONTEST_ENTRY_FEE = 50;
 export const DAILY_AUTO_CONTEST_MAX_PARTICIPANTS = 10;
-export const DAILY_AUTO_CONTEST_WINNER_COUNT = 1;
+export const DAILY_AUTO_CONTEST_WINNER_COUNT = 3;
 
 export type EnsureDailyAutoContestsResult = {
   examined: number;
@@ -29,7 +29,7 @@ export type EnsureDailyAutoContestsResult = {
 
 /**
  * For each upcoming match in the same time window as {@link runTodayScheduleMonitor},
- * ensure one platform contest exists (created_by null): Daily Contest 50Rs, ₹50 × 10 spots.
+ * ensure one platform contest exists (created_by null): Daily Contest 50Rs, ₹50 × 10 spots, 3 winners.
  */
 export async function ensureDailyAutoContests(
   supabase: SupabaseClient,
