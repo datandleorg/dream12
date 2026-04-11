@@ -45,6 +45,7 @@ export function useChatterVoiceRecorder(args: {
   const pointerDownYRef = useRef<number | null>(null);
   const recordingStartedForGestureRef = useRef(false);
   const activePointerIdRef = useRef<number | null>(null);
+  const finalizeInProgressRef = useRef(false);
 
   const cleanupTimers = useCallback(() => {
     if (tickRef.current) clearInterval(tickRef.current);
@@ -76,57 +77,63 @@ export function useChatterVoiceRecorder(args: {
   }, [cleanupTimers, stopStreamTracks]);
 
   const finalizeSend = useCallback(async () => {
+    if (finalizeInProgressRef.current) return;
     const rec = recorderRef.current;
     if (!rec || rec.state === "inactive") {
       cleanupRecording();
       return;
     }
-    cleanupTimers();
+    finalizeInProgressRef.current = true;
+    try {
+      cleanupTimers();
 
-    setSending(true);
-    await new Promise<void>((resolve) => {
-      rec.onstop = () => resolve();
-      rec.stop();
-    });
+      setSending(true);
+      await new Promise<void>((resolve) => {
+        rec.onstop = () => resolve();
+        rec.stop();
+      });
 
-    const mime = rec.mimeType || pickMime();
-    const blob = new Blob(chunksRef.current, { type: mime });
-    const secondsAtStop = secondsRef.current;
-    cleanupRecording();
+      const mime = rec.mimeType || pickMime();
+      const blob = new Blob(chunksRef.current, { type: mime });
+      const secondsAtStop = secondsRef.current;
+      cleanupRecording();
 
-    if (blob.size > MAX_CONTEST_CHATTER_VOICE_BYTES) {
+      if (blob.size > MAX_CONTEST_CHATTER_VOICE_BYTES) {
+        setSending(false);
+        toast.error("Recording is too large. Try a shorter message.");
+        return;
+      }
+
+      const duration = Math.min(Math.max(1, secondsAtStop), MAX_CONTEST_CHATTER_VOICE_SECONDS);
+
+      const presign = await requestContestChatterVoiceUpload(contestId, mime);
+      if (!presign.ok) {
+        setSending(false);
+        toast.error(presign.message);
+        return;
+      }
+
+      const put = await fetch(presign.uploadUrl, {
+        method: "PUT",
+        headers: presign.headers,
+        body: blob,
+      });
+      if (!put.ok) {
+        setSending(false);
+        toast.error("Could not upload voice clip.");
+        return;
+      }
+
+      const post = await postContestChatterVoice(contestId, presign.publicUrl, duration);
       setSending(false);
-      toast.error("Recording is too large. Try a shorter message.");
-      return;
+      if (!post.ok) {
+        toast.error(post.message);
+        return;
+      }
+      toast.success("Voice sent");
+    } finally {
+      finalizeInProgressRef.current = false;
     }
-
-    const duration = Math.min(Math.max(1, secondsAtStop), MAX_CONTEST_CHATTER_VOICE_SECONDS);
-
-    const presign = await requestContestChatterVoiceUpload(contestId, mime);
-    if (!presign.ok) {
-      setSending(false);
-      toast.error(presign.message);
-      return;
-    }
-
-    const put = await fetch(presign.uploadUrl, {
-      method: "PUT",
-      headers: presign.headers,
-      body: blob,
-    });
-    if (!put.ok) {
-      setSending(false);
-      toast.error("Could not upload voice clip.");
-      return;
-    }
-
-    const post = await postContestChatterVoice(contestId, presign.publicUrl, duration);
-    setSending(false);
-    if (!post.ok) {
-      toast.error(post.message);
-      return;
-    }
-    toast.success("Voice sent");
   }, [cleanupRecording, cleanupTimers, contestId]);
 
   const discardRecording = useCallback(async () => {
@@ -266,11 +273,18 @@ export function useChatterVoiceRecorder(args: {
     }
   }, [enabled, finalizeSend, recording, sending, startRecordingCore, tapMode]);
 
+  /** Stop recording and upload/send (same as releasing mic or second tap in tap mode). */
+  const stopRecordingAndSend = useCallback(() => {
+    if (!recording || sending) return;
+    void finalizeSend();
+  }, [finalizeSend, recording, sending]);
+
   return {
     sending,
     recording,
     recordSeconds,
     cancelPending,
+    stopRecordingAndSend,
     onMicPointerDown,
     onMicPointerMove,
     onMicPointerUp: onMicPointerUpOrCancel,

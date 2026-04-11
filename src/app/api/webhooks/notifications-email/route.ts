@@ -72,6 +72,24 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await sendNotificationEmail(record);
+
+  // Web push runs even when email fails (500), so users still get chatter / wallet alerts on device.
+  void sendNotificationPush(record)
+    .then((pushResult) => {
+      if (!pushResult.ok) {
+        errorNotificationPush("send failed (webhook may still retry on email error)", {
+          notificationId: record.id,
+          error: pushResult.error,
+        });
+      }
+    })
+    .catch((e) => {
+      errorNotificationPush("send threw (webhook may still retry on email error)", {
+        notificationId: record.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
+
   if (!result.ok) {
     errorNotificationEmail("send failed (returning 500 for retry)", {
       notificationId: record.id,
@@ -84,22 +102,6 @@ export async function POST(request: NextRequest) {
     notificationId: record.id,
     skippedReason: result.skippedReason ?? null,
   });
-
-  void sendNotificationPush(record)
-    .then((pushResult) => {
-      if (!pushResult.ok) {
-        errorNotificationPush("send failed after email OK (webhook still 200)", {
-          notificationId: record.id,
-          error: pushResult.error,
-        });
-      }
-    })
-    .catch((e) => {
-      errorNotificationPush("send threw after email OK (webhook still 200)", {
-        notificationId: record.id,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    });
 
   return NextResponse.json({ ok: true, skippedReason: result.skippedReason ?? null });
 }

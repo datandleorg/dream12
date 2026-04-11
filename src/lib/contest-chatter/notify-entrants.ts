@@ -2,7 +2,7 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
- * Insert `contest_chatter_message` notifications for every other paid entrant (webhook → email/push).
+ * Insert `contest_chatter_message` notifications for every other paid entrant (webhook → email + web push).
  */
 export async function notifyContestChatterRecipients(input: {
   contestId: string;

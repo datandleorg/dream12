@@ -1,7 +1,7 @@
 import "server-only";
 import webpush from "web-push";
 import {
-  shouldSendEmailForNotificationType,
+  shouldSendPushForNotificationType,
   type NotificationEmailRecord,
 } from "@/lib/email/notification-record";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -19,7 +19,8 @@ function isGoneStatus(statusCode?: number): boolean {
 
 /**
  * Sends Web Push for one `notifications` row to all stored subscriptions for that user.
- * Same type allowlist as email (`EMAIL_NOTIFICATION_TYPES`). Push errors do not fail email.
+ * Type allowlist: `PUSH_NOTIFICATION_TYPES` if set, else email allowlist plus default extras
+ * (see {@link shouldSendPushForNotificationType}). Push errors do not fail the webhook.
  */
 export async function sendNotificationPush(
   record: NotificationEmailRecord,
@@ -30,8 +31,8 @@ export async function sendNotificationPush(
     userId: record.user_id,
   });
 
-  if (!shouldSendEmailForNotificationType(record.type)) {
-    logNotificationPush("skip: type not in EMAIL_NOTIFICATION_TYPES allowlist", { type: record.type });
+  if (!shouldSendPushForNotificationType(record.type)) {
+    logNotificationPush("skip: type not allowed for web push", { type: record.type });
     return { ok: true, skippedReason: "type_not_in_allowlist" };
   }
 

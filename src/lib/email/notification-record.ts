@@ -56,6 +56,29 @@ export function shouldSendEmailForNotificationType(type: string): boolean {
   return allowed.has(type);
 }
 
+/**
+ * Web push uses this allowlist (separate from email when `PUSH_NOTIFICATION_TYPES` is set).
+ * When `PUSH_NOTIFICATION_TYPES` is unset, push follows the email allowlist plus
+ * {@link DEFAULT_EXTRA_PUSH_TYPES} so high-signal realtime types still notify subscribers
+ * even if email is filtered (e.g. contest chatter).
+ */
+const DEFAULT_EXTRA_PUSH_TYPES = new Set(["contest_chatter_message"]);
+
+export function shouldSendPushForNotificationType(type: string): boolean {
+  const raw = process.env.PUSH_NOTIFICATION_TYPES?.trim();
+  if (raw) {
+    const allowed = new Set(
+      raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+    return allowed.has(type);
+  }
+  if (shouldSendEmailForNotificationType(type)) return true;
+  return DEFAULT_EXTRA_PUSH_TYPES.has(type);
+}
+
 export function getEmailAppBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/$/, "");
 }

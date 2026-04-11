@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import {
   parseNotificationWebhookPayload,
   shouldSendEmailForNotificationType,
+  shouldSendPushForNotificationType,
   type NotificationEmailRecord,
 } from "./notification-record";
 import { verifyNotificationsWebhookRequest } from "./webhook-auth";
@@ -65,6 +66,39 @@ describe("shouldSendEmailForNotificationType", () => {
     expect(shouldSendEmailForNotificationType("wallet_credit")).toBe(true);
     expect(shouldSendEmailForNotificationType("pay_in_submitted")).toBe(true);
     expect(shouldSendEmailForNotificationType("lineup_out")).toBe(false);
+  });
+});
+
+describe("shouldSendPushForNotificationType", () => {
+  const prevEmail = process.env.EMAIL_NOTIFICATION_TYPES;
+  const prevPush = process.env.PUSH_NOTIFICATION_TYPES;
+
+  afterEach(() => {
+    if (prevEmail === undefined) delete process.env.EMAIL_NOTIFICATION_TYPES;
+    else process.env.EMAIL_NOTIFICATION_TYPES = prevEmail;
+    if (prevPush === undefined) delete process.env.PUSH_NOTIFICATION_TYPES;
+    else process.env.PUSH_NOTIFICATION_TYPES = prevPush;
+  });
+
+  it("matches email allowlist when PUSH_NOTIFICATION_TYPES unset", () => {
+    delete process.env.PUSH_NOTIFICATION_TYPES;
+    delete process.env.EMAIL_NOTIFICATION_TYPES;
+    expect(shouldSendPushForNotificationType("anything")).toBe(true);
+  });
+
+  it("allows contest_chatter_message when email list excludes it", () => {
+    delete process.env.PUSH_NOTIFICATION_TYPES;
+    process.env.EMAIL_NOTIFICATION_TYPES = "wallet_credit";
+    expect(shouldSendPushForNotificationType("wallet_credit")).toBe(true);
+    expect(shouldSendPushForNotificationType("contest_chatter_message")).toBe(true);
+    expect(shouldSendPushForNotificationType("lineup_out")).toBe(false);
+  });
+
+  it("uses only PUSH_NOTIFICATION_TYPES when set", () => {
+    process.env.PUSH_NOTIFICATION_TYPES = "wallet_credit";
+    delete process.env.EMAIL_NOTIFICATION_TYPES;
+    expect(shouldSendPushForNotificationType("wallet_credit")).toBe(true);
+    expect(shouldSendPushForNotificationType("contest_chatter_message")).toBe(false);
   });
 });
 

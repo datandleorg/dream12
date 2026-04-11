@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BellIcon } from "lucide-react";
+import { BellIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { hrefFromPayload, notificationRowFromDb, type NotificationRow } from "@/lib/notifications";
@@ -86,19 +86,66 @@ export function NotificationsHeaderMenu({
       }
 
       const link = hrefFromPayload(row.payload);
-      toast.message(row.title, {
-        description: row.body,
-        duration: 7200,
-        icon: <BellIcon className="text-primary size-5 shrink-0" aria-hidden />,
-        className: "!border-primary/45 !shadow-lg !shadow-primary/15",
-        action: {
-          label: link ? "Open" : "View all",
-          onClick: () =>
-            link
-              ? routerRef.current.push(link)
-              : routerRef.current.push("/notifications"),
+      const destination = link ?? "/notifications";
+      toast.custom(
+        (id) => (
+          <div className="group relative flex w-full gap-3">
+            <div
+              role="button"
+              tabIndex={0}
+              className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label={
+                link
+                  ? `Open notification: ${row.title}`
+                  : "View all notifications"
+              }
+              onClick={() => {
+                routerRef.current.push(destination);
+                toast.dismiss(id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                routerRef.current.push(destination);
+                toast.dismiss(id);
+              }}
+            >
+              <BellIcon className="text-primary size-5 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className="text-foreground text-sm font-semibold">
+                  {row.title}
+                </span>
+                {row.body ? (
+                  <span className="text-muted-foreground mt-1 block text-sm font-normal">
+                    {row.body}
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss notification"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground absolute right-0 top-0 rounded-md p-1 opacity-70 transition-opacity group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                toast.dismiss(id);
+              }}
+            >
+              <XIcon className="size-4 shrink-0" aria-hidden />
+            </button>
+          </div>
+        ),
+        {
+          duration: 7200,
+          // Sonner skips default surface styles when toast.custom sets data-styled=false;
+          // mirror [data-styled=true] so we keep popover background + padding like toast.message.
+          className: cn(
+            "flex w-full items-start gap-2 border p-4 text-[13px] shadow-md",
+            "bg-popover text-popover-foreground border-border rounded-[var(--border-radius)]",
+            "!border-primary/45 !shadow-lg !shadow-primary/15",
+          ),
         },
-      });
+      );
 
       setBellPop(true);
       window.setTimeout(() => {

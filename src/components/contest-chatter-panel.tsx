@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, Loader2, Mic, Send, Trash2 } from "lucide-react";
+import { ChevronLeft, Loader2, Mic, Send, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteContestChatterMessage, postContestChatterText } from "@/app/actions/contest-chatter";
 import { UserAvatar } from "@/components/user-avatar";
@@ -368,7 +368,7 @@ export function ContestChatterPanel({
               )}
             >
               {tapMode ? (
-                <span className="font-medium">Tap red mic to send</span>
+                <span className="font-medium">Tap Stop or mic to send</span>
               ) : (
                 <>
                   <span className="flex items-center gap-0.5 font-medium">
@@ -376,16 +376,27 @@ export function ContestChatterPanel({
                     {voice.cancelPending ? "Release to cancel" : "Slide up to cancel"}
                   </span>
                   {!voice.cancelPending ? (
-                    <span className="text-muted-foreground/85 pl-4">Release to send</span>
+                    <span className="text-muted-foreground/85 pl-4">Stop, release, or slide up</span>
                   ) : null}
                 </>
               )}
             </div>
             <ChatterRecordingVuBars cancelPending={voice.cancelPending} />
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <span className="text-foreground w-[3.25rem] text-center text-lg font-semibold tabular-nums tracking-tight">
                 {formatRecSecs(voice.recordSeconds)}
               </span>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                className="size-10 shrink-0 rounded-full border border-border bg-background text-foreground hover:bg-muted"
+                disabled={voice.sending || textSending}
+                aria-label="Stop recording and send"
+                onClick={() => voice.stopRecordingAndSend()}
+              >
+                <Square className="size-4 fill-current" aria-hidden />
+              </Button>
               <Button
                 type="button"
                 variant="secondary"
@@ -403,7 +414,7 @@ export function ContestChatterPanel({
                     ? "Sending voice message"
                     : tapMode
                       ? `Stop recording and send (${voice.recordSeconds}s)`
-                      : "Recording — release to send"
+                      : "Recording — release mic to send"
                 }
                 onClick={(e) => {
                   if (suppressMicClickRef.current) {
