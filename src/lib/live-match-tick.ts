@@ -24,6 +24,7 @@ import { applyLineupFromFixturePayload } from "@/lib/sportmonks/sync-lineup";
 import { upsertSingleSmFixture } from "@/lib/sportmonks/sync-fixture-upsert";
 import { normalizeSportmonksToss } from "@/lib/sportmonks/toss";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
+import { notifyTossPublishedOnce } from "@/lib/notifications/toss-notify";
 import { updateUserTeamsPointsForMatch } from "@/lib/update-user-teams-for-match";
 
 export const MAX_MATCHES_PER_RUN = 25;
@@ -243,6 +244,10 @@ export async function runLiveMatchTickForMatch(
       };
     }
 
+    if (payload.toss_winner_team_id != null || payload.toss_decision != null) {
+      await notifyTossPublishedOnce(matchId);
+    }
+
     if (opts?.skipPoints) {
       return { updated: true, teamsUpdated: 0, skipped: false, error: false };
     }
@@ -384,7 +389,12 @@ export async function runMatchPipeline(
       }
 
       if (Object.keys(patch).length > 0) {
-        await supabase.from("matches").update(patch).eq("id", id);
+        const { error: patchErr } = await supabase.from("matches").update(patch).eq("id", id);
+        if (patchErr) {
+          prematch.errors += 1;
+        } else if (tossAt == null && patch.toss_recorded_at != null) {
+          await notifyTossPublishedOnce(id);
+        }
       }
 
       if (lineupPresentOnPayload(raw)) {

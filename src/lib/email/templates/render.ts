@@ -180,6 +180,14 @@ function buildInner(record: NotificationEmailRecord, base: string): InnerParts {
         innerHtml: `${heroStrip("⚡", EMAIL_THEME.primarySoft, EMAIL_THEME.primary, `<strong>Lineup drop</strong> — time to fine-tune your fantasy XI.`)}${headline("Playing XI published")}${bodyCopy(body)}${cta("Review match")}`,
         text: plain(["Playing XI published", body]),
       };
+    case "toss_result":
+      return {
+        subject: "Toss — Dream12",
+        preheader: "Match toss update — adjust your fantasy picks if needed.",
+        documentTitle: "Toss",
+        innerHtml: `${heroStrip("🪙", EMAIL_THEME.accentSoft, EMAIL_THEME.accent, `<strong>Toss</strong> — lineups and strategy may shift.`)}${headline("Toss update")}${bodyCopy(body)}${cta("View match")}`,
+        text: plain(["Toss update", body]),
+      };
     case "admin_pay_in_pending": {
       const amount = formatInr(payload.amount_inr);
       const reqId = typeof payload.request_id === "string" ? payload.request_id : "—";
