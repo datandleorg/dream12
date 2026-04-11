@@ -100,6 +100,8 @@ Defined in [`vercel.json`](../vercel.json). All cron routes require `Authorizati
 | `GET /api/cron/live-match-tick` | `* 8-19 * * *` (UTC) | **`runMatchPipeline`**: **Docker** ~every **30s** during those UTC hours (two crontab lines + `sleep 30`). **Vercel** at most **once per minute** (platform limit). IST ≈ **14:00–01:29**. Outside the window the route is not invoked by schedulers; use **admin** `POST /api/admin/sync-match` for manual ticks if needed. |
 | `GET /api/cron/finalize-scores` | `*/15 * * * *` | **`in_review`** rows with `match_finished_at` older than **60 minutes** (and legacy `completed` without finalize): final fetch, `status`→`completed`, set `scoring_finalized_at` |
 | `GET /api/cron/settle-contests` | `*/5 * * * *` | RPC `settle_contest_prizes` for contests with `prizes_settled_at` null |
+| `GET /api/cron/recompute-contest-prizes-at-lock` | `*/5 * * * *` | RPC `recompute_contest_prizes_after_join_lock` for contests that need prize rows after lock |
+| `GET /api/cron/wallet-low-balance-reminder` | `0 6 * * *` | RPC `wallet_low_balance_reminder_run`: for **active** profiles with wallet **&lt; ₹50** and **no** `wallet_low_balance` notification in the last **7 days**, inserts up to **200** reminder rows (same type as the real-time trigger). **Does not replace** the DB trigger on `profiles.wallet_balance`, which fires when balance **crosses** from ≥ ₹50 to &lt; ₹50 on any update. [`wallet-low-balance-reminder/route.ts`](../src/app/api/cron/wallet-low-balance-reminder/route.ts), migration `20260425120000_wallet_low_balance_reminder_rpc.sql`. |
 
 **Vercel:** cron minimum interval is **one minute**.
 

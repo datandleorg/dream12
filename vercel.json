@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/recompute-contest-prizes-at-lock",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/wallet-low-balance-reminder",
+      "schedule": "0 6 * * *"
     }
   ]
 }
