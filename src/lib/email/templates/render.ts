@@ -196,6 +196,16 @@ function buildInner(record: NotificationEmailRecord, base: string): InnerParts {
         innerHtml: `${tagPill("Chat", EMAIL_THEME.secondaryBlock, EMAIL_THEME.foreground)}${headline("New message in contest")}${bodyCopy(body)}${cta("Open chatter")}`,
         text: plain([title, body].filter(Boolean)),
       };
+    case "admin_broadcast": {
+      const hasHref = typeof payload.href === "string" && payload.href.trim().length > 0;
+      return {
+        subject: title.toLowerCase().includes("dream12") ? title : `${title} — Dream12`,
+        preheader: body.slice(0, 120),
+        documentTitle: title.slice(0, 80) || "Announcement",
+        innerHtml: `${tagPill("News", EMAIL_THEME.primarySoft, EMAIL_THEME.primary)}${headline(title || "Announcement")}${bodyCopy(body)}${cta(hasHref ? "Open link" : "Open app")}`,
+        text: plain([title, body].filter(Boolean)),
+      };
+    }
     case "admin_pay_in_pending": {
       const amount = formatInr(payload.amount_inr);
       const reqId = typeof payload.request_id === "string" ? payload.request_id : "—";

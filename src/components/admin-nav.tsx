@@ -10,6 +10,7 @@ const nav = [
   { href: "/admin/pay-in-requests", label: "Pay-in" },
   { href: "/admin/pay-out-requests", label: "Pay-out" },
   { href: "/admin/users", label: "Users" },
+  { href: "/admin/notifications", label: "Notify all" },
   { href: "/admin/transactions", label: "Legacy UTR" },
   { href: "/admin/audit", label: "Audit" },
 ] as const;
