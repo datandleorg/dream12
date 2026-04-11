@@ -3,6 +3,8 @@ import { errorNotificationEmail, logNotificationEmail, warnNotificationEmail } f
 import { parseNotificationWebhookPayload } from "@/lib/email/notification-record";
 import { sendNotificationEmail } from "@/lib/email/send-notification-email";
 import { verifyNotificationsWebhookRequest } from "@/lib/email/webhook-auth";
+import { errorNotificationPush } from "@/lib/push/debug-log";
+import { sendNotificationPush } from "@/lib/push/send-notification-push";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +84,22 @@ export async function POST(request: NextRequest) {
     notificationId: record.id,
     skippedReason: result.skippedReason ?? null,
   });
+
+  void sendNotificationPush(record)
+    .then((pushResult) => {
+      if (!pushResult.ok) {
+        errorNotificationPush("send failed after email OK (webhook still 200)", {
+          notificationId: record.id,
+          error: pushResult.error,
+        });
+      }
+    })
+    .catch((e) => {
+      errorNotificationPush("send threw after email OK (webhook still 200)", {
+        notificationId: record.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
 
   return NextResponse.json({ ok: true, skippedReason: result.skippedReason ?? null });
 }

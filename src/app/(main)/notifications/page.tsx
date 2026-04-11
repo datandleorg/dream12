@@ -1,6 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
 import { NotificationsList } from "@/components/notifications-list";
+import { PushNotificationsSettings } from "@/components/push-notifications-settings";
 import { notificationRowFromDb } from "@/lib/notifications";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function NotificationsPage() {
   const supabase = await createClient();
@@ -18,6 +19,7 @@ export default async function NotificationsPage() {
         <h1 className="text-xl font-semibold">Notifications</h1>
         <p className="text-muted-foreground text-sm">Updates on wallet, contests, and results.</p>
       </div>
+      <PushNotificationsSettings />
       <NotificationsList initial={initial} />
     </div>
   );
