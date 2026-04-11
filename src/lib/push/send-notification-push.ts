@@ -19,8 +19,8 @@ function isGoneStatus(statusCode?: number): boolean {
 
 /**
  * Sends Web Push for one `notifications` row to all stored subscriptions for that user.
- * Type allowlist: `PUSH_NOTIFICATION_TYPES` if set, else email allowlist plus default extras
- * (see {@link shouldSendPushForNotificationType}). Push errors do not fail the webhook.
+ * Type filter: {@link shouldSendPushForNotificationType} (optional `PUSH_NOTIFICATION_TYPES`;
+ * when unset, all types are pushed). Push errors do not fail the webhook.
  */
 export async function sendNotificationPush(
   record: NotificationEmailRecord,

@@ -80,18 +80,19 @@ describe("shouldSendPushForNotificationType", () => {
     else process.env.PUSH_NOTIFICATION_TYPES = prevPush;
   });
 
-  it("matches email allowlist when PUSH_NOTIFICATION_TYPES unset", () => {
+  it("allows all types when PUSH_NOTIFICATION_TYPES unset (independent of email allowlist)", () => {
     delete process.env.PUSH_NOTIFICATION_TYPES;
     delete process.env.EMAIL_NOTIFICATION_TYPES;
     expect(shouldSendPushForNotificationType("anything")).toBe(true);
   });
 
-  it("allows contest_chatter_message when email list excludes it", () => {
+  it("still allows lineup and chatter when EMAIL_NOTIFICATION_TYPES is strict", () => {
     delete process.env.PUSH_NOTIFICATION_TYPES;
     process.env.EMAIL_NOTIFICATION_TYPES = "wallet_credit";
     expect(shouldSendPushForNotificationType("wallet_credit")).toBe(true);
     expect(shouldSendPushForNotificationType("contest_chatter_message")).toBe(true);
-    expect(shouldSendPushForNotificationType("lineup_out")).toBe(false);
+    expect(shouldSendPushForNotificationType("lineup_out")).toBe(true);
+    expect(shouldSendPushForNotificationType("toss_result")).toBe(true);
   });
 
   it("uses only PUSH_NOTIFICATION_TYPES when set", () => {
