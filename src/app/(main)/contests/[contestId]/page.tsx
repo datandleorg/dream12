@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Row } from "@/components/leaderboard-realtime";
+import type { ContestChatterMessage } from "@/components/contest-chatter-panel";
 import {
   ContestDashboard,
   type ContestEntryTeamSummary,
@@ -26,10 +27,18 @@ import {
 
 export default async function ContestLeaderboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ contestId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { contestId } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const chatterParam = sp.chatter;
+  const openChatterTab =
+    chatterParam === "1" ||
+    chatterParam === "true" ||
+    (Array.isArray(chatterParam) && chatterParam.some((x) => x === "1" || x === "true"));
   const supabase = await createClient();
   const {
     data: { user },
@@ -58,13 +67,29 @@ export default async function ContestLeaderboardPage({
   /** Dream11-style: choose a saved match team or build new until a contest row exists. */
   let squadHref = `/matches/${matchId}/contests/${contestId}/pick-team`;
   let myEntryTeamSummary: ContestEntryTeamSummary | null = null;
+  let myTeamRow: {
+    id: string;
+    captain_id: unknown;
+    vice_captain_id: unknown;
+    source_saved_match_team_id: unknown;
+    entry_fee_paid_at: string | null;
+  } | null = null;
   if (user) {
-    const { data: myTeamRow } = await supabase
+    const { data: ut } = await supabase
       .from("user_teams")
-      .select("id,captain_id,vice_captain_id,source_saved_match_team_id")
+      .select("id,captain_id,vice_captain_id,source_saved_match_team_id,entry_fee_paid_at")
       .eq("contest_id", contestId)
       .eq("user_id", user.id)
       .maybeSingle();
+    myTeamRow = ut
+      ? {
+          id: ut.id as string,
+          captain_id: ut.captain_id,
+          vice_captain_id: ut.vice_captain_id,
+          source_saved_match_team_id: ut.source_saved_match_team_id,
+          entry_fee_paid_at: (ut.entry_fee_paid_at as string | null) ?? null,
+        }
+      : null;
     userHasTeamInContest = Boolean(myTeamRow);
     if (myTeamRow?.id) {
       const { count } = await supabase
@@ -98,6 +123,57 @@ export default async function ContestLeaderboardPage({
       }
     }
   }
+
+  const userHasChatterAccess = Boolean(user && myTeamRow && myTeamRow.entry_fee_paid_at != null);
+
+  let initialChatterMessages: ContestChatterMessage[] = [];
+  if (userHasChatterAccess) {
+    const { data: chatterRows } = await supabase
+      .from("contest_chatter_messages")
+      .select(
+        "id,contest_id,user_id,kind,body,audio_url,audio_duration_seconds,created_at",
+      )
+      .eq("contest_id", contestId)
+      .order("created_at", { ascending: true })
+      .limit(200);
+
+    const chatterUserIds = [...new Set((chatterRows ?? []).map((r) => r.user_id as string))];
+    const { data: chatterProfiles } =
+      chatterUserIds.length > 0
+        ? await supabase
+            .from("profile_usernames")
+            .select("id,username,avatar_url")
+            .in("id", chatterUserIds)
+        : { data: [] as { id: string; username: string; avatar_url: string | null }[] };
+
+    const chatterProfileByUser = new Map(
+      (chatterProfiles ?? []).map((p) => [
+        p.id as string,
+        {
+          username: p.username as string,
+          avatar_url: (p.avatar_url as string | null) ?? null,
+        },
+      ]),
+    );
+
+    initialChatterMessages = (chatterRows ?? []).map((r) => {
+      const pr = chatterProfileByUser.get(r.user_id as string);
+      return {
+        id: r.id as string,
+        contest_id: r.contest_id as string,
+        user_id: r.user_id as string,
+        kind: r.kind as "text" | "voice",
+        body: (r.body as string | null) ?? null,
+        audio_url: (r.audio_url as string | null) ?? null,
+        audio_duration_seconds:
+          r.audio_duration_seconds != null ? Number(r.audio_duration_seconds) : null,
+        created_at: r.created_at as string,
+        username: pr?.username ?? null,
+        avatar_url: pr?.avatar_url ?? null,
+      };
+    });
+  }
+
   const { data: matchRow } = await supabase
     .from("matches")
     .select(
@@ -297,6 +373,9 @@ export default async function ContestLeaderboardPage({
       squadHref={squadHref}
       pointsUpdatedAt={pointsUpdatedAt}
       myEntryTeamSummary={myEntryTeamSummary}
+      userHasChatterAccess={userHasChatterAccess}
+      initialChatterMessages={initialChatterMessages}
+      openChatterTabByDefault={openChatterTab && userHasChatterAccess}
     />
   );
 }

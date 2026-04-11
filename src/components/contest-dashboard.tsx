@@ -16,7 +16,12 @@ import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
 import { MatchTossLines } from "@/components/match-toss-lines";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
+import {
+  ContestChatterPanel,
+  type ContestChatterMessage,
+} from "@/components/contest-chatter-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isMatchStatusOpenForContestChatter } from "@/lib/contest-chatter/constants";
 import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
 import type { LiveSnapshot } from "@/lib/sportmonks/normalize-live-snapshot";
 import {
@@ -44,6 +49,14 @@ export type ContestEntryTeamSummary =
   | { kind: "saved"; matchId: number; slot: number; savedTeamId: string }
   | { kind: "contest_only" };
 
+type DashboardTab =
+  | "winnings"
+  | "leaderboard"
+  | "commentary"
+  | "scorecard"
+  | "stats"
+  | "chatter";
+
 export function ContestDashboard({
   contestId,
   contestTitle,
@@ -70,6 +83,9 @@ export function ContestDashboard({
   squadHref,
   pointsUpdatedAt,
   myEntryTeamSummary,
+  userHasChatterAccess = false,
+  initialChatterMessages = [],
+  openChatterTabByDefault = false,
 }: {
   contestId: string;
   contestTitle: string;
@@ -98,6 +114,11 @@ export function ContestDashboard({
   squadHref: string;
   pointsUpdatedAt: string | null;
   myEntryTeamSummary: ContestEntryTeamSummary | null;
+  /** Paid entry — required for contest chatter read/post (when match allows posting). */
+  userHasChatterAccess?: boolean;
+  initialChatterMessages?: ContestChatterMessage[];
+  /** From `?chatter=1` when user has chatter access. */
+  openChatterTabByDefault?: boolean;
 }) {
   const router = useRouter();
   const [preview, setPreview] = useState<{
@@ -109,6 +130,9 @@ export function ContestDashboard({
   const [pageRefreshNonce, setPageRefreshNonce] = useState(0);
   const [pageRefreshing, setPageRefreshing] = useState(false);
   const [whatsappShareHref, setWhatsappShareHref] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() =>
+    openChatterTabByDefault && userHasChatterAccess ? "chatter" : "leaderboard",
+  );
 
   const refreshPage = useCallback(() => {
     setPageRefreshing(true);
@@ -179,6 +203,7 @@ export function ContestDashboard({
   ]);
 
   const liveSt = String(live.status).toLowerCase();
+  const chatterOpen = isMatchStatusOpenForContestChatter(live.status);
   const matchCompleted = liveSt === "completed" || liveSt === "in_review";
   const opponentTeamPreviewLocked = liveSt === "upcoming";
   const showSquadLink = userHasTeamInContest && !rosterLocked;
@@ -351,7 +376,11 @@ export function ContestDashboard({
             </p>
           ) : null}
 
-          <Tabs defaultValue="leaderboard" className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as DashboardTab)}
+            className="w-full"
+          >
         <div className="-mx-1 overflow-x-auto pb-1">
           <TabsList
             variant="line"
@@ -363,6 +392,11 @@ export function ContestDashboard({
             <TabsTrigger value="leaderboard" className="shrink-0 px-2 text-xs sm:text-sm">
               Leaderboard
             </TabsTrigger>
+            {userHasChatterAccess ? (
+              <TabsTrigger value="chatter" className="shrink-0 px-2 text-xs sm:text-sm">
+                Chatter
+              </TabsTrigger>
+            ) : null}
             <TabsTrigger value="commentary" className="shrink-0 px-2 text-xs sm:text-sm">
               Commentary
             </TabsTrigger>
@@ -468,6 +502,17 @@ export function ContestDashboard({
             />
           )}
         </TabsContent>
+
+        {userHasChatterAccess ? (
+          <TabsContent value="chatter" className="mt-3">
+            <ContestChatterPanel
+              contestId={contestId}
+              currentUserId={currentUserId}
+              chatterOpen={chatterOpen}
+              initialMessages={initialChatterMessages}
+            />
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="commentary" className="mt-3">
           <div className="text-muted-foreground bg-muted/30 rounded-xl border border-dashed px-4 py-10 text-center text-sm">

@@ -149,6 +149,60 @@ export async function presignAvatarPut(input: {
 }
 
 /** True if url is HTTPS and under our public base + avatars/{userId}/ prefix. */
+/** Long cache; each voice clip uses a unique object key. */
+export const CHATTER_VOICE_OBJECT_CACHE_CONTROL = "public, max-age=86400";
+
+export function chatterVoiceUploadRequestHeaders(contentType: string): Record<string, string> {
+  return {
+    "Content-Type": contentType.trim(),
+    "Cache-Control": CHATTER_VOICE_OBJECT_CACHE_CONTROL,
+  };
+}
+
+export async function presignChatterVoicePut(input: {
+  contentType: string;
+  objectKey: string;
+}): Promise<{ uploadUrl: string; publicUrl: string }> {
+  const { client, bucket, publicBase } = requireSpacesEnv();
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: input.objectKey,
+    ContentType: input.contentType.trim(),
+    CacheControl: CHATTER_VOICE_OBJECT_CACHE_CONTROL,
+    ACL: "public-read",
+  });
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn: 300 });
+  const publicUrl = `${publicBase}/${input.objectKey}`;
+  return { uploadUrl, publicUrl };
+}
+
+/** True if HTTPS URL is under public base and `contest-chatter/{contestId}/` prefix. */
+export function isChatterVoiceUrlAllowedForContest(
+  publicUrl: string,
+  contestId: string,
+): boolean {
+  let u: URL;
+  try {
+    u = new URL(publicUrl);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+  const base = trySpacesPublicBaseUrl();
+  if (!base) return false;
+  let baseUrl: URL;
+  try {
+    baseUrl = new URL(base);
+  } catch {
+    return false;
+  }
+  if (u.origin !== baseUrl.origin) return false;
+  const safeContest = contestId.trim();
+  if (!/^[0-9a-f-]{36}$/i.test(safeContest)) return false;
+  const prefix = `/contest-chatter/${safeContest}/`;
+  return u.pathname.startsWith(prefix);
+}
+
 export function isAvatarUrlAllowedForUser(
   publicUrl: string,
   userId: string,

@@ -188,6 +188,14 @@ function buildInner(record: NotificationEmailRecord, base: string): InnerParts {
         innerHtml: `${heroStrip("🪙", EMAIL_THEME.accentSoft, EMAIL_THEME.accent, `<strong>Toss</strong> — lineups and strategy may shift.`)}${headline("Toss update")}${bodyCopy(body)}${cta("View match")}`,
         text: plain(["Toss update", body]),
       };
+    case "contest_chatter_message":
+      return {
+        subject: `${title || "Contest chat"} — Dream12`,
+        preheader: body.slice(0, 120),
+        documentTitle: "Contest chat",
+        innerHtml: `${tagPill("Chat", EMAIL_THEME.secondaryBlock, EMAIL_THEME.foreground)}${headline("New message in contest")}${bodyCopy(body)}${cta("Open chatter")}`,
+        text: plain([title, body].filter(Boolean)),
+      };
     case "admin_pay_in_pending": {
       const amount = formatInr(payload.amount_inr);
       const reqId = typeof payload.request_id === "string" ? payload.request_id : "—";

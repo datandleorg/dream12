@@ -281,3 +281,26 @@
     animation: none;
   }
 }
+
+/* Contest chatter: recording VU meter (WhatsApp-style bars) */
+@keyframes chatter-rec-vu {
+  0%,
+  100% {
+    transform: scaleY(0.12);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.chatter-rec-vu-bar {
+  transform-origin: center bottom;
+  animation: chatter-rec-vu 0.48s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatter-rec-vu-bar {
+    animation: none;
+    transform: scaleY(0.5);
+  }
+}
