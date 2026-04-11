@@ -149,6 +149,22 @@ describe("renderNotificationEmail", () => {
     expect(text).toContain("₹500");
   });
 
+  it("renders wallet_low_balance with wallet CTA", () => {
+    const { subject, html, text } = renderNotificationEmail(
+      sampleRecord({
+        type: "wallet_low_balance",
+        title: "Low wallet balance",
+        body: "Your balance is ₹35.00. Add funds so you can keep joining contests.",
+        payload: { href: "/wallet", balance_inr: 35, threshold_inr: 50 },
+      }),
+      BASE,
+    );
+    expect(subject).toContain("Low wallet balance");
+    expect(html).toContain("Running low");
+    expect(html).toContain("dream12.test/wallet");
+    expect(text).toMatch(/low/i);
+  });
+
   it("uses admin subject for admin_pay_out_pending", () => {
     const { subject, html } = renderNotificationEmail(
       sampleRecord({

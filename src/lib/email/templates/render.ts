@@ -156,6 +156,14 @@ function buildInner(record: NotificationEmailRecord, base: string): InnerParts {
         innerHtml: `${heroStrip("✦", EMAIL_THEME.accentSoft, EMAIL_THEME.accent, `<strong style="color:${EMAIL_THEME.accent};">Balance update</strong> — ${escapeHtml(body)}`)}${headline("You’re funded up")}${subline("Ready to join contests.")}${cta("Go to wallet")}`,
         text: plain(["Wallet credit", body]),
       };
+    case "wallet_low_balance":
+      return {
+        subject: "Low wallet balance — Dream12",
+        preheader: "Top up to keep playing.",
+        documentTitle: "Low balance",
+        innerHtml: `${tagPill("Wallet", EMAIL_THEME.destructiveSoft, EMAIL_THEME.destructive)}${headline("Running low on balance", EMAIL_THEME.destructive)}${subline("Contests need enough wallet funds to join.")}${bodyCopy(body)}${cta("Add funds")}`,
+        text: plain(["Low wallet balance", body, "Open your wallet in Dream12 to add funds."]),
+      };
     case "contest_joined":
       return {
         subject: "You joined a contest — Dream12",
