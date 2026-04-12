@@ -13,7 +13,7 @@ If you see `Bind for 0.0.0.0:14040 failed`, set another free port in `.env`: `NG
 ## Services
 
 - **web** — Next.js production image (`output: "standalone"`). Listens on `0.0.0.0:3000`.
-- **cron** — Alpine + BusyBox `crond`. On start, reads [`vercel.json`](../vercel.json) and installs one crontab line per entry (two lines for `/api/cron/live-match-tick`: immediate + `sleep 30` for a ~**30s** tick interval). Each job runs `curl` to `http://web:3000<path>` with `Authorization: Bearer ${CRON_SECRET}`. Waits until `web` is healthy before starting.
+- **cron** — Alpine + BusyBox `crond`. On start, reads [`vercel.json`](../vercel.json) and installs **one** crontab line per entry (same cadence as Vercel). Each job runs `curl` to `http://web:3000<path>` with `Authorization: Bearer ${CRON_SECRET}`. Waits until `web` is healthy before starting.
 - **ngrok** — Tunnels public HTTPS to `web:3000`. Requires `NGROK_AUTHTOKEN`.
 
 ## Schedules and timezones
@@ -51,10 +51,9 @@ All times below are **UTC** unless you set `TZ` on the `cron` service. The **`cr
 |----------|---------|
 | `30 20 * * *` | Every day at **20:30 UTC** — full SportMonks sync (`/api/cron/sync`). |
 | `0 * * * *` | At **:00** every hour — today-schedule monitor (`/api/cron/today-schedule`). |
-| `* 8-19 * * *` | During UTC hours **8–19**, **live-match-tick** runs about every **30 seconds** in Docker (two crontab lines: on the minute + `sleep 30`). **Vercel** still invokes this path at most **once per minute** (platform limit). IST ≈ **2pm–1:30am**. |
+| `* 8-19 * * *` | During UTC hours **8–19**, **live-match-tick** runs **once per minute** in Docker and on Vercel (matches `vercel.json`). IST ≈ **2pm–1:30am**. |
 | `*/15 * * * *` | Every **15 minutes** — finalize scores (`/api/cron/finalize-scores`). |
-| `*/5 * * * *` | Every **5 minutes** — settle contests (`/api/cron/settle-contests`). |
-| `*/5 * * * *` | Every **5 minutes** — scale displayed prize pool after join lock (`/api/cron/recompute-contest-prizes-at-lock`). |
+| `*/5 * * * *` | Every **5 minutes** — contest maintenance (`/api/cron/contest-maintenance`): settle prizes then recompute post-lock prize rows. Legacy paths `/api/cron/settle-contests` and `/api/cron/recompute-contest-prizes-at-lock` remain for manual use. |
 
 ## Changing jobs
 

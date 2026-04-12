@@ -113,7 +113,7 @@ export function AdminAnalyticsSummary({ data }: { data: AdminBusinessAnalytics }
           Gross and prize totals are database snapshots summed across all contests.{" "}
           <code className="text-foreground/90">gross_collected</code> may stay empty until
           join lock and prize recompute (
-          <code className="text-foreground/90">recompute-contest-prizes-at-lock</code>).
+          <code className="text-foreground/90">contest-maintenance</code> cron).
         </p>
       </div>
     </div>

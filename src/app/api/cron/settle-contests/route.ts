@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyCronRequest } from "@/lib/cron-auth";
+import { runSettleContests } from "@/lib/cron-contest-maintenance";
 import { recordCronRun } from "@/lib/cron-run-log";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -7,9 +8,7 @@ export const dynamic = "force-dynamic";
 
 const ROUTE = "/api/cron/settle-contests";
 
-const SETTLE_PREREQ_NOTE =
-  "Contest settlement runs only when the match is completed and scores are finalized (matches.scoring_finalized_at). Run /api/cron/finalize-scores or your admin flow first.";
-
+/** @deprecated Prefer scheduled `GET /api/cron/contest-maintenance` (runs settle + recompute). */
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,56 +18,27 @@ export async function GET(request: NextRequest) {
   console.log(`[dream12-api-cron] ${ROUTE} START`);
 
   const supabase = createServiceClient();
-  const { data: rows, error: qErr } = await supabase
-    .from("contests")
-    .select("id")
-    .is("prizes_settled_at", null)
-    .limit(25);
+  const result = await runSettleContests(supabase);
 
-  if (qErr) {
+  if (!result.ok) {
     const durationMs = Date.now() - t0;
     recordCronRun({
       route: ROUTE,
       durationMs,
       ok: false,
       status: 500,
-      summary: { error: qErr.message },
+      summary: { error: result.error },
     });
-    return NextResponse.json({ error: qErr.message }, { status: 500 });
-  }
-
-  const results: unknown[] = [];
-  const skipped: { contestId: string; reason: string }[] = [];
-
-  for (const r of rows ?? []) {
-    const contestId = r.id as string;
-    const { data, error } = await supabase.rpc("settle_contest_prizes", {
-      p_contest_id: contestId,
-    });
-    if (error) {
-      results.push({ contestId, error: error.message });
-      continue;
-    }
-    const payload = data as Record<string, unknown> | null;
-    if (payload?.skipped && payload?.reason === "match_not_ready") {
-      skipped.push({ contestId, reason: "match_not_ready" });
-      continue;
-    }
-    results.push({ contestId, result: payload });
+    return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
   const durationMs = Date.now() - t0;
-  const body = {
-    processed: results.length,
-    results,
-    skipped,
-    ...(skipped.length > 0 ? { note: SETTLE_PREREQ_NOTE } : {}),
-  };
+  const body = result.body;
   console.log(`[dream12-api-cron] ${ROUTE} DONE`, {
     durationMs,
     processed: body.processed,
-    skippedCount: skipped.length,
-    pendingPrizesSettledAt: rows?.length ?? 0,
+    skippedCount: body.skipped.length,
+    pendingPrizesSettledAt: result.pendingPrizesSettledAt,
   });
   recordCronRun({
     route: ROUTE,

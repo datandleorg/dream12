@@ -4,7 +4,7 @@ This document describes **how cricket match data enters Dream12**, **where it is
 
 ## 1. Overview
 
-Match lifecycle is **state-aware**: `upcoming` → `live` → `in_review` → `completed` (with `scoring_finalized_at`), then contest settlement. The **live-match-tick** job ([`runMatchPipeline`](../src/lib/live-match-tick.ts); ~**30s** on Docker, **≤1/min** on Vercel) handles prematch toss/lineup, promotes `upcoming`→`live`, and ticks **`live` and `in_review`** until finalize locks scores.
+Match lifecycle is **state-aware**: `upcoming` → `live` → `in_review` → `completed` (with `scoring_finalized_at`), then contest settlement. The **live-match-tick** job ([`runMatchPipeline`](../src/lib/live-match-tick.ts); **≤1/min** on Docker and Vercel for the configured schedule) handles prematch toss/lineup, promotes `upcoming`→`live`, and ticks **`live` and `in_review`** until finalize locks scores.
 
 ```mermaid
 flowchart LR
@@ -97,10 +97,11 @@ Defined in [`vercel.json`](../vercel.json). All cron routes require `Authorizati
 |-------|----------------|------|
 | `GET /api/cron/sync` | `30 20 * * *` | Full SportMonks sync: leagues, seasons, matches, venues, stages, teams, squads, capped lineup pull (does **not** hydrate full scoreboards for every fixture) |
 | `GET /api/cron/today-schedule` | `0 * * * *` | Next 24h matches: refresh `start_time`, `sm_fixture_status`, `sm_fixture_note`, `schedule_checked_at` (does not overwrite lifecycle `status`). Then **`ensureDailyAutoContests`**: for each **`upcoming`** match in the same UTC window (up to 40 rows), create at most one platform contest **`Daily Contest 50Rs`** (`created_by` null, entry ₹**50**, **10** spots, **1** winner) if none exists with that `match_id` + name + fee + spots + `created_by` null. Users cannot delete platform contests (`delete_user_contest` rejects `created_by` null). JSON adds **`dailyAutoContests`**: `{ examined, created, skippedExisting, errors }`. See [`daily-auto-contest.ts`](../src/lib/daily-auto-contest.ts). |
-| `GET /api/cron/live-match-tick` | `* 8-19 * * *` (UTC) | **`runMatchPipeline`**: **Docker** ~every **30s** during those UTC hours (two crontab lines + `sleep 30`). **Vercel** at most **once per minute** (platform limit). IST ≈ **14:00–01:29**. Outside the window the route is not invoked by schedulers; use **admin** `POST /api/admin/sync-match` for manual ticks if needed. |
+| `GET /api/cron/live-match-tick` | `* 8-19 * * *` (UTC) | **`runMatchPipeline`**: **Docker** and **Vercel** invoke at most **once per minute** during those UTC hours (one crontab line per `vercel.json` entry). IST ≈ **14:00–01:29**. Outside the window the route is not invoked by schedulers; use **admin** `POST /api/admin/sync-match` for manual ticks if needed. |
 | `GET /api/cron/finalize-scores` | `*/15 * * * *` | **`in_review`** rows with `match_finished_at` older than **60 minutes** (and legacy `completed` without finalize): final fetch, `status`→`completed`, set `scoring_finalized_at` |
-| `GET /api/cron/settle-contests` | `*/5 * * * *` | RPC `settle_contest_prizes` for contests with `prizes_settled_at` null |
-| `GET /api/cron/recompute-contest-prizes-at-lock` | `*/5 * * * *` | RPC `recompute_contest_prizes_after_join_lock` for contests that need prize rows after lock |
+| `GET /api/cron/contest-maintenance` | `*/5 * * * *` | Runs **settle** then **recompute**: RPC `settle_contest_prizes` for contests with `prizes_settled_at` null (batch), then `recompute_contest_prizes_after_join_lock` for eligible contests. |
+| `GET /api/cron/settle-contests` | _(not scheduled)_ | Same settle logic as **contest-maintenance**; kept for manual or legacy `curl`. |
+| `GET /api/cron/recompute-contest-prizes-at-lock` | _(not scheduled)_ | Same recompute logic as **contest-maintenance**; kept for manual or legacy `curl`. |
 | `GET /api/cron/wallet-low-balance-reminder` | `0 6 * * *` | RPC `wallet_low_balance_reminder_run`: for **active** profiles with wallet **&lt; ₹50** and **no** `wallet_low_balance` notification in the last **7 days**, inserts up to **200** reminder rows (same type as the real-time trigger). **Does not replace** the DB trigger on `profiles.wallet_balance`, which fires when balance **crosses** from ≥ ₹50 to &lt; ₹50 on any update. [`wallet-low-balance-reminder/route.ts`](../src/app/api/cron/wallet-low-balance-reminder/route.ts), migration `20260425120000_wallet_low_balance_reminder_rpc.sql`. |
 
 **Vercel:** cron minimum interval is **one minute**.

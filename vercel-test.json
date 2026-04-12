@@ -13,7 +13,7 @@
       "schedule": "15 * * * *"
     },
     {
-      "path": "/api/cron/settle-contests",
+      "path": "/api/cron/contest-maintenance",
       "schedule": "45 * * * *"
     }
   ]
