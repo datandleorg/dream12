@@ -110,7 +110,7 @@ export function SeasonLeaderboardClient({
     sortKey === key ? (sortDir === "desc" ? " ↓" : " ↑") : "";
 
   return (
-    <PullToRefresh scrollContainerClassName="max-h-[min(85dvh,720px)]">
+    <PullToRefresh scrollContainerClassName="max-h-[min(65dvh,720px)]">
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="season-leaderboard-season">Season</Label>
