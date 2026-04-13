@@ -113,7 +113,7 @@ export function MatchDetailLiveSection({
         <MatchShortScore snapshot={snapshot} className="mt-1" />
       ) : null}
       {statusKey === "in_review" ? (
-        <p className="mt-1 text-sm font-medium text-violet-800 dark:text-violet-200">
+        <p className="mt-1 w-fit rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white">
           Match ended — final scores under review
         </p>
       ) : isCompleted ? (

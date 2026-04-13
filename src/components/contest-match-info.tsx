@@ -85,7 +85,7 @@ export function ContestMatchInfo({
           })}
         </p>
         {isInReview ? (
-          <p className="text-sm font-medium text-violet-800 dark:text-violet-200">
+          <p className="w-fit rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white">
             Final scores under review
           </p>
         ) : isCompleted ? (

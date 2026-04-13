@@ -8,7 +8,7 @@ const statusLabelTypography =
 
 /**
  * Distinct styles for `public.matches.status`: upcoming | live | in_review | completed.
- * Live uses a green pulsing dot. In review uses violet (vs upcoming amber).
+ * Live uses a green pulsing dot. In review uses solid red + white text (vs upcoming amber).
  */
 export function MatchStatusBadge({
   status,
@@ -48,8 +48,8 @@ export function MatchStatusBadge({
         variant="outline"
         className={cn(
           statusLabelTypography,
-          "border-violet-500/55 bg-violet-500/12 text-violet-950 shadow-sm",
-          "dark:border-violet-400/50 dark:bg-violet-500/22 dark:text-violet-100",
+          "border-0 bg-red-600 text-white shadow-sm",
+          "dark:bg-red-600 dark:text-white",
           className,
         )}
       >
