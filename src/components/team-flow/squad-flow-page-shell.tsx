@@ -13,6 +13,7 @@ export function SquadFlowPageShell({
   match,
   matchId,
   savedFlow,
+  flowReturnPath = null,
   emptyPoolMessage,
 }: {
   contestId: string;
@@ -24,6 +25,8 @@ export function SquadFlowPageShell({
   match: TeamFlowMatchRow;
   matchId: number;
   savedFlow?: SquadSavedFlow;
+  /** Back link + threaded through squad steps (e.g. contest Teams tab). */
+  flowReturnPath?: string | null;
   emptyPoolMessage: string;
 }) {
   const hydrate = (
@@ -55,6 +58,7 @@ export function SquadFlowPageShell({
         match={match}
         players={players}
         savedFlow={savedFlow}
+        flowReturnPath={flowReturnPath}
       />
     </div>
   );

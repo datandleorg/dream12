@@ -15,6 +15,12 @@ export type SavedMatchTeamsRadioListProps = {
   bShort: string;
   selectedId: string;
   onSelectedIdChange: (id: string) => void;
+  /** When true, each row includes Edit → saved-template squad (e.g. contest Teams tab). */
+  showEditSavedTemplate?: boolean;
+  /** Appended as `return=` on Edit team links so saved-template flow returns to contest Teams tab. */
+  templateEditReturnPath?: string;
+  /** Match-level lock — same as My teams saved squad editor. */
+  savedTemplateEditLocked?: boolean;
 };
 
 function SavedMatchTeamsRadioListInner(props: SavedMatchTeamsRadioListProps) {
@@ -27,6 +33,9 @@ function SavedMatchTeamsRadioListInner(props: SavedMatchTeamsRadioListProps) {
     bShort,
     selectedId,
     onSelectedIdChange,
+    showEditSavedTemplate = false,
+    templateEditReturnPath,
+    savedTemplateEditLocked = false,
   } = props;
 
   const labelId = "saved-match-teams-radio-label";
@@ -66,9 +75,11 @@ function SavedMatchTeamsRadioListInner(props: SavedMatchTeamsRadioListProps) {
                     pitchTeamB={pitchTeamB}
                     aShort={aShort}
                     bShort={bShort}
-                    primaryAction="none"
+                    primaryAction={showEditSavedTemplate ? "edit" : "none"}
                     pickSelectorRow
                     embedded
+                    editLocked={savedTemplateEditLocked}
+                    templateEditReturnPath={templateEditReturnPath}
                   />
                 </div>
               </div>

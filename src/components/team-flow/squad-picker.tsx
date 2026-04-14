@@ -21,14 +21,23 @@ export function SquadPicker({
   match,
   players,
   savedFlow,
+  flowReturnPath = null,
 }: {
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
   players: TeamFlowPlayerRow[];
   savedFlow?: SquadSavedFlow;
+  flowReturnPath?: string | null;
 }) {
-  const d = useSquadPickerDerived(match, players, matchId, contestId, savedFlow);
+  const d = useSquadPickerDerived(
+    match,
+    players,
+    matchId,
+    contestId,
+    savedFlow,
+    flowReturnPath,
+  );
 
   function onTogglePlayer(bp: ReturnType<typeof mapRowToBuilderPlayer>) {
     if (d.rosterLocked) return;
@@ -151,6 +160,7 @@ export function SquadPicker({
           matchId={matchId}
           contestId={contestId}
           savedFlow={savedFlow}
+          flowReturnPath={flowReturnPath}
         />
       </div>
     </div>

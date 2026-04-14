@@ -401,7 +401,7 @@ export default async function MatchDetailPage({
                             <Link
                               href={
                                 myTeamResumeHrefByContest.get(c.id) ??
-                                `/matches/${matchId}/contests/${c.id}/pick-team`
+                                `/contests/${c.id}?tab=teams`
                               }
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
@@ -414,7 +414,7 @@ export default async function MatchDetailPage({
                         ) : joinedContestIds.has(c.id) ? (
                           !isLive ? (
                             <Link
-                              href={`/matches/${matchId}/contests/${c.id}/pick-team`}
+                              href={`/contests/${c.id}?tab=teams`}
                               className={cn(
                                 buttonVariants({ variant: "secondary" }),
                                 "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",

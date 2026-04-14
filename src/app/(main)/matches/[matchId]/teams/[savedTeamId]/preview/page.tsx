@@ -3,17 +3,23 @@ import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
 import { SavedMatchTeamPreview } from "@/components/team-flow/saved-match-team-preview";
 import { redirectIfSavedTeamEditLocked } from "@/lib/fantasy/saved-team-edit-server";
 import { loadSavedTeamFlowData } from "@/lib/saved-team-flow-data";
+import { parseTeamFlowReturnPath } from "@/lib/team-flow-return-path";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditSavedTeamPreviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ matchId: string; savedTeamId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { matchId: mid, savedTeamId } = await params;
   const matchId = Number(mid);
   if (!Number.isFinite(matchId)) notFound();
+
+  const sp = (await searchParams) ?? {};
+  const flowReturnPath = parseTeamFlowReturnPath(sp);
 
   const data = await loadSavedTeamFlowData(matchId, {
     type: "edit",
@@ -37,6 +43,7 @@ export default async function EditSavedTeamPreviewPage({
         mode="edit"
         savedTeamId={savedTeamId}
         slot={data.slot}
+        afterSaveHref={flowReturnPath}
       />
     </div>
   );

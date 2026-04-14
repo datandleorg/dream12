@@ -30,6 +30,7 @@ import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { MatchTossLines } from "@/components/match-toss-lines";
 import { MatchStartCountdown } from "@/components/match-start-countdown";
 import { useMatchTossLive } from "@/lib/hooks/use-match-toss-live";
+import { appendTeamFlowReturnQuery } from "@/lib/team-flow-return-path";
 
 export function PitchPreview({
   matchId,
@@ -37,6 +38,7 @@ export function PitchPreview({
   match,
   contest,
   hasPaidEntry,
+  flowReturnPath = null,
 }: {
   matchId: number;
   contestId: string;
@@ -44,6 +46,8 @@ export function PitchPreview({
   contest: TeamFlowContestSummary;
   /** True after wallet debit / free join confirmed (not merely XI draft saved). */
   hasPaidEntry: boolean;
+  /** After save, navigate here when set (e.g. contest Teams tab). */
+  flowReturnPath?: string | null;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -78,16 +82,16 @@ export function PitchPreview({
 
   useEffect(() => {
     if (selected.length === 0) {
-      router.replace(`${base}/squad`);
+      router.replace(appendTeamFlowReturnQuery(`${base}/squad`, flowReturnPath));
       return;
     }
     if (
       selected.length === SQUAD_SIZE &&
       (!captainId || !viceCaptainId || captainId === viceCaptainId)
     ) {
-      router.replace(`${base}/captain`);
+      router.replace(appendTeamFlowReturnQuery(`${base}/captain`, flowReturnPath));
     }
-  }, [selected.length, captainId, viceCaptainId, router, base]);
+  }, [selected.length, captainId, viceCaptainId, router, base, flowReturnPath]);
 
   async function onSave() {
     if (
@@ -113,7 +117,7 @@ export function PitchPreview({
     }
     setConfirmOpen(false);
     toast.success("Team saved");
-    router.push(`/contests/${contestId}`);
+    router.push(flowReturnPath ?? `/contests/${contestId}`);
     router.refresh();
   }
 
@@ -130,7 +134,7 @@ export function PitchPreview({
 
       <div className="flex gap-2">
         <Link
-          href={`${base}/captain`}
+          href={appendTeamFlowReturnQuery(`${base}/captain`, flowReturnPath)}
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
             "inline-flex min-h-10 items-center justify-center px-2",
@@ -177,7 +181,7 @@ export function PitchPreview({
       {lineupConflictSelected > 0 ? (
         <LineupConflictBanner
           count={lineupConflictSelected}
-          editHref={`${base}/squad`}
+          editHref={appendTeamFlowReturnQuery(`${base}/squad`, flowReturnPath)}
           matchStatus={match.status}
         />
       ) : null}
@@ -206,9 +210,10 @@ export function PitchPreview({
       <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed bottom-16 left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2">
         <div className="flex gap-2">
           <Link
-            href={
-              picksRemaining > 0 || !capVcReady ? `${base}/squad` : `${base}/captain`
-            }
+            href={appendTeamFlowReturnQuery(
+              picksRemaining > 0 || !capVcReady ? `${base}/squad` : `${base}/captain`,
+              flowReturnPath,
+            )}
             className={cn(
               buttonVariants({ variant: "secondary" }),
               "inline-flex min-h-11 flex-1 items-center justify-center",

@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import type { SavedMatchTeamCardRow } from "@/lib/saved-team-flow-data";
 import { SavedTeamPreviewDialog } from "@/components/team-flow/saved-team-preview-dialog";
 import { playerAvatarUrl } from "@/lib/avatar-url";
+import { appendTeamFlowReturnQuery } from "@/lib/team-flow-return-path";
 
 type SavedMatchTeamListCardProps = {
   matchId: number;
@@ -33,6 +34,8 @@ type SavedMatchTeamListCardProps = {
   pickSelectorRow?: boolean;
   /** My teams: match not upcoming — no squad/edit links (status-based lock). */
   editLocked?: boolean;
+  /** Optional `return=` for squad edit links (e.g. back to contest Teams tab). */
+  templateEditReturnPath?: string;
 };
 
 /**
@@ -50,6 +53,7 @@ export function SavedMatchTeamListCard({
   embedded = false,
   pickSelectorRow = false,
   editLocked = false,
+  templateEditReturnPath,
 }: SavedMatchTeamListCardProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const capAv = playerAvatarUrl(t.captain.photo_url, t.captain.name);
@@ -70,13 +74,18 @@ export function SavedMatchTeamListCard({
         </span>
       );
     }
+    const squadHref = appendTeamFlowReturnQuery(
+      `/matches/${matchId}/teams/${t.id}/squad`,
+      templateEditReturnPath,
+    );
     return (
       <Link
-        href={`/matches/${matchId}/teams/${t.id}/squad`}
+        href={squadHref}
         className={cn(
           buttonVariants({ variant: "secondary", size: "sm" }),
           "inline-flex min-h-9 w-full items-center justify-center sm:w-auto",
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         Edit team
       </Link>
@@ -101,7 +110,10 @@ export function SavedMatchTeamListCard({
               <span>Team {t.slot}</span>
             ) : (
               <Link
-                href={`/matches/${matchId}/teams/${t.id}/squad`}
+                href={appendTeamFlowReturnQuery(
+                  `/matches/${matchId}/teams/${t.id}/squad`,
+                  templateEditReturnPath,
+                )}
                 className="hover:underline"
               >
                 Team {t.slot}

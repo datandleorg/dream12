@@ -39,7 +39,7 @@ export function JoinContestButton({
   const fee = Number(entryFee);
   const bal = Number(balance);
   const short = Math.max(0, fee - bal);
-  const returnTo = `/matches/${matchId}/contests/${contestId}/pick-team`;
+  const returnTo = `/contests/${contestId}?tab=teams`;
 
   function onJoin() {
     if (disabled) return;

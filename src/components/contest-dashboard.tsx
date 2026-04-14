@@ -20,6 +20,7 @@ import {
   ContestChatterPanel,
   type ContestChatterMessage,
 } from "@/components/contest-chatter-panel";
+import { PickSavedTeamClient } from "@/components/pick-saved-team-client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isMatchStatusOpenForContestChatter } from "@/lib/contest-chatter/constants";
 import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
@@ -29,6 +30,7 @@ import {
   buildWhatsAppShareUrl,
   matchLabelFromMatchCard,
 } from "@/lib/share/contest-whatsapp-invite";
+import type { SavedMatchTeamCardRow } from "@/lib/saved-team-flow-data";
 import { cn } from "@/lib/utils";
 
 export type ContestPayoutDisplayRow = {
@@ -52,7 +54,7 @@ export type ContestEntryTeamSummary =
 type DashboardTab =
   | "winnings"
   | "leaderboard"
-  | "commentary"
+  | "teams"
   | "scorecard"
   | "stats"
   | "chatter";
@@ -81,11 +83,16 @@ export function ContestDashboard({
   userHasTeamInContest,
   myStandings,
   squadHref,
+  /** After pick-team / edit flows, return here (e.g. contest Teams tab). */
+  contestTeamReturnPath,
   pointsUpdatedAt,
   myEntryTeamSummary,
   userHasChatterAccess = false,
   initialChatterMessages = [],
   openChatterTabByDefault = false,
+  openTeamsTabByDefault = false,
+  savedMatchTeamsForContest,
+  currentContestSavedTeamId = null,
 }: {
   contestId: string;
   contestTitle: string;
@@ -112,6 +119,7 @@ export function ContestDashboard({
   userHasTeamInContest: boolean;
   myStandings: { rank: number; points: number } | null;
   squadHref: string;
+  contestTeamReturnPath: string;
   pointsUpdatedAt: string | null;
   myEntryTeamSummary: ContestEntryTeamSummary | null;
   /** Paid entry — required for contest chatter read/post (when match allows posting). */
@@ -119,6 +127,11 @@ export function ContestDashboard({
   initialChatterMessages?: ContestChatterMessage[];
   /** From `?chatter=1` when user has chatter access. */
   openChatterTabByDefault?: boolean;
+  /** From `?tab=teams` to open the saved-team picker on this contest. */
+  openTeamsTabByDefault?: boolean;
+  savedMatchTeamsForContest: SavedMatchTeamCardRow[];
+  /** Bound saved template for this contest entry, if any. */
+  currentContestSavedTeamId?: string | null;
 }) {
   const router = useRouter();
   const [preview, setPreview] = useState<{
@@ -130,9 +143,11 @@ export function ContestDashboard({
   const [pageRefreshNonce, setPageRefreshNonce] = useState(0);
   const [pageRefreshing, setPageRefreshing] = useState(false);
   const [whatsappShareHref, setWhatsappShareHref] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>(() =>
-    openChatterTabByDefault && userHasChatterAccess ? "chatter" : "leaderboard",
-  );
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
+    if (openTeamsTabByDefault) return "teams";
+    if (openChatterTabByDefault && userHasChatterAccess) return "chatter";
+    return "leaderboard";
+  });
 
   const refreshPage = useCallback(() => {
     setPageRefreshing(true);
@@ -206,7 +221,15 @@ export function ContestDashboard({
   const chatterOpen = isMatchStatusOpenForContestChatter(live.status);
   const matchCompleted = liveSt === "completed" || liveSt === "in_review";
   const opponentTeamPreviewLocked = liveSt === "upcoming";
-  const showSquadLink = userHasTeamInContest && !rosterLocked;
+  const pitchTeamA = matchCard.team_a?.trim() || "Team A";
+  const pitchTeamB = matchCard.team_b?.trim() || "Team B";
+  const aShort = matchCard.team_a?.trim() || "A";
+  const bShort = matchCard.team_b?.trim() || "B";
+  const teamsTabInteractive =
+    Boolean(currentUserId) &&
+    !matchJoinBlocked &&
+    !rosterLocked &&
+    (userHasTeamInContest || isCreatorDraft);
 
   const myTeamId = useMemo(() => {
     if (!currentUserId || !userHasTeamInContest) return null;
@@ -322,17 +345,6 @@ export function ContestDashboard({
                     </div>
                   ) : null
                 ) : null}
-                {showSquadLink ? (
-                  <Link
-                    href={`/matches/${matchCard.id}/contests/${contestId}/pick-team`}
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "sm" }),
-                      "inline-flex min-h-10 shrink-0 items-center justify-center",
-                    )}
-                  >
-                    Edit team
-                  </Link>
-                ) : null}
               </div>
               {!invitePublic ? (
                 <p className="text-muted-foreground text-end text-[11px] leading-snug">
@@ -351,7 +363,7 @@ export function ContestDashboard({
               {myEntryTeamSummary.kind === "saved" ? (
                 !rosterLocked ? (
                   <Link
-                    href={`/matches/${myEntryTeamSummary.matchId}/teams/${myEntryTeamSummary.savedTeamId}/squad`}
+                    href={`/contests/${contestId}?tab=teams`}
                     className="font-medium text-foreground underline-offset-2 hover:underline"
                   >
                     Team {myEntryTeamSummary.slot}
@@ -364,9 +376,6 @@ export function ContestDashboard({
               ) : (
                 <span className="font-medium text-foreground">Contest XI</span>
               )}
-              {myEntryTeamSummary.kind === "saved" ? (
-                <span className="text-muted-foreground"> · My teams</span>
-              ) : null}
             </p>
           ) : null}
 
@@ -397,8 +406,8 @@ export function ContestDashboard({
                 Chatter
               </TabsTrigger>
             ) : null}
-            <TabsTrigger value="commentary" className="shrink-0 px-2 text-xs sm:text-sm">
-              Commentary
+            <TabsTrigger value="teams" className="shrink-0 px-2 text-xs sm:text-sm">
+              Teams
             </TabsTrigger>
             <TabsTrigger value="scorecard" className="shrink-0 px-2 text-xs sm:text-sm">
               Scorecard
@@ -514,10 +523,36 @@ export function ContestDashboard({
           </TabsContent>
         ) : null}
 
-        <TabsContent value="commentary" className="mt-3">
-          <div className="text-muted-foreground bg-muted/30 rounded-xl border border-dashed px-4 py-10 text-center text-sm">
-            Commentary coming soon.
-          </div>
+        <TabsContent value="teams" className="mt-3">
+          {!currentUserId ? (
+            <p className="text-muted-foreground text-sm">
+              Sign in to pick or switch your contest team.
+            </p>
+          ) : matchJoinBlocked ? (
+            <p className="text-muted-foreground text-sm">
+              This match is finished — team selection is closed.
+            </p>
+          ) : rosterLocked ? (
+            <p className="text-muted-foreground text-sm">
+              Team lock is on — you can&apos;t change your squad for this contest.
+            </p>
+          ) : !teamsTabInteractive ? (
+            <p className="text-muted-foreground text-sm">
+              Join this contest to choose a saved team or build a new XI.
+            </p>
+          ) : (
+            <PickSavedTeamClient
+              matchId={matchCard.id}
+              contestId={contestId}
+              teams={savedMatchTeamsForContest}
+              currentContestSavedTeamId={currentContestSavedTeamId}
+              contestTeamReturnPath={contestTeamReturnPath}
+              pitchTeamA={pitchTeamA}
+              pitchTeamB={pitchTeamB}
+              aShort={aShort}
+              bShort={bShort}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="scorecard" className="mt-3">

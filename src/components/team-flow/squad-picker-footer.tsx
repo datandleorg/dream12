@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import {
   Sheet,
   SheetContent,
@@ -16,6 +17,7 @@ import { saveSquadRosterAction } from "@/app/actions/save-team";
 import { SQUAD_SIZE } from "@/lib/fantasy/rules";
 import type { BuilderPlayer } from "@/stores/team-builder";
 import type { SquadSavedFlow } from "@/components/team-flow/squad-picker-types";
+import { appendTeamFlowReturnQuery } from "@/lib/team-flow-return-path";
 
 export function SquadPickerFooter({
   teamA,
@@ -30,6 +32,7 @@ export function SquadPickerFooter({
   matchId,
   contestId,
   savedFlow,
+  flowReturnPath = null,
 }: {
   teamA: string;
   teamB: string;
@@ -43,19 +46,43 @@ export function SquadPickerFooter({
   matchId: number;
   contestId: string;
   savedFlow?: SquadSavedFlow;
+  flowReturnPath?: string | null;
 }) {
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [savingSquad, startSavingSquad] = useTransition();
 
+  useEffect(() => {
+    if (savingSquad) setPreviewOpen(false);
+  }, [savingSquad]);
+
+  const continueLabel = savingSquad
+    ? savedFlow
+      ? "Loading…"
+      : "Saving…"
+    : "Continue";
+
+  function goToCaptainAfterPaint() {
+    startSavingSquad(async () => {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+      router.push(appendTeamFlowReturnQuery(`${base}/captain`, flowReturnPath));
+    });
+  }
+
   return (
     <div className="mt-3 shrink-0 border-t border-zinc-200/80 bg-[#f5f4ef] pt-3 pb-1">
+      <LoadingOverlay
+        show={savingSquad}
+        label={savedFlow ? "Loading…" : "Saving squad…"}
+      />
       <div className="flex gap-2">
         <Button
           type="button"
           variant="outline"
           className="min-h-12 flex-1 border-zinc-300 bg-white font-semibold text-zinc-800 shadow-sm"
-          disabled={selected.length === 0}
+          disabled={selected.length === 0 || savingSquad}
           onClick={() => setPreviewOpen(true)}
         >
           Team preview
@@ -87,9 +114,9 @@ export function SquadPickerFooter({
           className="min-h-12 flex-1 bg-emerald-600 font-semibold text-white shadow-sm hover:bg-emerald-600/90"
           disabled={!canContinue || rosterLocked || savingSquad}
           onClick={() => {
-            if (rosterLocked) return;
+            if (rosterLocked || savingSquad) return;
             if (savedFlow) {
-              router.push(`${base}/captain`);
+              goToCaptainAfterPaint();
               return;
             }
             startSavingSquad(async () => {
@@ -103,20 +130,26 @@ export function SquadPickerFooter({
                 return;
               }
               router.refresh();
-              router.push(`${base}/captain`);
+              router.push(appendTeamFlowReturnQuery(`${base}/captain`, flowReturnPath));
             });
           }}
         >
-          {savingSquad ? "Saving…" : "Continue"}
+          {continueLabel}
         </Button>
       </div>
       {selected.length > 0 ? (
-        <Link
-          href={`${base}/preview`}
-          className="mt-2 block text-center text-sm font-medium text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400"
-        >
-          Open full-screen preview
-        </Link>
+        savingSquad ? (
+          <span className="text-muted-foreground mt-2 block text-center text-sm font-medium opacity-50">
+            Open full-screen preview
+          </span>
+        ) : (
+          <Link
+            href={appendTeamFlowReturnQuery(`${base}/preview`, flowReturnPath)}
+            className="mt-2 block text-center text-sm font-medium text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400"
+          >
+            Open full-screen preview
+          </Link>
+        )
       ) : null}
     </div>
   );

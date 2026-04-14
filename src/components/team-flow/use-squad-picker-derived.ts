@@ -38,6 +38,7 @@ export function useSquadPickerDerived(
   matchId: number,
   contestId: string,
   savedFlow?: SquadSavedFlow,
+  squadBackHrefOverride?: string | null,
 ) {
   const roleTab = useTeamBuilderStore((s) => s.roleTab);
   const setRoleTab = useTeamBuilderStore((s) => s.setRoleTab);
@@ -94,7 +95,12 @@ export function useSquadPickerDerived(
 
   const base =
     savedFlow?.basePath ?? `/matches/${matchId}/contests/${contestId}`;
-  const squadBackHref = savedFlow?.backHref ?? `/matches/${matchId}`;
+  const squadBackHref =
+    savedFlow?.backHref ??
+    (squadBackHrefOverride && squadBackHrefOverride.length > 0
+      ? squadBackHrefOverride
+      : null) ??
+    `/matches/${matchId}`;
   const canContinue = selected.length === SQUAD_SIZE;
 
   const pickInstruction = `Pick any ${SQUAD_SIZE} within credits · ${ROLE_PICK_COPY[roleTab]}`;

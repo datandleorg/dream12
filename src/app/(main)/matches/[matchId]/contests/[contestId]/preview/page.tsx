@@ -2,17 +2,25 @@ import { notFound } from "next/navigation";
 import { HydrateTeamFlow } from "@/components/team-flow/hydrate-team-flow";
 import { PitchPreview } from "@/components/team-flow/pitch-preview";
 import { loadTeamFlowData } from "@/lib/team-flow-data";
+import { parseTeamFlowReturnPath } from "@/lib/team-flow-return-path";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContestPreviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ matchId: string; contestId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { matchId: mid, contestId } = await params;
   const matchId = Number(mid);
   if (!Number.isFinite(matchId)) notFound();
+
+  const sp = (await searchParams) ?? {};
+  const flowReturnPath = parseTeamFlowReturnPath(sp, {
+    expectedContestId: contestId,
+  });
 
   const data = await loadTeamFlowData(matchId, contestId);
 
@@ -32,6 +40,7 @@ export default async function ContestPreviewPage({
         match={data.match}
         contest={data.contest}
         hasPaidEntry={data.hasPaidEntry}
+        flowReturnPath={flowReturnPath}
       />
     </div>
   );

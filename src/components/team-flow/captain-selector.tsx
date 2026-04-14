@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { MAX_CREDITS, SQUAD_SIZE } from "@/lib/fantasy/rules";
 import { mockCaptainPct, mockVicePct } from "@/lib/fantasy/mock-stats";
 import { playerAvatarUrl } from "@/lib/avatar-url";
@@ -16,19 +17,23 @@ import { FlowHeader } from "@/components/team-flow/flow-header";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { PlayingXiDot } from "@/components/team-flow/playing-xi-dot";
 import { cn } from "@/lib/utils";
+import { appendTeamFlowReturnQuery } from "@/lib/team-flow-return-path";
 
 export function CaptainSelector({
   matchId,
   contestId,
   match,
   savedFlow,
+  flowReturnPath = null,
 }: {
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
   savedFlow?: { basePath: string };
+  flowReturnPath?: string | null;
 }) {
   const router = useRouter();
+  const [toPreviewPending, startToPreview] = useTransition();
   const selected = useTeamBuilderStore((s) => s.selected);
   const captainId = useTeamBuilderStore((s) => s.captainId);
   const viceCaptainId = useTeamBuilderStore((s) => s.viceCaptainId);
@@ -53,16 +58,34 @@ export function CaptainSelector({
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
-      router.replace(`${base}/squad`);
+      router.replace(appendTeamFlowReturnQuery(`${base}/squad`, flowReturnPath));
     }
-  }, [selected.length, router, base]);
+  }, [selected.length, router, base, flowReturnPath]);
 
   const canContinue = Boolean(
     captainId && viceCaptainId && captainId !== viceCaptainId,
   );
 
+  const previewHref = appendTeamFlowReturnQuery(`${base}/preview`, flowReturnPath);
+
+  function goToPreview() {
+    if (!canContinue || toPreviewPending) return;
+    startToPreview(async () => {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+      router.push(previewHref);
+    });
+  }
+
+  const overlayLabel = savedFlow ? "Loading…" : "Opening preview…";
+  const pendingCtaLabel = savedFlow ? "Loading…" : "Opening…";
+  const teamPreviewLabel = toPreviewPending ? pendingCtaLabel : "Team preview";
+  const continueLabel = toPreviewPending ? pendingCtaLabel : "Continue";
+
   return (
-    <div className="flex flex-col gap-3 pb-28">
+    <div className="relative flex flex-col gap-3 pb-28">
+      <LoadingOverlay show={toPreviewPending} label={overlayLabel} />
       <FlowHeader
         tournamentName={match.tournament_name}
         matchTitle={title}
@@ -94,20 +117,31 @@ export function CaptainSelector({
       {lineupConflictSelected > 0 ? (
         <LineupConflictBanner
           count={lineupConflictSelected}
-          editHref={`${base}/squad`}
+          editHref={appendTeamFlowReturnQuery(`${base}/squad`, flowReturnPath)}
           matchStatus={match.status}
         />
       ) : null}
 
-      <Link
-        href={`${base}/squad`}
-        className={cn(
-          buttonVariants({ variant: "ghost", size: "sm" }),
-          "inline-flex min-h-10 w-fit items-center justify-center px-2",
-        )}
-      >
-        ← Squad
-      </Link>
+      {toPreviewPending ? (
+        <span
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "sm" }),
+            "inline-flex min-h-10 w-fit cursor-not-allowed items-center justify-center px-2 opacity-50",
+          )}
+        >
+          ← Squad
+        </span>
+      ) : (
+        <Link
+          href={appendTeamFlowReturnQuery(`${base}/squad`, flowReturnPath)}
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "sm" }),
+            "inline-flex min-h-10 w-fit items-center justify-center px-2",
+          )}
+        >
+          ← Squad
+        </Link>
+      )}
 
       <p className="text-muted-foreground text-sm">
         Captain earns 2× points · Vice-captain 1.5×. Choose two different players.
@@ -154,7 +188,7 @@ export function CaptainSelector({
                   size="sm"
                   variant={captainId === p.id ? "default" : "outline"}
                   className="min-h-9 px-2 text-xs"
-                  disabled={rosterLocked}
+                  disabled={rosterLocked || toPreviewPending}
                   onClick={() => setCaptain(p.id)}
                 >
                   C
@@ -169,7 +203,7 @@ export function CaptainSelector({
                       ? "border-accent bg-accent text-accent-foreground hover:bg-accent/90 hover:text-accent-foreground"
                       : "hover:border-accent/40",
                   )}
-                  disabled={rosterLocked}
+                  disabled={rosterLocked || toPreviewPending}
                   onClick={() => setViceCaptain(p.id)}
                 >
                   VC
@@ -180,24 +214,27 @@ export function CaptainSelector({
         })}
       </div>
 
-      <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2" style={{ bottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex flex-col gap-2"> 
+      <div
+        className="bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed left-0 right-0 z-30 border-t p-3 backdrop-blur md:left-1/2 md:max-w-md md:-translate-x-1/2"
+        style={{ bottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="flex flex-col gap-2">
           <Button
             type="button"
             variant="secondary"
             className="min-h-11 w-full"
-            disabled={!canContinue}
-            onClick={() => router.push(`${base}/preview`)}
+            disabled={!canContinue || toPreviewPending}
+            onClick={() => goToPreview()}
           >
-            Team preview
+            {teamPreviewLabel}
           </Button>
           <Button
             type="button"
             className="min-h-11 w-full"
-            disabled={!canContinue}
-            onClick={() => router.push(`${base}/preview`)}
+            disabled={!canContinue || toPreviewPending}
+            onClick={() => goToPreview()}
           >
-            Continue
+            {continueLabel}
           </Button>
         </div>
       </div>

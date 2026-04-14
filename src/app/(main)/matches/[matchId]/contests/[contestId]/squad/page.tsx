@@ -7,6 +7,7 @@ import {
   ensurePlayersForMatch,
   truthySearchParam,
 } from "@/lib/fantasy/squad-page-server";
+import { parseTeamFlowReturnPath } from "@/lib/team-flow-return-path";
 
 /** Always read fresh `players.role` from DB after sync (no static cache of squad pool). */
 export const dynamic = "force-dynamic";
@@ -24,6 +25,9 @@ export default async function ContestSquadPage({
 
   const sp = (await searchParams) ?? {};
   const buildFresh = truthySearchParam(sp, "fresh");
+  const flowReturnPath = parseTeamFlowReturnPath(sp, {
+    expectedContestId: contestId,
+  });
 
   let data = await loadTeamFlowData(matchId, contestId, {
     resetContestDraft: buildFresh,
@@ -47,6 +51,7 @@ export default async function ContestSquadPage({
         initialViceId={data.initialViceId}
         match={data.match}
         matchId={matchId}
+        flowReturnPath={flowReturnPath}
         emptyPoolMessage="No players in the pool yet for this match. Run sync or check SportMonks data."
       />
     </>

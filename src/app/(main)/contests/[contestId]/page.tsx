@@ -19,11 +19,16 @@ import {
 } from "@/lib/contest-visibility";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
+import {
+  appendTeamFlowReturnQuery,
+  contestTeamsTabPath,
+} from "@/lib/team-flow-return-path";
 import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
 import {
   compareLeaderboardRows,
   contestTieMetasForSortedLeaderboard,
 } from "@/lib/contest-prize";
+import { listSavedMatchTeamsWithSummary } from "@/lib/saved-team-flow-data";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -39,6 +44,10 @@ export default async function ContestLeaderboardPage({
     chatterParam === "1" ||
     chatterParam === "true" ||
     (Array.isArray(chatterParam) && chatterParam.some((x) => x === "1" || x === "true"));
+  const tabParam = sp.tab;
+  const openTeamsTabByDefault =
+    tabParam === "teams" ||
+    (Array.isArray(tabParam) && tabParam.some((x) => x === "teams"));
   const supabase = await createClient();
   const {
     data: { user },
@@ -65,7 +74,8 @@ export default async function ContestLeaderboardPage({
   let userHasTeamInContest = false;
   const matchId = Number(contest.match_id);
   /** Dream11-style: choose a saved match team or build new until a contest row exists. */
-  let squadHref = `/matches/${matchId}/contests/${contestId}/pick-team`;
+  const teamsTabReturnPath = contestTeamsTabPath(contestId);
+  let squadHref = teamsTabReturnPath;
   let myEntryTeamSummary: ContestEntryTeamSummary | null = null;
   let myTeamRow: {
     id: string;
@@ -96,13 +106,16 @@ export default async function ContestLeaderboardPage({
         .from("team_roster")
         .select("*", { count: "exact", head: true })
         .eq("team_id", myTeamRow.id);
-      squadHref = contestTeamBuildPath(
-        matchId,
-        contestId,
-        count ?? 0,
-        (myTeamRow.captain_id as string) ?? null,
-        (myTeamRow.vice_captain_id as string) ?? null,
-        { startAtSquad: true },
+      squadHref = appendTeamFlowReturnQuery(
+        contestTeamBuildPath(
+          matchId,
+          contestId,
+          count ?? 0,
+          (myTeamRow.captain_id as string) ?? null,
+          (myTeamRow.vice_captain_id as string) ?? null,
+          { startAtSquad: true },
+        ),
+        teamsTabReturnPath,
       );
       const src = myTeamRow.source_saved_match_team_id as string | null;
       if (src) {
@@ -181,6 +194,14 @@ export default async function ContestLeaderboardPage({
     )
     .eq("id", matchId)
     .maybeSingle();
+
+  const teamAName = matchRow?.team_a ?? null;
+  const teamBName = matchRow?.team_b ?? null;
+  const savedMatchTeamsForContest = user
+    ? await listSavedMatchTeamsWithSummary(matchId, teamAName, teamBName)
+    : [];
+  const currentContestSavedTeamId =
+    (myTeamRow?.source_saved_match_team_id as string | null | undefined) ?? null;
 
   const liveSnapshot =
     parseLiveSnapshot(matchRow?.live_snapshot) ?? buildLiveSnapshotFromFixture(null);
@@ -371,11 +392,15 @@ export default async function ContestLeaderboardPage({
       userHasTeamInContest={userHasTeamInContest}
       myStandings={myStandings}
       squadHref={squadHref}
+      contestTeamReturnPath={teamsTabReturnPath}
       pointsUpdatedAt={pointsUpdatedAt}
       myEntryTeamSummary={myEntryTeamSummary}
       userHasChatterAccess={userHasChatterAccess}
       initialChatterMessages={initialChatterMessages}
       openChatterTabByDefault={openChatterTab && userHasChatterAccess}
+      openTeamsTabByDefault={openTeamsTabByDefault}
+      savedMatchTeamsForContest={savedMatchTeamsForContest}
+      currentContestSavedTeamId={currentContestSavedTeamId}
     />
   );
 }

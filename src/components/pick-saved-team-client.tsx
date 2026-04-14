@@ -11,6 +11,7 @@ import { applySavedTeamToContestAction } from "@/app/actions/saved-match-teams";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import type { SavedMatchTeamCardRow } from "@/lib/saved-team-flow-data";
 import { SavedMatchTeamsRadioList } from "@/components/team-flow/saved-match-teams-radio-list";
+import { appendTeamFlowReturnQuery } from "@/lib/team-flow-return-path";
 
 function resolvePreferredSelection(
   teams: SavedMatchTeamCardRow[],
@@ -30,6 +31,7 @@ export function PickSavedTeamClient({
   contestId,
   teams,
   currentContestSavedTeamId = null,
+  contestTeamReturnPath,
   pitchTeamA,
   pitchTeamB,
   aShort,
@@ -40,6 +42,8 @@ export function PickSavedTeamClient({
   teams: SavedMatchTeamCardRow[];
   /** Bound template for this contest entry, if any — pre-selects the radio on Edit team. */
   currentContestSavedTeamId?: string | null;
+  /** Return URL after apply team / build XI (contest Teams tab). */
+  contestTeamReturnPath: string;
   pitchTeamA: string;
   pitchTeamB: string;
   aShort: string;
@@ -71,13 +75,16 @@ export function PickSavedTeamClient({
         return;
       }
       toast.success("Team applied");
-      router.push(`/contests/${contestId}`);
+      router.push(contestTeamReturnPath);
       router.refresh();
     });
   }
 
   /** `fresh=1` clears contest draft in DB so this XI is built from scratch (not prefilled). */
-  const squadHref = `/matches/${matchId}/contests/${contestId}/squad?fresh=1`;
+  const squadHref = appendTeamFlowReturnQuery(
+    `/matches/${matchId}/contests/${contestId}/squad?fresh=1`,
+    contestTeamReturnPath,
+  );
 
   return (
     <>
@@ -94,6 +101,8 @@ export function PickSavedTeamClient({
               bShort={bShort}
               selectedId={selectedId}
               onSelectedIdChange={setSelectedId}
+              showEditSavedTemplate
+              templateEditReturnPath={contestTeamReturnPath}
             />
             <Button
               type="button"

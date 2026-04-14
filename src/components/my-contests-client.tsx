@@ -38,6 +38,8 @@ export type MyContestListRow = {
   /** Host can delete before lock (same rules as match page). */
   canDeleteAsHost: boolean;
   paidParticipantsCount: number;
+  /** Match start (UTC) for sorting; 0 if unknown. */
+  matchStartTimeMs: number;
 };
 
 function ContestCard({ row }: { row: MyContestListRow }) {
@@ -123,7 +125,7 @@ function ContestCard({ row }: { row: MyContestListRow }) {
             </Link>
             {row.canEditTeam ? (
               <Link
-                href={`/matches/${row.matchId}/contests/${row.contestId}/pick-team`}
+                href={`/contests/${row.contestId}?tab=teams`}
                 className={cn(
                   buttonVariants({ variant: "default" }),
                   "inline-flex min-h-11 flex-1 items-center justify-center",
@@ -165,7 +167,9 @@ function RowList({ rows }: { rows: MyContestListRow[] }) {
 
 export function MyContestsClient({ rows }: { rows: MyContestListRow[] }) {
   const openRows = rows.filter((r) => !r.prizesSettled);
-  const closedRows = rows.filter((r) => r.prizesSettled);
+  const closedRows = rows
+    .filter((r) => r.prizesSettled)
+    .sort((a, b) => b.matchStartTimeMs - a.matchStartTimeMs);
 
   return (
     <Tabs defaultValue="open" className="w-full">

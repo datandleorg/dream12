@@ -18,7 +18,7 @@ export function LoadingOverlay({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-[200] flex flex-col items-center justify-center gap-4 bg-background/80 p-6 backdrop-blur-sm",
+        "pointer-events-auto fixed inset-0 z-[200] flex flex-col items-center justify-center gap-4 bg-background/80 p-6 backdrop-blur-sm",
         className,
       )}
       aria-busy

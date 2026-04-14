@@ -21,6 +21,7 @@ import {
   createSavedMatchTeamAction,
   updateSavedMatchTeamAction,
 } from "@/app/actions/saved-match-teams";
+import { appendTeamFlowReturnQuery } from "@/lib/team-flow-return-path";
 
 export function SavedMatchTeamPreview({
   matchId,
@@ -28,12 +29,15 @@ export function SavedMatchTeamPreview({
   mode,
   savedTeamId,
   slot,
+  afterSaveHref = null,
 }: {
   matchId: number;
   match: TeamFlowMatchRow;
   mode: "create" | "edit";
   savedTeamId?: string;
   slot?: number;
+  /** When set (e.g. contest Teams tab), navigate here after save instead of My teams. */
+  afterSaveHref?: string | null;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -70,16 +74,16 @@ export function SavedMatchTeamPreview({
 
   useEffect(() => {
     if (selected.length === 0) {
-      router.replace(`${base}/squad`);
+      router.replace(appendTeamFlowReturnQuery(`${base}/squad`, afterSaveHref));
       return;
     }
     if (
       selected.length === SQUAD_SIZE &&
       (!captainId || !viceCaptainId || captainId === viceCaptainId)
     ) {
-      router.replace(`${base}/captain`);
+      router.replace(appendTeamFlowReturnQuery(`${base}/captain`, afterSaveHref));
     }
-  }, [selected.length, captainId, viceCaptainId, router, base]);
+  }, [selected.length, captainId, viceCaptainId, router, base, afterSaveHref]);
 
   async function onSave() {
     if (!canSave || !captainId || !viceCaptainId) return;
@@ -106,7 +110,7 @@ export function SavedMatchTeamPreview({
       return;
     }
     toast.success(mode === "edit" ? "Team updated" : "Team saved");
-    router.push(`/matches/${matchId}/teams`);
+    router.push(afterSaveHref ?? `/matches/${matchId}/teams`);
     router.refresh();
   }
 
@@ -134,7 +138,7 @@ export function SavedMatchTeamPreview({
       {lineupConflictSelected > 0 ? (
         <LineupConflictBanner
           count={lineupConflictSelected}
-          editHref={`${base}/squad`}
+          editHref={appendTeamFlowReturnQuery(`${base}/squad`, afterSaveHref)}
           matchStatus={match.status}
         />
       ) : null}
@@ -160,7 +164,7 @@ export function SavedMatchTeamPreview({
             {mode === "edit" ? "Save changes" : "Save team"}
           </Button>
           <Link
-            href={`${base}/captain`}
+            href={appendTeamFlowReturnQuery(`${base}/captain`, afterSaveHref)}
             className={cn(
               buttonVariants({ variant: "secondary" }),
               "inline-flex min-h-11 w-full items-center justify-center",

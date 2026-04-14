@@ -223,6 +223,12 @@ export default async function MyContestsPage() {
         ? (payoutByUserTeam.get(userTeamId) ?? 0)
         : null;
 
+      const startIso = m?.start_time ?? null;
+      const matchStartParsed = startIso ? Date.parse(startIso) : NaN;
+      const matchStartTimeMs = Number.isFinite(matchStartParsed)
+        ? matchStartParsed
+        : 0;
+
       const row: MyContestListRow = {
         userTeamId,
         contestId: c.id,
@@ -244,6 +250,7 @@ export default async function MyContestsPage() {
         canEditTeam,
         canDeleteAsHost,
         paidParticipantsCount,
+        matchStartTimeMs,
       };
       return row;
     })

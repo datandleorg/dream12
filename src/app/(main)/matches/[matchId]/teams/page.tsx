@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { listSavedMatchTeamsWithSummary } from "@/lib/saved-team-flow-data";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
@@ -65,9 +67,10 @@ export default async function MatchTeamsPage({
             href={`/matches/${matchId}/teams/create/squad?fresh=1`}
             className={cn(
               buttonVariants({ variant: "default" }),
-              "inline-flex min-h-11 w-full items-center justify-center sm:w-auto",
+              "inline-flex min-h-11 w-full items-center justify-center gap-2 sm:w-auto",
             )}
           >
+            <Plus className="size-4 shrink-0" aria-hidden />
             Create team
           </Link>
         ) : locked ? (
@@ -78,6 +81,8 @@ export default async function MatchTeamsPage({
           <p className="text-muted-foreground text-sm">Maximum 10 teams per match.</p>
         )}
       </div>
+
+      <Separator />
 
       {!teams.length ? (
         <p className="text-muted-foreground text-sm">
