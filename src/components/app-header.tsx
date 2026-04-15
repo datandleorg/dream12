@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { RefreshCw, Wallet } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { NotificationsHeaderMenu } from "@/components/notifications-header-menu";
 import type { NotificationRow } from "@/lib/notifications";
 import { safeInternalPath } from "@/lib/safe-return-to";
@@ -28,6 +29,7 @@ export function AppHeader({
   unreadNotifications?: number;
   notificationPreview?: NotificationRow[];
 }) {
+  const [reloading, setReloading] = useState(false);
   const searchParams = useSearchParams();
   const returnTo = useMemo(
     () => safeInternalPath(searchParams.get("returnTo")),
@@ -37,19 +39,27 @@ export function AppHeader({
   const walletHref = returnTo ? `/wallet?returnTo=${encodeURIComponent(returnTo)}` : "/wallet";
 
   return (
-    <header className="border-border/60 bg-background/80 sticky top-0 z-40 mb-1 flex items-center justify-between gap-2 border-b px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+    <>
+      <LoadingOverlay show={reloading} label="Reloading…" />
+      <header className="border-border/60 bg-background/80 sticky top-0 z-40 mb-1 flex items-center justify-between gap-2 border-b px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
       <BrandLogo variant="compact" />
       <div className="flex items-center gap-1.5">
         <button
           type="button"
-          className="text-foreground hover:bg-muted/80 inline-flex size-9 items-center justify-center rounded-md transition-colors"
+          className="text-foreground hover:bg-muted/80 inline-flex size-9 items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-60"
           aria-label="Refresh page"
           title="Reload the app — useful when installed as a PWA to fetch the latest content"
+          disabled={reloading}
           onClick={() => {
-            window.location.reload();
+            setReloading(true);
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                window.location.reload();
+              });
+            });
           }}
         >
-          <RefreshCw className="size-5" aria-hidden />
+          <RefreshCw className={`size-5 ${reloading ? "animate-spin" : ""}`} aria-hidden />
         </button>
         <NotificationsHeaderMenu
           userId={userId}
@@ -66,5 +76,6 @@ export function AppHeader({
         </Link>
       </div>
     </header>
+    </>
   );
 }
