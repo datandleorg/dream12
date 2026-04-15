@@ -95,6 +95,7 @@ export function useSquadPickerDerived(
   const base =
     savedFlow?.basePath ?? `/matches/${matchId}/contests/${contestId}`;
   const squadBackHref = savedFlow?.backHref ?? `/matches/${matchId}`;
+  const stepQuerySuffix = savedFlow?.stepQuerySuffix ?? "";
   const canContinue = selected.length === SQUAD_SIZE;
 
   const pickInstruction = `Pick any ${SQUAD_SIZE} within credits · ${ROLE_PICK_COPY[roleTab]}`;
@@ -119,6 +120,7 @@ export function useSquadPickerDerived(
     sortedFiltered,
     base,
     squadBackHref,
+    stepQuerySuffix,
     canContinue,
     pickInstruction,
   };

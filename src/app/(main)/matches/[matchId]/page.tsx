@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -9,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MatchStatusBadge } from "@/components/match-status-badge";
 import { JoinContestButton } from "@/components/join-contest-button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import {
@@ -19,13 +19,16 @@ import {
 import { cn } from "@/lib/utils";
 import { getLineupConflictCountsByContest } from "@/lib/lineup-conflict-queries";
 import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
-import { MatchDetailLiveSection } from "@/components/match-detail-live-section";
+import { MatchDetailPageClient } from "@/components/match-detail-page-client";
+import { MatchSavedTeamsTab } from "@/components/match-saved-teams-tab";
 import { refreshMatchFromSportmonks } from "@/lib/sportmonks/fixture-detail";
 import { isSportmonksFixtureId } from "@/lib/sportmonks/sportmonks-ids";
 import { venueStageLabels } from "@/lib/match-venue-stage";
 import { contestTeamBuildPath } from "@/lib/team-flow-data";
 import { DeleteContestButton } from "@/components/delete-contest-button";
 import { mapSavedTemplateIdsToSlots } from "@/lib/contest-entry-saved-team";
+import { resolveLiveSnapshotForPage } from "@/lib/sportmonks/resolve-live-snapshot";
+import { listSavedMatchTeamsWithSummary } from "@/lib/saved-team-flow-data";
 
 export default async function MatchDetailPage({
   params,
@@ -125,6 +128,8 @@ export default async function MatchDetailPage({
 
   const filledByContest = new Map<string, number>();
   const joinedContestIds = new Set<string>();
+  /** Paid / confirmed entry — Leaderboard only for these. */
+  const paidEntryContestIds = new Set<string>();
   const myTeamResumeHrefByContest = new Map<string, string>();
   const myEntryTeamByContest = new Map<
     string,
@@ -142,6 +147,9 @@ export default async function MatchDetailPage({
       }
       if (user && r.user_id === user.id) {
         joinedContestIds.add(id);
+        if (r.entry_fee_paid_at != null) {
+          paidEntryContestIds.add(id);
+        }
       }
     }
 
@@ -199,90 +207,59 @@ export default async function MatchDetailPage({
 
   const rosterLocked = isTeamEditLocked(matchRow.status);
 
-  return (
-    <div className="space-y-4 py-4">
-      <div>
-        <MatchDetailLiveSection
-          matchId={matchId}
-          title={subtitle}
-          tournamentName={match.tournament_name}
-          startIso={match.start_time}
-          matchFormat={match.match_format}
-          live_snapshot={matchRow.live_snapshot}
-          live_snapshot_at={matchRow.live_snapshot_at as string | null}
-          status={String(matchRow.status)}
-          sm_fixture_status={matchRow.sm_fixture_status as string | null}
-          sm_fixture_note={matchRow.sm_fixture_note as string | null}
-          fixture_scoreboard_raw={matchRow.fixture_scoreboard_raw}
-          teamA={match.team_a ?? null}
-          teamB={match.team_b ?? null}
-          localteamId={
-            matchRow.localteam_id != null ? Number(matchRow.localteam_id) : null
-          }
-          visitorteamId={
-            matchRow.visitorteam_id != null
-              ? Number(matchRow.visitorteam_id)
-              : null
-          }
-          tossWinnerTeamId={
-            matchRow.toss_winner_team_id != null
-              ? Number(matchRow.toss_winner_team_id)
-              : null
-          }
-          tossDecision={
-            typeof matchRow.toss_decision === "string"
-              ? matchRow.toss_decision
-              : null
-          }
-        />
-        {venueLine ? (
-          <p className="text-muted-foreground mt-1 text-sm">{venueLine}</p>
-        ) : null}
-        {stageLine ? (
-          <p className="text-muted-foreground mt-0.5 text-xs">{stageLine}</p>
-        ) : null}
-      </div>
+  const initialParsedSnapshot = await resolveLiveSnapshotForPage(matchId, {
+    live_snapshot: matchRow.live_snapshot,
+    live_snapshot_at: matchRow.live_snapshot_at as string | null,
+  });
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <h2 className="text-lg font-medium">Contests</h2>
-          <Link
-            href={`/matches/${matchId}/live`}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "inline-flex min-h-10 w-full items-center justify-center sm:w-auto",
-            )}
-          >
-            Live score
-          </Link>
-          {user ? (
-            <Link
-              href={`/matches/${matchId}/teams`}
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "inline-flex min-h-10 w-full items-center justify-center sm:w-auto",
-              )}
-            >
-              My teams
-            </Link>
-          ) : null}
-        </div>
+  const savedTeamsForTab = user
+    ? await listSavedMatchTeamsWithSummary(
+        matchId,
+        match.team_a ?? null,
+        match.team_b ?? null,
+      )
+    : [];
+
+  const liveArgs = {
+    matchId,
+    live_snapshot: matchRow.live_snapshot,
+    live_snapshot_at: matchRow.live_snapshot_at as string | null,
+    status: String(matchRow.status),
+    sm_fixture_status: matchRow.sm_fixture_status as string | null,
+    sm_fixture_note: matchRow.sm_fixture_note as string | null,
+    fixture_scoreboard_raw: matchRow.fixture_scoreboard_raw,
+    initialParsedSnapshot,
+    toss_winner_team_id:
+      matchRow.toss_winner_team_id != null
+        ? Number(matchRow.toss_winner_team_id)
+        : null,
+    toss_decision:
+      typeof matchRow.toss_decision === "string" ? matchRow.toss_decision : null,
+  };
+
+  const contestsSlot = (
+    <div className="space-y-4">
+      <div className="space-y-3">
         {user ? (
           isUpcoming ? (
             <Link
               href={`/matches/${matchId}/create-contest`}
               className={cn(
-                buttonVariants({ variant: "secondary" }),
-                "inline-flex min-h-11 w-full items-center justify-center sm:w-auto",
+                buttonVariants({ variant: "default" }),
+                "inline-flex min-h-11 w-full items-center justify-center gap-1.5",
+                "bg-red-600 text-white hover:bg-red-700 active:bg-red-800",
+                "focus-visible:border-red-500 focus-visible:ring-red-500/40",
+                "dark:bg-red-600 dark:hover:bg-red-500 dark:active:bg-red-700",
               )}
             >
+              <Plus className="size-4 shrink-0" aria-hidden />
               Create contest
             </Link>
           ) : (
             <span
               className={cn(
                 buttonVariants({ variant: "secondary" }),
-                "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60 sm:w-auto",
+                "inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center opacity-60",
               )}
               title={
                 isLive
@@ -297,6 +274,17 @@ export default async function MatchDetailPage({
           )
         ) : null}
       </div>
+      <div className="flex items-center gap-3">
+        <div className="bg-border h-px flex-1" />
+        <span className="text-muted-foreground shrink-0 text-[11px] font-semibold uppercase tracking-wider">
+          or
+        </span>
+        <div className="bg-border h-px flex-1" />
+      </div>
+      <p className="text-muted-foreground px-1 text-center text-xs leading-snug">
+        Join an existing contest from the list below — pick a card, then join or open the leaderboard if
+        you&apos;re already in.
+      </p>
       {!contests?.length ? (
         <Card>
           <CardHeader>
@@ -369,15 +357,17 @@ export default async function MatchDetailPage({
                     </CardDescription>
                   </CardHeader>
                   <CardFooter className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                    <Link
-                      href={`/contests/${c.id}`}
-                      className={cn(
-                        buttonVariants({ variant: "default" }),
-                        "inline-flex min-h-11 w-full items-center justify-center sm:min-w-[10rem] sm:flex-1",
-                      )}
-                    >
-                      Leaderboard
-                    </Link>
+                    {user && paidEntryContestIds.has(c.id) ? (
+                      <Link
+                        href={`/contests/${c.id}`}
+                        className={cn(
+                          buttonVariants({ variant: "default" }),
+                          "inline-flex min-h-11 w-full items-center justify-center sm:min-w-[10rem] sm:flex-1",
+                        )}
+                      >
+                        Leaderboard
+                      </Link>
+                    ) : null}
                     {!isCompleted ? (
                       user ? (
                         isCreatorDraftContest(
@@ -438,8 +428,10 @@ export default async function MatchDetailPage({
                         <Link
                           href={`/login?next=${encodeURIComponent(`/matches/${matchId}`)}`}
                           className={cn(
-                            buttonVariants({ variant: "secondary" }),
+                            buttonVariants({ variant: "default" }),
                             "inline-flex min-h-11 w-full items-center justify-center sm:flex-1",
+                            "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
+                            "focus-visible:border-emerald-500 focus-visible:ring-emerald-500/40",
                           )}
                         >
                           Sign in to join
@@ -465,5 +457,54 @@ export default async function MatchDetailPage({
         </ul>
       )}
     </div>
+  );
+
+  const teamsSlot = user ? (
+    <MatchSavedTeamsTab
+      variant="tab"
+      matchId={matchId}
+      teamA={match.team_a ?? null}
+      teamB={match.team_b ?? null}
+      title={subtitle}
+      locked={rosterLocked}
+      teams={savedTeamsForTab}
+    />
+  ) : (
+    <div className="space-y-3">
+      <p className="text-muted-foreground text-sm leading-snug">
+        Use a saved team below, or create a new one after you sign in.
+      </p>
+      <Link
+        href={`/login?next=${encodeURIComponent(`/matches/${matchId}`)}`}
+        className={cn(
+          buttonVariants({ variant: "default" }),
+          "inline-flex min-h-11 w-full items-center justify-center",
+        )}
+      >
+        Sign in
+      </Link>
+    </div>
+  );
+
+  return (
+    <MatchDetailPageClient
+      liveArgs={liveArgs}
+      title={subtitle}
+      tournamentName={match.tournament_name}
+      startIso={match.start_time}
+      matchFormat={match.match_format}
+      teamA={match.team_a ?? null}
+      teamB={match.team_b ?? null}
+      localteamId={
+        matchRow.localteam_id != null ? Number(matchRow.localteam_id) : null
+      }
+      visitorteamId={
+        matchRow.visitorteam_id != null ? Number(matchRow.visitorteam_id) : null
+      }
+      venueLine={venueLine}
+      stageLine={stageLine}
+      contestsSlot={contestsSlot}
+      teamsSlot={teamsSlot}
+    />
   );
 }

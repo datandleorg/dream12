@@ -25,6 +25,7 @@ export function SquadPickerFooter({
   captainId,
   viceCaptainId,
   base,
+  stepQuerySuffix,
   canContinue,
   rosterLocked,
   matchId,
@@ -38,6 +39,7 @@ export function SquadPickerFooter({
   captainId: string | null;
   viceCaptainId: string | null;
   base: string;
+  stepQuerySuffix: string;
   canContinue: boolean;
   rosterLocked: boolean;
   matchId: number;
@@ -89,7 +91,7 @@ export function SquadPickerFooter({
           onClick={() => {
             if (rosterLocked) return;
             if (savedFlow) {
-              router.push(`${base}/captain`);
+              router.push(`${base}/captain${stepQuerySuffix}`);
               return;
             }
             startSavingSquad(async () => {
@@ -103,7 +105,7 @@ export function SquadPickerFooter({
                 return;
               }
               router.refresh();
-              router.push(`${base}/captain`);
+              router.push(`${base}/captain${stepQuerySuffix}`);
             });
           }}
         >
@@ -112,7 +114,7 @@ export function SquadPickerFooter({
       </div>
       {selected.length > 0 ? (
         <Link
-          href={`${base}/preview`}
+          href={`${base}/preview${stepQuerySuffix}`}
           className="mt-2 block text-center text-sm font-medium text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400"
         >
           Open full-screen preview

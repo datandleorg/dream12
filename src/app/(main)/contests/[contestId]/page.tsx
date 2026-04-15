@@ -193,16 +193,6 @@ export default async function ContestLeaderboardPage({
   const rosterLocked = isTeamEditLocked(matchRow?.status);
   const isCreatorDraft = isCreatorDraftContest(contestVisibility, user?.id);
 
-  let walletBalance = 0;
-  if (user) {
-    const { data: walletProfile } = await supabase
-      .from("profiles")
-      .select("wallet_balance")
-      .eq("id", user.id)
-      .single();
-    walletBalance = Number(walletProfile?.wallet_balance ?? 0);
-  }
-
   const { data: teams } = await supabase
     .from("user_teams")
     .select("id,user_id,total_points,created_at")
@@ -353,7 +343,6 @@ export default async function ContestLeaderboardPage({
       invitePublic={invitePublic}
       matchJoinBlocked={matchJoinBlocked}
       rosterLocked={rosterLocked}
-      walletBalance={walletBalance}
       isCreatorDraft={isCreatorDraft}
       entryFee={Number(contest.entry_fee ?? 0)}
       prizePool={Number(contest.prize_pool ?? 0)}

@@ -9,3 +9,19 @@ export function safeInternalPath(
   if (t.includes("://")) return null;
   return t;
 }
+
+/** Saved-team edit flow: optional `returnTo` query (e.g. contest pick-team). */
+export function savedTeamEditReturnFlow(
+  raw: string | string[] | undefined | null,
+  matchId: number,
+) {
+  const returnTo = safeInternalPath(raw);
+  const fallbackTeams = `/matches/${matchId}/teams`;
+  return {
+    backHref: returnTo ?? fallbackTeams,
+    stepQuerySuffix: returnTo
+      ? `?returnTo=${encodeURIComponent(returnTo)}`
+      : "",
+    afterSaveHref: returnTo ?? undefined,
+  };
+}

@@ -11,7 +11,6 @@ import {
   HomeUpcomingCard,
   type HomeMatchCardModel,
 } from "@/components/home-upcoming-card";
-import { JoinContestButton } from "@/components/join-contest-button";
 import { MatchLiveScoreTabs } from "@/components/match-live-score-tabs";
 import { MatchTossLines } from "@/components/match-toss-lines";
 import { Button } from "@/components/ui/button";
@@ -63,7 +62,6 @@ export function ContestDashboard({
   invitePublic,
   matchJoinBlocked,
   rosterLocked,
-  walletBalance,
   isCreatorDraft,
   entryFee,
   prizePool,
@@ -94,7 +92,6 @@ export function ContestDashboard({
   /** Match completed or in_review — no join / continue setup. */
   matchJoinBlocked: boolean;
   rosterLocked: boolean;
-  walletBalance: number;
   isCreatorDraft: boolean;
   entryFee: number;
   prizePool: number;
@@ -285,42 +282,28 @@ export function ContestDashboard({
                     Invite
                   </Button>
                 )}
-                {!matchJoinBlocked && currentUserId ? (
-                  isCreatorDraft ? (
-                    rosterLocked ? (
-                      <span
-                        className={cn(
-                          buttonVariants({ variant: "secondary", size: "sm" }),
-                          "inline-flex min-h-10 cursor-not-allowed items-center justify-center opacity-60",
-                        )}
-                        title="Team lock is on — you cannot finish contest setup now."
-                      >
-                        Continue setup (locked)
-                      </span>
-                    ) : (
-                      <Link
-                        href={squadHref}
-                        className={cn(
-                          buttonVariants({ variant: "secondary", size: "sm" }),
-                          "inline-flex min-h-10 shrink-0 items-center justify-center",
-                        )}
-                      >
-                        Continue setup
-                      </Link>
-                    )
-                  ) : !userHasTeamInContest ? (
-                    <div className="[&_button]:min-h-10 [&_button]:w-auto [&_button]:px-3">
-                      <JoinContestButton
-                        matchId={matchCard.id}
-                        contestId={contestId}
-                        entryFee={entryFee}
-                        balance={walletBalance}
-                        label="Join"
-                        disabled={rosterLocked}
-                        disabledReason="Team lock is on — you cannot join new contests after the match goes live."
-                      />
-                    </div>
-                  ) : null
+                {!matchJoinBlocked && currentUserId && isCreatorDraft ? (
+                  rosterLocked ? (
+                    <span
+                      className={cn(
+                        buttonVariants({ variant: "secondary", size: "sm" }),
+                        "inline-flex min-h-10 cursor-not-allowed items-center justify-center opacity-60",
+                      )}
+                      title="Team lock is on — you cannot finish contest setup now."
+                    >
+                      Continue setup (locked)
+                    </span>
+                  ) : (
+                    <Link
+                      href={squadHref}
+                      className={cn(
+                        buttonVariants({ variant: "secondary", size: "sm" }),
+                        "inline-flex min-h-10 shrink-0 items-center justify-center",
+                      )}
+                    >
+                      Continue setup
+                    </Link>
+                  )
                 ) : null}
                 {showSquadLink ? (
                   <Link
@@ -524,7 +507,6 @@ export function ContestDashboard({
           <MatchLiveScoreTabs
             snapshot={live.snapshot}
             fixtureScoreboardRaw={live.fixtureScoreboardRaw}
-            defaultTab="scorecard"
             isCompleted={matchCompleted}
             tossSummary={
               <MatchTossLines

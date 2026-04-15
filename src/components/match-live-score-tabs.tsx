@@ -2,7 +2,6 @@
 
 import { useMemo, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   buildInningsCardsFromScoreboardRaw,
   completedTeamScoreLines,
@@ -346,7 +345,7 @@ export function MatchSnapshotScorecardContent({
         ))
       ) : (
         <div className={denseTables}>
-          <Card className={cn(compact && "border-border/80 shadow-none")}>
+          <Card className={cn(compact ? "border-border/80 shadow-none" : "border-border/80 mb-3 shadow-none")}>
             <CardHeader className={cn(compact ? "pb-1.5 pt-3" : "pb-2")}>
               <CardTitle className={cn(compact ? "text-sm" : "text-base")}>
                 Batting
@@ -359,7 +358,7 @@ export function MatchSnapshotScorecardContent({
               />
             </CardContent>
           </Card>
-          <Card className={cn(compact && "border-border/80 mt-3 shadow-none")}>
+          <Card className={cn(compact && "border-border/80 shadow-none")}>
             <CardHeader className={cn(compact ? "pb-1.5 pt-3" : "pb-2")}>
               <CardTitle className={cn(compact ? "text-sm" : "text-base")}>
                 Bowling
@@ -382,7 +381,6 @@ export function MatchLiveScoreTabs({
   snapshot,
   fixtureScoreboardRaw,
   className,
-  defaultTab = "summary",
   isCompleted = false,
   tossSummary,
 }: {
@@ -390,11 +388,9 @@ export function MatchLiveScoreTabs({
   /** Authoritative batting/bowling trees from DB; when present, scorecard uses them for dismissal detail. */
   fixtureScoreboardRaw?: unknown;
   className?: string;
-  /** Default panel: `summary` or `scorecard` (e.g. contest page). */
-  defaultTab?: "summary" | "scorecard";
-  /** Affects summary copy only; scorecard stays available for finished matches. */
+  /** Affects summary copy only; full scorecard still shown below. */
   isCompleted?: boolean;
-  /** Toss / batting first; shown above tabs when provided. */
+  /** Toss / batting first; shown at the top when provided. */
   tossSummary?: ReactNode;
 }) {
   const rawJson =
@@ -411,25 +407,22 @@ export function MatchLiveScoreTabs({
   }, [snapshot, rawJson]);
 
   return (
-    <Tabs defaultValue={defaultTab} className={cn("w-full", className)}>
-      {tossSummary ? <div className="mb-1">{tossSummary}</div> : null}
-      <TabsList variant="line" className="mb-3 w-full justify-start gap-1">
-        <TabsTrigger value="summary">Summary</TabsTrigger>
-        <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
-      </TabsList>
-      <TabsContent value="summary">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Match summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SnapshotScoreSummaryBody snapshot={snapshot} isCompleted={isCompleted} />
-          </CardContent>
-        </Card>
-      </TabsContent>
-      <TabsContent value="scorecard">
+    <div className={cn("w-full space-y-4", className)}>
+      {tossSummary ? <div>{tossSummary}</div> : null}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Match summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SnapshotScoreSummaryBody snapshot={snapshot} isCompleted={isCompleted} />
+        </CardContent>
+      </Card>
+      <div className="space-y-3">
+        <p className="text-muted-foreground px-0.5 text-xs font-semibold uppercase tracking-wide">
+          Scorecard
+        </p>
         <MatchSnapshotScorecardContent snapshot={scorecardSnapshot} className="space-y-6" />
-      </TabsContent>
-    </Tabs>
+      </div>
+    </div>
   );
 }

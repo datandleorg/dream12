@@ -16,6 +16,7 @@ import { FlowHeader } from "@/components/team-flow/flow-header";
 import { LineupConflictBanner } from "@/components/team-flow/lineup-conflict-banner";
 import { PlayingXiDot } from "@/components/team-flow/playing-xi-dot";
 import { cn } from "@/lib/utils";
+import type { SquadSavedFlow } from "@/components/team-flow/squad-picker-types";
 
 export function CaptainSelector({
   matchId,
@@ -26,7 +27,7 @@ export function CaptainSelector({
   matchId: number;
   contestId: string;
   match: TeamFlowMatchRow;
-  savedFlow?: { basePath: string };
+  savedFlow?: Pick<SquadSavedFlow, "basePath" | "stepQuerySuffix">;
 }) {
   const router = useRouter();
   const selected = useTeamBuilderStore((s) => s.selected);
@@ -37,6 +38,7 @@ export function CaptainSelector({
 
   const base =
     savedFlow?.basePath ?? `/matches/${matchId}/contests/${contestId}`;
+  const stepQ = savedFlow?.stepQuerySuffix ?? "";
   const teamA = match.team_a?.trim() || "Team A";
   const teamB = match.team_b?.trim() || "Team B";
   const title =
@@ -53,9 +55,9 @@ export function CaptainSelector({
 
   useEffect(() => {
     if (selected.length !== SQUAD_SIZE) {
-      router.replace(`${base}/squad`);
+      router.replace(`${base}/squad${stepQ}`);
     }
-  }, [selected.length, router, base]);
+  }, [selected.length, router, base, stepQ]);
 
   const canContinue = Boolean(
     captainId && viceCaptainId && captainId !== viceCaptainId,
@@ -94,13 +96,13 @@ export function CaptainSelector({
       {lineupConflictSelected > 0 ? (
         <LineupConflictBanner
           count={lineupConflictSelected}
-          editHref={`${base}/squad`}
+          editHref={`${base}/squad${stepQ}`}
           matchStatus={match.status}
         />
       ) : null}
 
       <Link
-        href={`${base}/squad`}
+        href={`${base}/squad${stepQ}`}
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
           "inline-flex min-h-10 w-fit items-center justify-center px-2",
@@ -187,7 +189,7 @@ export function CaptainSelector({
             variant="secondary"
             className="min-h-11 w-full"
             disabled={!canContinue}
-            onClick={() => router.push(`${base}/preview`)}
+            onClick={() => router.push(`${base}/preview${stepQ}`)}
           >
             Team preview
           </Button>
@@ -195,7 +197,7 @@ export function CaptainSelector({
             type="button"
             className="min-h-11 w-full"
             disabled={!canContinue}
-            onClick={() => router.push(`${base}/preview`)}
+            onClick={() => router.push(`${base}/preview${stepQ}`)}
           >
             Continue
           </Button>

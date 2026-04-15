@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { listSavedMatchTeamsWithSummary } from "@/lib/saved-team-flow-data";
 import { PickSavedTeamClient } from "@/components/pick-saved-team-client";
+import { isTeamEditLocked } from "@/lib/fantasy/team-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function PickTeamForContestPage({
 
   const { data: matchRow } = await supabase
     .from("matches")
-    .select("team_a,team_b")
+    .select("team_a,team_b,status")
     .eq("id", matchId)
     .maybeSingle();
 
@@ -58,6 +59,7 @@ export default async function PickTeamForContestPage({
   const bShort = teamB?.trim() || "B";
   const pitchTeamA = teamA?.trim() || "Team A";
   const pitchTeamB = teamB?.trim() || "Team B";
+  const editLocked = isTeamEditLocked(String(matchRow?.status ?? ""));
 
   return (
     <div className="space-y-4 py-4">
@@ -83,6 +85,7 @@ export default async function PickTeamForContestPage({
         pitchTeamB={pitchTeamB}
         aShort={aShort}
         bShort={bShort}
+        editLocked={editLocked}
       />
     </div>
   );

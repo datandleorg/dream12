@@ -15,6 +15,10 @@ export type SavedMatchTeamsRadioListProps = {
   bShort: string;
   selectedId: string;
   onSelectedIdChange: (id: string) => void;
+  /** After editing XI, return user here (contest pick-team). */
+  editReturnToPath?: string;
+  /** Match roster locked — no edit navigation. */
+  editLocked?: boolean;
 };
 
 function SavedMatchTeamsRadioListInner(props: SavedMatchTeamsRadioListProps) {
@@ -27,6 +31,8 @@ function SavedMatchTeamsRadioListInner(props: SavedMatchTeamsRadioListProps) {
     bShort,
     selectedId,
     onSelectedIdChange,
+    editReturnToPath,
+    editLocked = false,
   } = props;
 
   const labelId = "saved-match-teams-radio-label";
@@ -66,9 +72,11 @@ function SavedMatchTeamsRadioListInner(props: SavedMatchTeamsRadioListProps) {
                     pitchTeamB={pitchTeamB}
                     aShort={aShort}
                     bShort={bShort}
-                    primaryAction="none"
+                    primaryAction="edit"
                     pickSelectorRow
                     embedded
+                    editLocked={editLocked}
+                    editReturnToPath={editReturnToPath}
                   />
                 </div>
               </div>

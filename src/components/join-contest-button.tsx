@@ -56,7 +56,12 @@ export function JoinContestButton({
       <LoadingOverlay show={navigating} label="Opening squad…" />
       <Button
         type="button"
-        className="min-h-11 w-full sm:flex-1"
+        className={cn(
+          "min-h-11 w-full sm:flex-1",
+          "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
+          "focus-visible:border-emerald-500 focus-visible:ring-emerald-500/40",
+          "disabled:hover:bg-emerald-600",
+        )}
         disabled={disabled}
         title={disabled ? disabledReason : undefined}
         onClick={() => onJoin()}

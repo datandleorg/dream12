@@ -34,6 +34,7 @@ export function PickSavedTeamClient({
   pitchTeamB,
   aShort,
   bShort,
+  editLocked = false,
 }: {
   matchId: number;
   contestId: string;
@@ -44,6 +45,8 @@ export function PickSavedTeamClient({
   pitchTeamB: string;
   aShort: string;
   bShort: string;
+  /** Match status — no editing saved XIs when roster is locked. */
+  editLocked?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -78,6 +81,7 @@ export function PickSavedTeamClient({
 
   /** `fresh=1` clears contest draft in DB so this XI is built from scratch (not prefilled). */
   const squadHref = `/matches/${matchId}/contests/${contestId}/squad?fresh=1`;
+  const editReturnToPath = `/matches/${matchId}/contests/${contestId}/pick-team`;
 
   return (
     <>
@@ -94,6 +98,8 @@ export function PickSavedTeamClient({
               bShort={bShort}
               selectedId={selectedId}
               onSelectedIdChange={setSelectedId}
+              editReturnToPath={editReturnToPath}
+              editLocked={editLocked}
             />
             <Button
               type="button"

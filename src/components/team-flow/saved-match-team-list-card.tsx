@@ -33,6 +33,8 @@ type SavedMatchTeamListCardProps = {
   pickSelectorRow?: boolean;
   /** My teams: match not upcoming — no squad/edit links (status-based lock). */
   editLocked?: boolean;
+  /** When set with `primaryAction="edit"`, squad URL includes `returnTo` (e.g. pick-team). */
+  editReturnToPath?: string;
 };
 
 /**
@@ -50,10 +52,16 @@ export function SavedMatchTeamListCard({
   embedded = false,
   pickSelectorRow = false,
   editLocked = false,
+  editReturnToPath,
 }: SavedMatchTeamListCardProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const capAv = playerAvatarUrl(t.captain.photo_url, t.captain.name);
   const vcAv = playerAvatarUrl(t.viceCaptain.photo_url, t.viceCaptain.name);
+
+  const squadBaseHref = `/matches/${matchId}/teams/${t.id}/squad`;
+  const squadHref = editReturnToPath
+    ? `${squadBaseHref}?returnTo=${encodeURIComponent(editReturnToPath)}`
+    : squadBaseHref;
 
   function makePrimaryFooter() {
     if (primaryAction !== "edit") return null;
@@ -72,7 +80,8 @@ export function SavedMatchTeamListCard({
     }
     return (
       <Link
-        href={`/matches/${matchId}/teams/${t.id}/squad`}
+        href={squadHref}
+        onClick={(e) => e.stopPropagation()}
         className={cn(
           buttonVariants({ variant: "secondary", size: "sm" }),
           "inline-flex min-h-9 w-full items-center justify-center sm:w-auto",
@@ -100,10 +109,7 @@ export function SavedMatchTeamListCard({
             {pickSelectorRow || (primaryAction === "edit" && editLocked) ? (
               <span>Team {t.slot}</span>
             ) : (
-              <Link
-                href={`/matches/${matchId}/teams/${t.id}/squad`}
-                className="hover:underline"
-              >
+              <Link href={squadHref} className="hover:underline">
                 Team {t.slot}
               </Link>
             )}

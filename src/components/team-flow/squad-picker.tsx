@@ -146,6 +146,7 @@ export function SquadPicker({
           captainId={d.captainId}
           viceCaptainId={d.viceCaptainId}
           base={d.base}
+          stepQuerySuffix={d.stepQuerySuffix}
           canContinue={d.canContinue}
           rosterLocked={d.rosterLocked}
           matchId={matchId}

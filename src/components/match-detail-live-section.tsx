@@ -6,44 +6,35 @@ import { MatchStartCountdown } from "@/components/match-start-countdown";
 import { MatchStatusBadge } from "@/components/match-status-badge";
 import { FixtureSmStatusLine } from "@/components/fixture-sm-status-line";
 import { MatchTossLines } from "@/components/match-toss-lines";
-import { useMatchLiveRow } from "@/lib/hooks/use-match-live-row";
 import {
   isSnapshotShortLinePlaceholder,
   type LiveSnapshot,
 } from "@/lib/sportmonks/normalize-live-snapshot";
 
-export function MatchDetailLiveSection({
-  matchId,
+export function MatchDetailHero({
   title,
   tournamentName,
   startIso,
   matchFormat,
-  live_snapshot,
-  live_snapshot_at,
-  status: initialStatus,
-  sm_fixture_status,
-  sm_fixture_note,
-  fixture_scoreboard_raw,
-  initialParsedSnapshot,
+  snapshot,
+  status,
+  smFixtureStatus,
+  smFixtureNote,
   teamA,
   teamB,
   localteamId,
   visitorteamId,
-  tossWinnerTeamId: initialTossWinnerTeamId,
-  tossDecision: initialTossDecision,
+  tossWinnerTeamId,
+  tossDecision,
 }: {
-  matchId: number;
   title: string;
   tournamentName: string | null;
   startIso: string;
   matchFormat: string | null;
-  live_snapshot: unknown;
-  live_snapshot_at: string | null;
+  snapshot: LiveSnapshot;
   status: string;
-  sm_fixture_status: string | null;
-  sm_fixture_note?: string | null;
-  fixture_scoreboard_raw?: unknown;
-  initialParsedSnapshot?: LiveSnapshot | null;
+  smFixtureStatus: string | null;
+  smFixtureNote: string | null;
   teamA: string | null;
   teamB: string | null;
   localteamId: number | null;
@@ -51,20 +42,6 @@ export function MatchDetailLiveSection({
   tossWinnerTeamId: number | null;
   tossDecision: string | null;
 }) {
-  const { snapshot, status, smFixtureStatus, smFixtureNote, tossWinnerTeamId, tossDecision } =
-    useMatchLiveRow({
-      matchId,
-      live_snapshot,
-      live_snapshot_at,
-      status: initialStatus,
-      sm_fixture_status,
-      sm_fixture_note: sm_fixture_note ?? null,
-      fixture_scoreboard_raw,
-      initialParsedSnapshot,
-      toss_winner_team_id: initialTossWinnerTeamId,
-      toss_decision: initialTossDecision,
-    });
-
   const statusKey = String(status).toLowerCase();
   const isLive = statusKey === "live";
   const isCompleted = statusKey === "completed" || statusKey === "in_review";

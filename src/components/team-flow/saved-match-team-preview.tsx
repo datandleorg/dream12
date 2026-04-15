@@ -28,12 +28,18 @@ export function SavedMatchTeamPreview({
   mode,
   savedTeamId,
   slot,
+  stepQuerySuffix = "",
+  afterSaveHref,
 }: {
   matchId: number;
   match: TeamFlowMatchRow;
   mode: "create" | "edit";
   savedTeamId?: string;
   slot?: number;
+  /** Preserve `returnTo` across squad/captain/preview */
+  stepQuerySuffix?: string;
+  /** Validated internal path after save (e.g. pick-team) */
+  afterSaveHref?: string | null;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -70,16 +76,23 @@ export function SavedMatchTeamPreview({
 
   useEffect(() => {
     if (selected.length === 0) {
-      router.replace(`${base}/squad`);
+      router.replace(`${base}/squad${stepQuerySuffix}`);
       return;
     }
     if (
       selected.length === SQUAD_SIZE &&
       (!captainId || !viceCaptainId || captainId === viceCaptainId)
     ) {
-      router.replace(`${base}/captain`);
+      router.replace(`${base}/captain${stepQuerySuffix}`);
     }
-  }, [selected.length, captainId, viceCaptainId, router, base]);
+  }, [
+    selected.length,
+    captainId,
+    viceCaptainId,
+    router,
+    base,
+    stepQuerySuffix,
+  ]);
 
   async function onSave() {
     if (!canSave || !captainId || !viceCaptainId) return;
@@ -106,7 +119,7 @@ export function SavedMatchTeamPreview({
       return;
     }
     toast.success(mode === "edit" ? "Team updated" : "Team saved");
-    router.push(`/matches/${matchId}/teams`);
+    router.push(afterSaveHref ?? `/matches/${matchId}/teams`);
     router.refresh();
   }
 
@@ -134,7 +147,7 @@ export function SavedMatchTeamPreview({
       {lineupConflictSelected > 0 ? (
         <LineupConflictBanner
           count={lineupConflictSelected}
-          editHref={`${base}/squad`}
+          editHref={`${base}/squad${stepQuerySuffix}`}
           matchStatus={match.status}
         />
       ) : null}
@@ -160,7 +173,7 @@ export function SavedMatchTeamPreview({
             {mode === "edit" ? "Save changes" : "Save team"}
           </Button>
           <Link
-            href={`${base}/captain`}
+            href={`${base}/captain${stepQuerySuffix}`}
             className={cn(
               buttonVariants({ variant: "secondary" }),
               "inline-flex min-h-11 w-full items-center justify-center",
