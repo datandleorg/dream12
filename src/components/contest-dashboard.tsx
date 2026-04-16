@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RefreshCw, UserPlus } from "lucide-react";
+import { ChevronLeft, RefreshCw, UserPlus } from "lucide-react";
 import { LeaderboardRealtime, type Row } from "@/components/leaderboard-realtime";
 import { ContestTeamPreviewSheet } from "@/components/contest-team-preview-sheet";
 import { UserAvatar } from "@/components/user-avatar";
@@ -84,6 +84,8 @@ export function ContestDashboard({
   userHasChatterAccess = false,
   initialChatterMessages = [],
   openChatterTabByDefault = false,
+  backFallbackHref,
+  backReturnTo = null,
 }: {
   contestId: string;
   contestTitle: string;
@@ -116,6 +118,10 @@ export function ContestDashboard({
   initialChatterMessages?: ContestChatterMessage[];
   /** From `?chatter=1` when user has chatter access. */
   openChatterTabByDefault?: boolean;
+  /** When history is empty or `returnTo` is absent, back lands here (e.g. match hub). */
+  backFallbackHref: string;
+  /** From `?returnTo=` on the contest URL — must be a same-origin path (validated on the server). */
+  backReturnTo?: string | null;
 }) {
   const router = useRouter();
   const [preview, setPreview] = useState<{
@@ -139,6 +145,18 @@ export function ContestDashboard({
       setPageRefreshing(false);
     }, 750);
   }, [router]);
+
+  const goBack = useCallback(() => {
+    if (backReturnTo) {
+      router.push(backReturnTo);
+      return;
+    }
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push(backFallbackHref);
+  }, [router, backReturnTo, backFallbackHref]);
 
   const live = useMatchLiveRow({
     matchId: matchCard.id,
@@ -233,8 +251,19 @@ export function ContestDashboard({
     <>
         <div className="space-y-4 py-2">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <h1 className="text-lg font-semibold leading-tight sm:text-xl">
+            <div className="flex min-w-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-foreground -ml-1.5 size-9 shrink-0"
+                onClick={() => goBack()}
+                aria-label="Go back"
+                title="Go back"
+              >
+                <ChevronLeft className="size-6" aria-hidden />
+              </Button>
+              <h1 className="min-w-0 text-lg font-semibold leading-tight sm:text-xl">
                 {contestTitle}
               </h1>
             </div>

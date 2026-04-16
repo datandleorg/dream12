@@ -359,7 +359,7 @@ export default async function MatchDetailPage({
                   <CardFooter className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     {user && paidEntryContestIds.has(c.id) ? (
                       <Link
-                        href={`/contests/${c.id}`}
+                        href={`/contests/${c.id}?returnTo=${encodeURIComponent(`/matches/${matchId}`)}`}
                         className={cn(
                           buttonVariants({ variant: "default" }),
                           "inline-flex min-h-11 w-full items-center justify-center sm:min-w-[10rem] sm:flex-1",

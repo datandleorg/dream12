@@ -24,6 +24,7 @@ import {
   compareLeaderboardRows,
   contestTieMetasForSortedLeaderboard,
 } from "@/lib/contest-prize";
+import { safeInternalPath } from "@/lib/safe-return-to";
 
 export default async function ContestLeaderboardPage({
   params,
@@ -34,6 +35,10 @@ export default async function ContestLeaderboardPage({
 }) {
   const { contestId } = await params;
   const sp = searchParams ? await searchParams : {};
+  const rawReturnTo = sp.returnTo;
+  const backReturnTo = safeInternalPath(
+    Array.isArray(rawReturnTo) ? rawReturnTo[0] : rawReturnTo,
+  );
   const chatterParam = sp.chatter;
   const openChatterTab =
     chatterParam === "1" ||
@@ -365,6 +370,8 @@ export default async function ContestLeaderboardPage({
       userHasChatterAccess={userHasChatterAccess}
       initialChatterMessages={initialChatterMessages}
       openChatterTabByDefault={openChatterTab && userHasChatterAccess}
+      backFallbackHref={`/matches/${matchId}`}
+      backReturnTo={backReturnTo}
     />
   );
 }

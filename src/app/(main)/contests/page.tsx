@@ -201,6 +201,11 @@ export default async function MyContestsPage() {
       const tossSummaryLine = [tossBits.tossLine, tossBits.battingFirstLine]
         .filter(Boolean)
         .join(" · ");
+      const startIso =
+        typeof m?.start_time === "string" && m.start_time.trim() !== ""
+          ? m.start_time
+          : null;
+      const matchStartMs = startIso ? Date.parse(startIso) : 0;
       const matchStatus = String(m?.status ?? "").trim() || "upcoming";
       const matchStatusKey = matchStatus.toLowerCase();
       const canEditTeam = matchStatusKey === "upcoming";
@@ -232,7 +237,8 @@ export default async function MyContestsPage() {
         savedMatchTeamSlot,
         matchVersus,
         tossSummaryLine: tossSummaryLine || null,
-        startTimeLabel: formatStartUtc(m?.start_time ?? undefined),
+        startTimeLabel: formatStartUtc(startIso ?? undefined),
+        matchStartMs: Number.isFinite(matchStartMs) ? matchStartMs : 0,
         matchStatus,
         tournamentName: m?.tournament_name ?? null,
         totalPoints: Number(t.total_points),

@@ -113,7 +113,9 @@ export function PitchPreview({
     }
     setConfirmOpen(false);
     toast.success("Team saved");
-    router.push(`/contests/${contestId}`);
+    router.push(
+      `/contests/${contestId}?returnTo=${encodeURIComponent(`${base}/squad`)}`,
+    );
     router.refresh();
   }
 

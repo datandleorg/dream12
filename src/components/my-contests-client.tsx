@@ -25,6 +25,8 @@ export type MyContestListRow = {
   /** Toss + batting first when known (server-computed). */
   tossSummaryLine: string | null;
   startTimeLabel: string;
+  /** Match start (UTC) for sorting closed contests newest first. */
+  matchStartMs: number;
   matchStatus: string;
   tournamentName: string | null;
   totalPoints: number;
@@ -113,7 +115,7 @@ function ContestCard({ row }: { row: MyContestListRow }) {
         <div className="flex flex-col gap-2 pt-1">
           <div className="flex gap-2">
             <Link
-              href={`/contests/${row.contestId}`}
+              href={`/contests/${row.contestId}?returnTo=${encodeURIComponent("/contests")}`}
               className={cn(
                 buttonVariants({ variant: "secondary" }),
                 "inline-flex min-h-11 flex-1 items-center justify-center",
@@ -165,7 +167,9 @@ function RowList({ rows }: { rows: MyContestListRow[] }) {
 
 export function MyContestsClient({ rows }: { rows: MyContestListRow[] }) {
   const openRows = rows.filter((r) => !r.prizesSettled);
-  const closedRows = rows.filter((r) => r.prizesSettled);
+  const closedRows = rows
+    .filter((r) => r.prizesSettled)
+    .sort((a, b) => b.matchStartMs - a.matchStartMs);
 
   return (
     <Tabs defaultValue="open" className="w-full">

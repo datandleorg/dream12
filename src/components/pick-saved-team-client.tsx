@@ -74,7 +74,9 @@ export function PickSavedTeamClient({
         return;
       }
       toast.success("Team applied");
-      router.push(`/contests/${contestId}`);
+      router.push(
+        `/contests/${contestId}?returnTo=${encodeURIComponent(`/matches/${matchId}/contests/${contestId}/pick-team`)}`,
+      );
       router.refresh();
     });
   }
