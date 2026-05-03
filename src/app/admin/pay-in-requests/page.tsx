@@ -1,22 +1,32 @@
-import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { AdminPayInTable } from "@/components/admin-pay-in-table";
+import { requireAdminService } from "@/lib/admin-server";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminPayInRequestsPage() {
-  const supabase = await createClient();
-  const { data: rows } = await supabase
+  const gate = await requireAdminService();
+  if (!gate.ok) redirect("/");
+
+  const { data: rows } = await gate.service
     .from("pay_in_requests")
     .select("id,user_id,amount_inr,utr_ref,status,created_at")
     .order("created_at", { ascending: false })
     .limit(200);
 
   const userIds = [...new Set((rows ?? []).map((r) => r.user_id as string))];
-  const { data: names } = await supabase
-    .from("profile_usernames")
-    .select("id,username,avatar_url")
-    .in("id", userIds);
+  const names =
+    userIds.length === 0
+      ? []
+      : ((
+          await gate.service
+            .from("profile_usernames")
+            .select("id,username,avatar_url")
+            .in("id", userIds)
+        ).data ?? []);
 
   const profileById = new Map(
-    (names ?? []).map((n) => [
+    names.map((n) => [
       n.id as string,
       {
         username: n.username as string,
