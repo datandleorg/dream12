@@ -11,7 +11,8 @@
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "verify-sync": "node scripts/verify-sync.mjs",
     "sb:query": "node scripts/run-supabase-query.mjs",
-    "mock:apply-points": "tsx --tsconfig tsconfig.json scripts/apply-mock-contest-points.ts"
+    "mock:apply-points": "tsx --tsconfig tsconfig.json scripts/apply-mock-contest-points.ts",
+    "admin:reset-password": "node --env-file=.env.local scripts/admin-reset-password.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1021.0",
