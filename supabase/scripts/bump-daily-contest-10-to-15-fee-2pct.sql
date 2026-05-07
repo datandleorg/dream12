@@ -3,6 +3,10 @@
 --
 -- Run in Supabase SQL Editor after reviewing the PREVIEW.
 -- Restrict the UPDATE WHERE clause if you only want certain matches (e.g. today only).
+--
+-- If cron created BOTH a 10-slot and 15-slot contest per match, deploy the fix in
+-- `daily-auto-contest.ts` (idempotency no longer filters by max_participants), then run
+-- `delete-duplicate-daily-contest-10-slots.sql` to remove a duplicate row by id you choose.
 
 -- ---------------------------------------------------------------------------
 -- 1) PREVIEW — rows that would be updated (all upcoming matches, still 10 spots)

@@ -30,6 +30,9 @@ export type EnsureDailyAutoContestsResult = {
 /**
  * For each upcoming match in the same time window as {@link runTodayScheduleMonitor},
  * ensure one platform contest exists (created_by null): Daily Contest 50Rs, ₹50 × 15 spots, 3 winners.
+ *
+ * Idempotency matches by match + name + fee + platform only — not `max_participants`, so changing
+ * slot count does not create a second contest next to an older row still at 10 spots.
  */
 export async function ensureDailyAutoContests(
   supabase: SupabaseClient,
@@ -74,21 +77,20 @@ export async function ensureDailyAutoContests(
     if (!Number.isFinite(matchId)) continue;
     examined += 1;
 
-    const { data: existing, error: exErr } = await supabase
+    const { data: existingRows, error: exErr } = await supabase
       .from("contests")
       .select("id")
       .eq("match_id", matchId)
       .eq("name", DAILY_AUTO_CONTEST_NAME)
       .is("created_by", null)
       .eq("entry_fee", DAILY_AUTO_CONTEST_ENTRY_FEE)
-      .eq("max_participants", DAILY_AUTO_CONTEST_MAX_PARTICIPANTS)
-      .maybeSingle();
+      .limit(1);
 
     if (exErr) {
       errors += 1;
       continue;
     }
-    if (existing) {
+    if (existingRows && existingRows.length > 0) {
       skippedExisting += 1;
       continue;
     }
